@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid, Text as DreiText } from "@react-three/drei";
@@ -29,6 +29,21 @@ const createRoom = (index) => ({
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function normalizeRoom(room, totalWidth, totalHeight) {
+  const width = Math.max(Number(room.width) || 0, 0);
+  const height = Math.max(Number(room.height) || 0, 0);
+  const x = Number(room.x) || 0;
+  const y = Number(room.y) || 0;
+
+  return {
+    ...room,
+    width,
+    height,
+    x: clamp(x, 0, Math.max(0, totalWidth - width)),
+    y: clamp(y, 0, Math.max(0, totalHeight - height)),
+  };
 }
 
 function fitRoomsInGrid(rooms, totalWidth, totalHeight) {
@@ -66,20 +81,37 @@ function fitRoomsInGrid(rooms, totalWidth, totalHeight) {
   }));
 }
 
+function getDefaultRooms(totalWidth, totalHeight) {
+  return fitRoomsInGrid(
+    [
+      { ...createRoom(0), name: "Living Room", width: 16, height: 12 },
+      { ...createRoom(1), name: "Bedroom", width: 12, height: 12 },
+      { ...createRoom(2), name: "Kitchen", width: 10, height: 8 },
+    ],
+    totalWidth,
+    totalHeight
+  );
+}
+
 /**
- * Build unit edges and remove duplicated shared boundaries.
- * Then merge collinear touching segments so shared walls become single walls.
+ * Build wall segments by taking the union of all room edges plus the outer plan boundary.
+ * Shared boundaries are preserved as a single wall instead of being cancelled out.
  */
 function buildWallSegments(rooms, totalWidth, totalHeight) {
-  const raw = new Map();
+  const grouped = new Map();
 
-  const addEdge = (x1, y1, x2, y2) => {
-    const isVertical = x1 === x2;
-    const key = isVertical
-      ? `V_${x1}_${Math.min(y1, y2)}_${Math.max(y1, y2)}`
-      : `H_${y1}_${Math.min(x1, x2)}_${Math.max(x1, x2)}`;
+  const addSegment = (orientation, fixed, start, end) => {
+    const normalizedStart = Math.min(start, end);
+    const normalizedEnd = Math.max(start, end);
+    const key = `${orientation}_${fixed}`;
 
-    raw.set(key, (raw.get(key) || 0) + 1);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push({
+      orientation,
+      fixed,
+      start: normalizedStart,
+      end: normalizedEnd,
+    });
   };
 
   rooms.forEach((room) => {
@@ -88,57 +120,27 @@ function buildWallSegments(rooms, totalWidth, totalHeight) {
     const w = Number(room.width);
     const h = Number(room.height);
 
-    addEdge(x, y, x + w, y);
-    addEdge(x, y + h, x + w, y + h);
-    addEdge(x, y, x, y + h);
-    addEdge(x + w, y, x + w, y + h);
+    addSegment("H", y, x, x + w);
+    addSegment("H", y + h, x, x + w);
+    addSegment("V", x, y, y + h);
+    addSegment("V", x + w, y, y + h);
   });
 
-  // Keep only odd-count edges = visible boundary after cancelling shared duplicates
-  const visible = [];
-  for (const [key, count] of raw.entries()) {
-    if (count % 2 === 0) continue;
-    const parts = key.split("_");
-    if (parts[0] === "V") {
-      visible.push({
-        orientation: "V",
-        fixed: Number(parts[1]),
-        start: Number(parts[2]),
-        end: Number(parts[3]),
-      });
-    } else {
-      visible.push({
-        orientation: "H",
-        fixed: Number(parts[1]),
-        start: Number(parts[2]),
-        end: Number(parts[3]),
-      });
-    }
-  }
-
-  // Add outer boundary explicitly
-  visible.push(
-    { orientation: "H", fixed: 0, start: 0, end: totalWidth },
-    { orientation: "H", fixed: totalHeight, start: 0, end: totalWidth },
-    { orientation: "V", fixed: 0, start: 0, end: totalHeight },
-    { orientation: "V", fixed: totalWidth, start: 0, end: totalHeight }
-  );
-
-  // Merge touching collinear segments
-  const grouped = new Map();
-  for (const seg of visible) {
-    const key = `${seg.orientation}_${seg.fixed}`;
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(seg);
-  }
+  addSegment("H", 0, 0, totalWidth);
+  addSegment("H", totalHeight, 0, totalWidth);
+  addSegment("V", 0, 0, totalHeight);
+  addSegment("V", totalWidth, 0, totalHeight);
 
   const merged = [];
-  for (const list of grouped.values()) {
-    list.sort((a, b) => a.start - b.start);
-    let current = { ...list[0] };
 
-    for (let i = 1; i < list.length; i++) {
-      const next = list[i];
+  for (const segments of grouped.values()) {
+    segments.sort((a, b) => a.start - b.start);
+
+    let current = { ...segments[0] };
+
+    for (let i = 1; i < segments.length; i++) {
+      const next = segments[i];
+
       if (next.start <= current.end) {
         current.end = Math.max(current.end, next.end);
       } else {
@@ -146,6 +148,7 @@ function buildWallSegments(rooms, totalWidth, totalHeight) {
         current = { ...next };
       }
     }
+
     merged.push(current);
   }
 
@@ -158,6 +161,7 @@ function buildWallSegments(rooms, totalWidth, totalHeight) {
         y2: seg.end,
       };
     }
+
     return {
       x1: seg.start,
       y1: seg.fixed,
@@ -337,22 +341,15 @@ export default function App() {
   const [scale, setScale] = useState(DEFAULT_SCALE);
   const [roomHeight, setRoomHeight] = useState(DEFAULT_ROOM_HEIGHT);
   const [activeView, setActiveView] = useState("both");
+  const [draggingRoom, setDraggingRoom] = useState(null);
 
-  const [rooms, setRooms] = useState([
-    { ...createRoom(0), name: "Living Room", width: 16, height: 12 },
-    { ...createRoom(1), name: "Bedroom", width: 12, height: 12 },
-    { ...createRoom(2), name: "Kitchen", width: 10, height: 8 },
-  ]);
+  const svgRef = useRef(null);
+
+  const [rooms, setRooms] = useState(() => getDefaultRooms(40, 30));
 
   const placedRooms = useMemo(() => {
-    return fitRoomsInGrid(
-      rooms.map((room) => ({
-        ...room,
-        width: Number(room.width),
-        height: Number(room.height),
-      })),
-      Number(totalWidth),
-      Number(totalHeight)
+    return rooms.map((room) =>
+      normalizeRoom(room, Number(totalWidth), Number(totalHeight))
     );
   }, [rooms, totalWidth, totalHeight]);
 
@@ -411,11 +408,8 @@ export default function App() {
     setScale(12);
     setRoomHeight(10);
     setActiveView("both");
-    setRooms([
-      { ...createRoom(0), name: "Living Room", width: 16, height: 12 },
-      { ...createRoom(1), name: "Bedroom", width: 12, height: 12 },
-      { ...createRoom(2), name: "Kitchen", width: 10, height: 8 },
-    ]);
+    setDraggingRoom(null);
+    setRooms(getDefaultRooms(40, 30));
   };
 
   const exportSVG = () => {
@@ -433,6 +427,77 @@ export default function App() {
     link.click();
 
     URL.revokeObjectURL(url);
+  };
+
+  const getSvgCoordinates = (event) => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+
+    const rect = svg.getBoundingClientRect();
+    const viewBox = svg.viewBox.baseVal;
+
+    const svgX = ((event.clientX - rect.left) / rect.width) * viewBox.width;
+    const svgY = ((event.clientY - rect.top) / rect.height) * viewBox.height;
+
+    return { svgX, svgY };
+  };
+
+  const handleRoomMouseDown = (event, room) => {
+    const point = getSvgCoordinates(event);
+    if (!point) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const planX = (point.svgX - 60) / Number(scale);
+    const planY = (point.svgY - 60) / Number(scale);
+
+    setDraggingRoom({
+      id: room.id,
+      offsetX: planX - room.x,
+      offsetY: planY - room.y,
+    });
+  };
+
+  const handleSvgMouseMove = (event) => {
+    if (!draggingRoom) return;
+
+    const point = getSvgCoordinates(event);
+    if (!point) return;
+
+    const room = rooms.find((item) => item.id === draggingRoom.id);
+    if (!room) return;
+
+    const width = Number(room.width) || 0;
+    const height = Number(room.height) || 0;
+
+    const planX = (point.svgX - 60) / Number(scale);
+    const planY = (point.svgY - 60) / Number(scale);
+
+    const nextX = clamp(
+      planX - draggingRoom.offsetX,
+      0,
+      Math.max(0, Number(totalWidth) - width)
+    );
+    const nextY = clamp(
+      planY - draggingRoom.offsetY,
+      0,
+      Math.max(0, Number(totalHeight) - height)
+    );
+
+    setRooms((prev) =>
+      prev.map((item) =>
+        item.id === draggingRoom.id
+          ? { ...item, x: Number(nextX.toFixed(2)), y: Number(nextY.toFixed(2)) }
+          : item
+      )
+    );
+  };
+
+  const handleSvgMouseUp = () => {
+    if (draggingRoom) {
+      setDraggingRoom(null);
+    }
   };
 
   return (
@@ -579,6 +644,30 @@ export default function App() {
                         />
                       </div>
                     </div>
+
+                    <div className="form-grid two-col">
+                      <div className="field">
+                        <label>X Position (ft)</label>
+                        <input
+                          type="number"
+                          value={room.x}
+                          onChange={(e) =>
+                            updateRoom(room.id, "x", Number(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+
+                      <div className="field">
+                        <label>Y Position (ft)</label>
+                        <input
+                          type="number"
+                          value={room.y}
+                          onChange={(e) =>
+                            updateRoom(room.id, "y", Number(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -635,6 +724,7 @@ export default function App() {
 
               <div className="svg-wrap">
                 <svg
+                  ref={svgRef}
                   id="floor-plan-svg"
                   width={Math.max(canvasWidth + 120, 700)}
                   height={Math.max(canvasHeight + 120, 480)}
@@ -642,6 +732,9 @@ export default function App() {
                     canvasHeight + 120,
                     480
                   )}`}
+                  onMouseMove={handleSvgMouseMove}
+                  onMouseUp={handleSvgMouseUp}
+                  onMouseLeave={handleSvgMouseUp}
                 >
                   <defs>
                     <pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse">
@@ -681,7 +774,16 @@ export default function App() {
 
                       return (
                         <g key={room.id}>
-                          <rect x={x} y={y} width={w} height={h} fill={room.color} rx="3" />
+                          <rect
+                            x={x}
+                            y={y}
+                            width={w}
+                            height={h}
+                            fill={room.color}
+                            rx="3"
+                            style={{ cursor: "move" }}
+                            onMouseDown={(e) => handleRoomMouseDown(e, room)}
+                          />
                           <text
                             x={x + w / 2}
                             y={y + h / 2 - 8}
@@ -690,6 +792,7 @@ export default function App() {
                               fontSize: 14,
                               fontWeight: 700,
                               fill: "#172033",
+                              pointerEvents: "none",
                             }}
                           >
                             {room.name}
@@ -701,6 +804,7 @@ export default function App() {
                             style={{
                               fontSize: 12,
                               fill: "#56637a",
+                              pointerEvents: "none",
                             }}
                           >
                             {room.width} ft × {room.height} ft
