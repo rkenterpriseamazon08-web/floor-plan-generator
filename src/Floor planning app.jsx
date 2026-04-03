@@ -2,20 +2,11 @@ import React, { useMemo, useState } from "react";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid, Text as DreiText } from "@react-three/drei";
-import { Home, Plus, Trash2, LayoutGrid, RotateCcw } from "lucide-react";
+import { Home, Plus, Trash2, Box, LayoutGrid, RotateCcw } from "lucide-react";
 
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 10;
 const WALL_THICKNESS_FT = 0.5;
-
-const ROOM_COLORS = [
-  "#eef4ff",
-  "#f4f7ec",
-  "#fff2e8",
-  "#f3efff",
-  "#e9fbf6",
-  "#fff7db",
-];
 
 const createRoom = (index) => ({
   id: crypto.randomUUID(),
@@ -26,6 +17,15 @@ const createRoom = (index) => ({
   y: 0,
   color: ROOM_COLORS[index % ROOM_COLORS.length],
 });
+
+const ROOM_COLORS = [
+  "#eef4ff",
+  "#f4f7ec",
+  "#fff2e8",
+  "#f3efff",
+  "#e9fbf6",
+  "#fff7db",
+];
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -66,12 +66,8 @@ function fitRoomsInGrid(rooms, totalWidth, totalHeight) {
   }));
 }
 
-/**
- * Build unit edges and remove duplicated shared boundaries.
- * Then merge collinear touching segments so shared walls become single walls.
- */
 function buildWallSegments(rooms, totalWidth, totalHeight) {
-  const raw = new Map();
+  const edgeMap = new Map();
 
   const addEdge = (x1, y1, x2, y2) => {
     const isVertical = x1 === x2;
@@ -79,7 +75,17 @@ function buildWallSegments(rooms, totalWidth, totalHeight) {
       ? `V_${x1}_${Math.min(y1, y2)}_${Math.max(y1, y2)}`
       : `H_${y1}_${Math.min(x1, x2)}_${Math.max(x1, x2)}`;
 
-    raw.set(key, (raw.get(key) || 0) + 1);
+    if (!edgeMap.has(key)) {
+      edgeMap.set(key, {
+        x1,
+        y1,
+        x2,
+        y2,
+        count: 0,
+      });
+    }
+
+    edgeMap.get(key).count += 1;
   };
 
   rooms.forEach((room) => {
@@ -88,83 +94,18 @@ function buildWallSegments(rooms, totalWidth, totalHeight) {
     const w = Number(room.width);
     const h = Number(room.height);
 
-    addEdge(x, y, x + w, y);
-    addEdge(x, y + h, x + w, y + h);
-    addEdge(x, y, x, y + h);
-    addEdge(x + w, y, x + w, y + h);
+    addEdge(x, y, x + w, y); // top
+    addEdge(x, y + h, x + w, y + h); // bottom
+    addEdge(x, y, x, y + h); // left
+    addEdge(x + w, y, x + w, y + h); // right
   });
 
-  // Keep only odd-count edges = visible boundary after cancelling shared duplicates
-  const visible = [];
-  for (const [key, count] of raw.entries()) {
-    if (count % 2 === 0) continue;
-    const parts = key.split("_");
-    if (parts[0] === "V") {
-      visible.push({
-        orientation: "V",
-        fixed: Number(parts[1]),
-        start: Number(parts[2]),
-        end: Number(parts[3]),
-      });
-    } else {
-      visible.push({
-        orientation: "H",
-        fixed: Number(parts[1]),
-        start: Number(parts[2]),
-        end: Number(parts[3]),
-      });
-    }
-  }
+  addEdge(0, 0, totalWidth, 0);
+  addEdge(0, totalHeight, totalWidth, totalHeight);
+  addEdge(0, 0, 0, totalHeight);
+  addEdge(totalWidth, 0, totalWidth, totalHeight);
 
-  // Add outer boundary explicitly
-  visible.push(
-    { orientation: "H", fixed: 0, start: 0, end: totalWidth },
-    { orientation: "H", fixed: totalHeight, start: 0, end: totalWidth },
-    { orientation: "V", fixed: 0, start: 0, end: totalHeight },
-    { orientation: "V", fixed: totalWidth, start: 0, end: totalHeight }
-  );
-
-  // Merge touching collinear segments
-  const grouped = new Map();
-  for (const seg of visible) {
-    const key = `${seg.orientation}_${seg.fixed}`;
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(seg);
-  }
-
-  const merged = [];
-  for (const list of grouped.values()) {
-    list.sort((a, b) => a.start - b.start);
-    let current = { ...list[0] };
-
-    for (let i = 1; i < list.length; i++) {
-      const next = list[i];
-      if (next.start <= current.end) {
-        current.end = Math.max(current.end, next.end);
-      } else {
-        merged.push(current);
-        current = { ...next };
-      }
-    }
-    merged.push(current);
-  }
-
-  return merged.map((seg) => {
-    if (seg.orientation === "V") {
-      return {
-        x1: seg.fixed,
-        y1: seg.start,
-        x2: seg.fixed,
-        y2: seg.end,
-      };
-    }
-    return {
-      x1: seg.start,
-      y1: seg.fixed,
-      x2: seg.end,
-      y2: seg.fixed,
-    };
-  });
+  return Array.from(edgeMap.values());
 }
 
 function WallMesh({ segment, wallThickness, height }) {
@@ -172,23 +113,31 @@ function WallMesh({ segment, wallThickness, height }) {
   const isVertical = x1 === x2;
   const length = isVertical ? Math.abs(y2 - y1) : Math.abs(x2 - x1);
 
-  if (!Number.isFinite(length) || length <= 0) return null;
+  if (length <= 0) return null;
 
   if (isVertical) {
     const centerZ = (Math.min(y1, y2) + Math.max(y1, y2)) / 2;
     return (
-      <mesh castShadow receiveShadow position={[x1, height / 2, centerZ]}>
+      <mesh
+        castShadow
+        receiveShadow
+        position={[x1, height / 2, centerZ]}
+      >
         <boxGeometry args={[wallThickness, height, length]} />
-        <meshStandardMaterial color="#7e8da3" roughness={0.86} />
+        <meshStandardMaterial color="#7e8da3" roughness={0.85} />
       </mesh>
     );
   }
 
   const centerX = (Math.min(x1, x2) + Math.max(x1, x2)) / 2;
   return (
-    <mesh castShadow receiveShadow position={[centerX, height / 2, y1]}>
+    <mesh
+      castShadow
+      receiveShadow
+      position={[centerX, height / 2, y1]}
+    >
       <boxGeometry args={[length, height, wallThickness]} />
-      <meshStandardMaterial color="#7e8da3" roughness={0.86} />
+      <meshStandardMaterial color="#7e8da3" roughness={0.85} />
     </mesh>
   );
 }
@@ -208,10 +157,10 @@ function Floor3DScene({
 
   return (
     <>
-      <ambientLight intensity={0.6} />
-      <hemisphereLight intensity={0.65} groundColor="#cad4df" />
+      <ambientLight intensity={0.45} />
+      <hemisphereLight intensity={0.7} groundColor="#cbd5e1" />
       <directionalLight
-        position={[24, 30, 18]}
+        position={[24, 28, 18]}
         intensity={1.15}
         castShadow
         shadow-mapSize-width={2048}
@@ -235,14 +184,14 @@ function Floor3DScene({
         receiveShadow
       >
         <planeGeometry args={[totalWidth, totalHeight]} />
-        <meshStandardMaterial color="#e7ebf0" roughness={0.93} metalness={0.04} />
+        <meshStandardMaterial color="#e7ebf0" roughness={0.92} metalness={0.04} />
       </mesh>
 
       {rooms.map((room) => {
-        const x = Number(room.x) || 0;
-        const z = Number(room.y) || 0;
-        const w = Math.max(Number(room.width) || 0, 0.2);
-        const d = Math.max(Number(room.height) || 0, 0.2);
+        const x = Number(room.x);
+        const z = Number(room.y);
+        const w = Number(room.width);
+        const d = Number(room.height);
         const cx = x + w / 2;
         const cz = z + d / 2;
 
@@ -253,10 +202,11 @@ function Floor3DScene({
               position={[cx, 0.03, cz]}
               receiveShadow
             >
-              <planeGeometry
-                args={[Math.max(w - wt * 0.6, 0.2), Math.max(d - wt * 0.6, 0.2)]}
+              <planeGeometry args={[Math.max(w - wt * 0.6, 0.2), Math.max(d - wt * 0.6, 0.2)]} />
+              <meshStandardMaterial
+                color={room.color}
+                roughness={0.95}
               />
-              <meshStandardMaterial color={room.color || "#eef4ff"} roughness={0.95} />
             </mesh>
 
             <DreiText
@@ -267,7 +217,7 @@ function Floor3DScene({
               anchorY="middle"
               rotation={[-Math.PI / 2, 0, 0]}
             >
-              {room.name || "Room"}
+              {room.name}
             </DreiText>
 
             <DreiText
@@ -284,7 +234,7 @@ function Floor3DScene({
         );
       })}
 
-      {(wallSegments || []).map((segment, index) => (
+      {wallSegments.map((segment, index) => (
         <WallMesh
           key={`${segment.x1}-${segment.y1}-${segment.x2}-${segment.y2}-${index}`}
           segment={segment}
@@ -383,7 +333,10 @@ export default function App() {
   };
 
   const addRoom = () => {
-    setRooms((prev) => [...prev, createRoom(prev.length)]);
+    setRooms((prev) => {
+      const newRoom = createRoom(prev.length);
+      return [...prev, newRoom];
+    });
   };
 
   const removeRoom = (id) => {
@@ -410,7 +363,6 @@ export default function App() {
     setWallThickness(0.5);
     setScale(12);
     setRoomHeight(10);
-    setActiveView("both");
     setRooms([
       { ...createRoom(0), name: "Living Room", width: 16, height: 12 },
       { ...createRoom(1), name: "Bedroom", width: 12, height: 12 },
@@ -681,7 +633,14 @@ export default function App() {
 
                       return (
                         <g key={room.id}>
-                          <rect x={x} y={y} width={w} height={h} fill={room.color} rx="3" />
+                          <rect
+                            x={x}
+                            y={y}
+                            width={w}
+                            height={h}
+                            fill={room.color}
+                            rx="3"
+                          />
                           <text
                             x={x + w / 2}
                             y={y + h / 2 - 8}
@@ -757,9 +716,9 @@ export default function App() {
                   shadows
                   camera={{
                     position: [
-                      Math.max(Number(totalWidth) * 0.85, 14),
-                      Math.max(Number(roomHeight) * 2.2, 16),
-                      Math.max(Number(totalHeight) * 1.0, 14),
+                      Number(totalWidth) * 0.85,
+                      Number(roomHeight) * 2.2,
+                      Number(totalHeight) * 1.0,
                     ],
                     fov: 42,
                   }}
