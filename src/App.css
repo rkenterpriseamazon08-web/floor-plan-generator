@@ -32,7 +32,7 @@ textarea {
 
 .app-grid {
   display: grid;
-  grid-template-columns: 520px 1fr;
+  grid-template-columns: 516px 1fr;
   gap: 20px;
   align-items: start;
 }
