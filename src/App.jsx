@@ -1128,7 +1128,6 @@ function Furniture2D({ room, furnitureItem, scale }) {
           strokeWidth="2"
         />
       )}
-      {/* smaller 2D plan text */}
       {w > 34 && d > 20 && (
         <text
           x={x + w / 2}
@@ -1741,15 +1740,18 @@ export default function App() {
                   <p>Configure plan inputs, then edit rooms from the side panel.</p>
                 </div>
               </div>
+
+              {/* header/top-section layout fix + moved “opened project” placement */}
+              {projectStatusMessage && (
+                <div className="project-status-banner project-status-banner--inline">
+                  {projectStatusMessage}
+                </div>
+              )}
             </div>
 
-            {projectStatusMessage && (
-              <div className="project-status-banner">{projectStatusMessage}</div>
-            )}
-
-            {/* top input row layout fix + reduced field widths */}
             <div className="form-grid plan-top-grid">
-                <div className="field field--plan-name">
+              {/* removed extra top whitespace + top input row layout kept compact via CSS */}
+                <div className="field field--span-2">
                   <label>Plan Name</label>
                   <input value={planName} onChange={(e) => setPlanName(e.target.value)} />
                 </div>
@@ -1864,6 +1866,7 @@ export default function App() {
               <div className="section-header section-header--preview">
                 <h2>2D Floor Plan</h2>
                 <div className="preview-toolbar">
+                  {/* view button spacing and sizing */}
                   <button
                     className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
                     onClick={() => setActiveView("2d")}
@@ -1978,6 +1981,7 @@ export default function App() {
 
                       return (
                         <g key={`labels-${room.id}`}>
+                          {/* smaller 2D plan text */}
                           <text
                             x={x + w / 2}
                             y={y + h / 2 - 8}
@@ -1997,7 +2001,7 @@ export default function App() {
                             y={y + h / 2 + 14}
                             textAnchor="middle"
                             style={{
-                              fontSize: 8,
+                              fontSize: 7.5,
                               fill: "#56637a",
                               pointerEvents: "none",
                             }}
@@ -2037,6 +2041,7 @@ export default function App() {
               <div className="section-header section-header--preview">
                 <h2>3D Floor Plan</h2>
                 <div className="preview-toolbar">
+                  {/* view button spacing and sizing */}
                   <button
                     className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
                     onClick={() => setActiveView("2d")}
@@ -2097,18 +2102,15 @@ export default function App() {
             </div>
           </div>
 
-          {/* rooms panel scroll fix */}
           <div className="room-list room-list--sidebar">
+            {/* rooms panel scroll/overflow fix handled via CSS */}
             {rooms.map((room, index) => {
               const roomFurnitureSelection =
                 furnitureSelections[room.id] || getDefaultFurnitureSelection(selectedCategory);
               const isExpanded = expandedRoomId === room.id;
 
               return (
-                <div
-                  className={`room-card accordion-room-card ${isExpanded ? "expanded" : "collapsed"}`}
-                  key={room.id}
-                >
+                <div className={`room-card accordion-room-card ${isExpanded ? "expanded" : "collapsed"}`} key={room.id}>
                   <button
                     type="button"
                     className="room-accordion-trigger"
@@ -2125,6 +2127,7 @@ export default function App() {
 
                   {isExpanded && (
                     <div className="room-accordion-content">
+                      {/* rooms panel scroll/overflow fix */}
                       <div className="room-card-header room-card-header--inner">
                         <span>Room {index + 1}</span>
                         <button
