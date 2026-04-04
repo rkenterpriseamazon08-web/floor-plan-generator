@@ -1206,6 +1206,7 @@ function writeProjectsToStorage(projects) {
   }
 }
 
+
 export default function App() {
   const [planName, setPlanName] = useState("My Floor Plan");
   const [totalWidth, setTotalWidth] = useState(40);
@@ -1216,13 +1217,13 @@ export default function App() {
   const [activeView, setActiveView] = useState("2d");
   const [selectedCategory, setSelectedCategory] = useState("office");
   const [rooms, setRooms] = useState(() => getDefaultRooms(40, 30));
-
   const [furnitureSelections, setFurnitureSelections] = useState({});
 
   const [savedProjects, setSavedProjects] = useState([]);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [projectStatusMessage, setProjectStatusMessage] = useState("");
+  const [expandedRoomId, setExpandedRoomId] = useState(null);
 
   const placedRooms = useMemo(() => {
     return rooms.map((room) =>
@@ -1231,11 +1232,7 @@ export default function App() {
   }, [rooms, totalWidth, totalHeight, roomHeight]);
 
   const wallSegments = useMemo(() => {
-    return buildWallSegments(
-      placedRooms,
-      Number(totalWidth),
-      Number(totalHeight)
-    );
+    return buildWallSegments(placedRooms, Number(totalWidth), Number(totalHeight));
   }, [placedRooms, totalWidth, totalHeight]);
 
   const numericScale = Math.max(1, Number(scale) || 1);
@@ -1250,9 +1247,7 @@ export default function App() {
     0
   );
   const totalPlanArea = Number(totalWidth) * Number(totalHeight);
-  const utilization = totalPlanArea
-    ? ((totalRoomArea / totalPlanArea) * 100).toFixed(1)
-    : 0;
+  const utilization = totalPlanArea ? ((totalRoomArea / totalPlanArea) * 100).toFixed(1) : 0;
 
   const applyProjectState = (projectState) => {
     const defaults = getDefaultProjectState();
@@ -1273,11 +1268,12 @@ export default function App() {
         ? nextState.selectedCategory
         : defaults.selectedCategory
     );
-    setRooms(
-      Array.isArray(nextState.rooms) && nextState.rooms.length
-        ? nextState.rooms
-        : defaults.rooms
-    );
+
+    const nextRooms =
+      Array.isArray(nextState.rooms) && nextState.rooms.length ? nextState.rooms : defaults.rooms;
+
+    setRooms(nextRooms);
+    setExpandedRoomId(nextRooms[0]?.id || null);
     setFurnitureSelections(
       nextState.furnitureSelections && typeof nextState.furnitureSelections === "object"
         ? nextState.furnitureSelections
@@ -1316,9 +1312,7 @@ export default function App() {
   };
 
   const updateRoom = (id, key, value) => {
-    setRooms((prev) =>
-      prev.map((room) => (room.id === id ? { ...room, [key]: value } : room))
-    );
+    setRooms((prev) => prev.map((room) => (room.id === id ? { ...room, [key]: value } : room)));
   };
 
   const addDoorToRoom = (roomId) => {
@@ -1563,16 +1557,22 @@ export default function App() {
   };
 
   const addRoom = () => {
-    setRooms((prev) => [...prev, createRoom(prev.length)]);
+    const newRoom = createRoom(rooms.length);
+    setRooms((prev) => [...prev, newRoom]);
+    setExpandedRoomId(newRoom.id);
   };
 
   const removeRoom = (id) => {
-    setRooms((prev) => prev.filter((room) => room.id !== id));
+    const remainingRooms = rooms.filter((room) => room.id !== id);
+    setRooms(remainingRooms);
     setFurnitureSelections((prev) => {
       const next = { ...prev };
       delete next[id];
       return next;
     });
+    if (expandedRoomId === id) {
+      setExpandedRoomId(remainingRooms[0]?.id || null);
+    }
   };
 
   const autoArrangeRooms = () => {
@@ -1677,584 +1677,223 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <div className="app-grid">
-        <aside className="left-pane">
-          <div className="hero-card">
-            <div className="pill">Floor Plan Builder</div>
-            <h1>
-              <Home size={28} />
-              Interactive Floor Plan App
-            </h1>
-            <p>
-              Build rooms, edit openings, add furniture, and preview the layout in
-              2D and 3D.
-            </p>
-          </div>
-
-          <div className="input-card">
-            <div className="section-header">
-              <h2>Plan Inputs</h2>
-              <div className="header-actions">
-                <button className="ghost-btn" onClick={handleNewProject}>
-                  <FilePlus2 size={16} />
-                  New Project
-                </button>
-                <button className="secondary-btn" onClick={handleOpenProjectClick}>
-                  <FolderOpen size={16} />
-                  Open Project
-                </button>
-                <button className="primary-btn" onClick={handleSaveProject}>
-                  <Save size={16} />
-                  Save Project
-                </button>
-                <button className="primary-btn" onClick={addRoom}>
-                  <Plus size={16} />
-                  New Room
-                </button>
+      {isProjectModalOpen && (
+        <div className="project-modal-overlay" onClick={() => setIsProjectModalOpen(false)}>
+          <div className="project-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="project-modal-header">
+              <div>
+                <h3>Open Project</h3>
+                <p>Select a saved project to restore your design.</p>
               </div>
+
+              <button
+                className="icon-btn"
+                onClick={() => setIsProjectModalOpen(false)}
+                aria-label="Close project modal"
+              >
+                <X size={16} />
+              </button>
             </div>
 
-            {projectStatusMessage && (
-              <div className="project-status-banner">{projectStatusMessage}</div>
-            )}
-
-            <div className="form-grid one-col">
-              <div className="field">
-                <label>Plan Name</label>
-                <input
-                  value={planName}
-                  onChange={(e) => setPlanName(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="form-grid two-col">
-              <div className="field">
-                <label>Total Width (ft)</label>
-                <input
-                  type="number"
-                  value={totalWidth}
-                  onChange={(e) => setTotalWidth(Number(e.target.value) || 0)}
-                />
-              </div>
-
-              <div className="field">
-                <label>Total Height (ft)</label>
-                <input
-                  type="number"
-                  value={totalHeight}
-                  onChange={(e) => setTotalHeight(Number(e.target.value) || 0)}
-                />
-              </div>
-
-              <div className="field">
-                <label>Wall Thickness (ft)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={wallThickness}
-                  onChange={(e) => setWallThickness(Number(e.target.value) || 0)}
-                />
-              </div>
-
-              <div className="field">
-                <label>Scale (px / ft)</label>
-                <input
-                  type="number"
-                  value={scale}
-                  onChange={(e) => setScale(Number(e.target.value) || 1)}
-                />
-              </div>
-
-              <div className="field">
-                <label>3D Wall Height (ft)</label>
-                <input
-                  type="number"
-                  value={roomHeight}
-                  onChange={(e) => setRoomHeight(Number(e.target.value) || 10)}
-                />
-              </div>
-
-              <div className="field">
-                <label>Product Category</label>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                >
-                  {PRODUCT_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
+            <div className="project-modal-body">
+              {savedProjects.length === 0 ? (
+                <div className="project-empty-state">
+                  No saved projects yet. Save your current design to see it here.
+                </div>
+              ) : (
+                <div className="project-list">
+                  {savedProjects.map((project) => (
+                    <button
+                      key={project.id}
+                      className="project-item"
+                      onClick={() => handleOpenSavedProject(project.id)}
+                    >
+                      <div className="project-item-meta">
+                        <strong className="project-item-title">{project.name}</strong>
+                        <span className="project-item-subtext">
+                          {project.data?.rooms?.length || 0} rooms • {" "}
+                          {project.data?.selectedCategory || "office"} • {" "}
+                          {formatProjectTimestamp(project.updatedAt)}
+                        </span>
+                      </div>
+                      <span className="project-item-open">Open</span>
+                    </button>
                   ))}
-                </select>
-              </div>
+                </div>
+              )}
             </div>
+          </div>
+        </div>
+      )}
 
-            <div className="room-section">
-              <div className="section-header compact">
-                <h3>Rooms</h3>
-                <div className="header-actions">
-                  <button className="secondary-btn" onClick={autoArrangeRooms}>
-                    <LayoutGrid size={16} />
-                    Auto Arrange
-                  </button>
-                  <button className="ghost-btn" onClick={resetPlan}>
-                    <RotateCcw size={16} />
-                    Reset
-                  </button>
+      {/* top input section */}
+      <section className="top-control-card">
+        <div className="top-control-grid">
+          <div className="top-control-left">
+            <div className="hero-card hero-card--compact">
+              <div className="hero-top-row">
+                <div className="pill">Floor Plan Builder</div>
+                <div className="current-project-chip">
+                  {currentProjectId ? `Opened "${planName}"` : `Opened "${planName}"`}
                 </div>
               </div>
+              <h1>
+                <Home size={28} />
+                Interactive Floor Plan App
+              </h1>
+              <p>
+                Build rooms, edit openings, add furniture, and preview the layout in 2D and 3D.
+              </p>
+            </div>
 
-              <div className="room-list">
-                {rooms.map((room, index) => {
-                  const roomFurnitureSelection =
-                    furnitureSelections[room.id] ||
-                    getDefaultFurnitureSelection(selectedCategory);
+            <div className="input-card top-input-card">
+              <div className="top-input-header">
+                <h2>All the Plan inputs can be provided here</h2>
+              </div>
 
-                  return (
-                    <div className="room-card" key={room.id}>
-                      <div className="room-card-header">
-                        <span>Room {index + 1}</span>
-                        <button
-                          className="icon-btn"
-                          onClick={() => removeRoom(room.id)}
-                          disabled={rooms.length === 1}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+              {projectStatusMessage && (
+                <div className="project-status-banner">{projectStatusMessage}</div>
+              )}
 
-                      <div className="form-grid one-col">
-                        <div className="field">
-                          <label>Name</label>
-                          <input
-                            value={room.name}
-                            onChange={(e) => updateRoom(room.id, "name", e.target.value)}
-                          />
-                        </div>
-                      </div>
+              <div className="form-grid plan-top-grid">
+                <div className="field field--span-2">
+                  <label>Plan Name</label>
+                  <input value={planName} onChange={(e) => setPlanName(e.target.value)} />
+                </div>
 
-                      <div className="form-grid two-col">
-                        <div className="field">
-                          <label>Width (ft)</label>
-                          <input
-                            type="number"
-                            value={room.width}
-                            onChange={(e) =>
-                              updateRoom(room.id, "width", Number(e.target.value) || 0)
-                            }
-                          />
-                        </div>
+                <div className="field">
+                  <label>Total Width (ft)</label>
+                  <input
+                    type="number"
+                    value={totalWidth}
+                    onChange={(e) => setTotalWidth(Number(e.target.value) || 0)}
+                  />
+                </div>
 
-                        <div className="field">
-                          <label>Height (ft)</label>
-                          <input
-                            type="number"
-                            value={room.height}
-                            onChange={(e) =>
-                              updateRoom(room.id, "height", Number(e.target.value) || 0)
-                            }
-                          />
-                        </div>
-                      </div>
+                <div className="field">
+                  <label>Total Height (ft)</label>
+                  <input
+                    type="number"
+                    value={totalHeight}
+                    onChange={(e) => setTotalHeight(Number(e.target.value) || 0)}
+                  />
+                </div>
 
-                      <div className="form-grid two-col">
-                        <div className="field">
-                          <label>X Position (ft)</label>
-                          <input
-                            type="number"
-                            value={room.x}
-                            onChange={(e) =>
-                              updateRoom(room.id, "x", Number(e.target.value) || 0)
-                            }
-                          />
-                        </div>
+                <div className="field">
+                  <label>Wall Thickness (ft)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={wallThickness}
+                    onChange={(e) => setWallThickness(Number(e.target.value) || 0)}
+                  />
+                </div>
 
-                        <div className="field">
-                          <label>Y Position (ft)</label>
-                          <input
-                            type="number"
-                            value={room.y}
-                            onChange={(e) =>
-                              updateRoom(room.id, "y", Number(e.target.value) || 0)
-                            }
-                          />
-                        </div>
-                      </div>
+                <div className="field">
+                  <label>Scale (px / ft)</label>
+                  <input
+                    type="number"
+                    value={scale}
+                    onChange={(e) => setScale(Number(e.target.value) || 1)}
+                  />
+                </div>
 
-                      <div className="section-header compact">
-                        <h3>Doors</h3>
-                        <div className="header-actions">
-                          <button
-                            type="button"
-                            className="secondary-btn"
-                            onClick={() => addDoorToRoom(room.id)}
-                          >
-                            <Plus size={16} />
-                            Add Door
-                          </button>
-                        </div>
-                      </div>
+                <div className="field">
+                  <label>3D Wall Height (ft)</label>
+                  <input
+                    type="number"
+                    value={roomHeight}
+                    onChange={(e) => setRoomHeight(Number(e.target.value) || 10)}
+                  />
+                </div>
 
-                      {(room.doors || []).map((door, doorIndex) => (
-                        <div className="opening-card" key={`door-${doorIndex}`}>
-                          <div className="room-card-header">
-                            <span>Door {doorIndex + 1}</span>
-                            <button
-                              type="button"
-                              className="icon-btn"
-                              onClick={() => removeDoor(room.id, doorIndex)}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-
-                          <div className="form-grid two-col">
-                            <div className="field">
-                              <label>Wall</label>
-                              <select
-                                value={door.wall}
-                                onChange={(e) =>
-                                  updateDoor(room.id, doorIndex, "wall", e.target.value)
-                                }
-                              >
-                                {WALL_OPTIONS.map((wall) => (
-                                  <option key={wall} value={wall}>
-                                    {wall}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div className="field">
-                              <label>Offset (ft)</label>
-                              <input
-                                type="number"
-                                value={door.offset}
-                                onChange={(e) =>
-                                  updateDoor(room.id, doorIndex, "offset", e.target.value)
-                                }
-                              />
-                            </div>
-
-                            <div className="field">
-                              <label>Width (ft)</label>
-                              <input
-                                type="number"
-                                value={door.width}
-                                onChange={(e) =>
-                                  updateDoor(room.id, doorIndex, "width", e.target.value)
-                                }
-                              />
-                            </div>
-
-                            <div className="field">
-                              <label>Height (ft)</label>
-                              <input
-                                type="number"
-                                value={door.height}
-                                onChange={(e) =>
-                                  updateDoor(room.id, doorIndex, "height", e.target.value)
-                                }
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
-                      <div className="section-header compact">
-                        <h3>Windows</h3>
-                        <div className="header-actions">
-                          <button
-                            type="button"
-                            className="secondary-btn"
-                            onClick={() => addWindowToRoom(room.id)}
-                          >
-                            <Plus size={16} />
-                            Add Window
-                          </button>
-                        </div>
-                      </div>
-
-                      {(room.windows || []).map((windowItem, windowIndex) => (
-                        <div className="opening-card" key={`window-${windowIndex}`}>
-                          <div className="room-card-header">
-                            <span>Window {windowIndex + 1}</span>
-                            <button
-                              type="button"
-                              className="icon-btn"
-                              onClick={() => removeWindow(room.id, windowIndex)}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-
-                          <div className="form-grid two-col">
-                            <div className="field">
-                              <label>Wall</label>
-                              <select
-                                value={windowItem.wall}
-                                onChange={(e) =>
-                                  updateWindow(room.id, windowIndex, "wall", e.target.value)
-                                }
-                              >
-                                {WALL_OPTIONS.map((wall) => (
-                                  <option key={wall} value={wall}>
-                                    {wall}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div className="field">
-                              <label>Offset (ft)</label>
-                              <input
-                                type="number"
-                                value={windowItem.offset}
-                                onChange={(e) =>
-                                  updateWindow(room.id, windowIndex, "offset", e.target.value)
-                                }
-                              />
-                            </div>
-
-                            <div className="field">
-                              <label>Width (ft)</label>
-                              <input
-                                type="number"
-                                value={windowItem.width}
-                                onChange={(e) =>
-                                  updateWindow(room.id, windowIndex, "width", e.target.value)
-                                }
-                              />
-                            </div>
-
-                            <div className="field">
-                              <label>Height (ft)</label>
-                              <input
-                                type="number"
-                                value={windowItem.height}
-                                onChange={(e) =>
-                                  updateWindow(room.id, windowIndex, "height", e.target.value)
-                                }
-                              />
-                            </div>
-
-                            <div className="field">
-                              <label>Sill Height (ft)</label>
-                              <input
-                                type="number"
-                                value={windowItem.sillHeight}
-                                onChange={(e) =>
-                                  updateWindow(room.id, windowIndex, "sillHeight", e.target.value)
-                                }
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
-                      <div className="section-header compact furniture-section-header">
-                        <h3>
-                          <Sofa size={16} />
-                          Furniture
-                        </h3>
-                        <div className="header-actions">
-                          <button
-                            type="button"
-                            className="secondary-btn"
-                            onClick={() => addFurnitureToRoom(room.id)}
-                          >
-                            <Plus size={16} />
-                            Add Furniture
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="opening-card furniture-panel">
-                        <div className="form-grid one-col">
-                          <div className="field">
-                            <label>Furniture Type</label>
-                            <select
-                              value={roomFurnitureSelection}
-                              onChange={(e) =>
-                                setFurnitureSelections((prev) => ({
-                                  ...prev,
-                                  [room.id]: e.target.value,
-                                }))
-                              }
-                            >
-                              {furnitureOptions.map((item) => (
-                                <option key={item.type} value={item.type}>
-                                  {item.type}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        {(room.furniture || []).map((item) => {
-                          const slab = isKitchenSlab(item);
-
-                          return (
-                            <div className="furniture-card" key={item.id}>
-                              <div className="room-card-header">
-                                <div className="furniture-meta">
-                                  <strong>{item.type}</strong>
-                                  <span>
-                                    {slab
-                                      ? `${item.attachedWall || "bottom"} wall attached`
-                                      : `${item.width} ft × ${item.depth} ft`}
-                                  </span>
-                                </div>
-                                <button
-                                  type="button"
-                                  className="icon-btn"
-                                  onClick={() => removeFurniture(room.id, item.id)}
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
-
-                              {!slab ? (
-                                <div className="form-grid two-col">
-                                  <div className="field">
-                                    <label>X Position (ft)</label>
-                                    <input
-                                      type="number"
-                                      value={item.x}
-                                      onChange={(e) =>
-                                        updateFurniture(room.id, item.id, "x", e.target.value)
-                                      }
-                                    />
-                                  </div>
-
-                                  <div className="field">
-                                    <label>Y Position (ft)</label>
-                                    <input
-                                      type="number"
-                                      value={item.y}
-                                      onChange={(e) =>
-                                        updateFurniture(room.id, item.id, "y", e.target.value)
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="form-grid two-col">
-                                  <div className="field">
-                                    <label>Wall</label>
-                                    <select
-                                      value={item.attachedWall || "bottom"}
-                                      onChange={(e) =>
-                                        updateFurniture(
-                                          room.id,
-                                          item.id,
-                                          "attachedWall",
-                                          e.target.value
-                                        )
-                                      }
-                                    >
-                                      {WALL_OPTIONS.map((wall) => (
-                                        <option key={wall} value={wall}>
-                                          {wall}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-
-                                  <div className="field">
-                                    <label>Length (ft)</label>
-                                    <input
-                                      type="number"
-                                      value={item.slabLength || item.width}
-                                      onChange={(e) =>
-                                        updateFurniture(
-                                          room.id,
-                                          item.id,
-                                          "slabLength",
-                                          e.target.value
-                                        )
-                                      }
-                                    />
-                                  </div>
-
-                                  <div className="field">
-                                    <label>Offset (ft)</label>
-                                    <input
-                                      type="number"
-                                      value={item.offset || 0}
-                                      onChange={(e) =>
-                                        updateFurniture(room.id, item.id, "offset", e.target.value)
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+                <div className="field">
+                  <label>Product Category</label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                  >
+                    {PRODUCT_CATEGORIES.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
-        </aside>
 
-        <main className="right-pane">
-          <div className="top-summary">
-            <div className="summary-box">
+          {/* project action button area */}
+          <aside className="project-actions-card input-card">
+            <button className="ghost-btn project-stack-btn" onClick={handleNewProject}>
+              <FilePlus2 size={16} />
+              New Project
+            </button>
+            <button className="secondary-btn project-stack-btn" onClick={handleOpenProjectClick}>
+              <FolderOpen size={16} />
+              Open Project
+            </button>
+            <button className="primary-btn project-stack-btn" onClick={handleSaveProject}>
+              <Save size={16} />
+              Save Project
+            </button>
+          </aside>
+        </div>
+      </section>
+
+      {/* uniform view buttons */}
+      <section className="view-toolbar-card input-card">
+        <div className="uniform-view-buttons">
+          <button
+            className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
+            onClick={() => setActiveView("2d")}
+          >
+            2D
+          </button>
+          <button
+            className={`view-toolbar-btn ${activeView === "3d" ? "active" : ""}`}
+            onClick={() => setActiveView("3d")}
+          >
+            3D
+          </button>
+          <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>
+            Export SVG
+          </button>
+        </div>
+      </section>
+
+      <div className="workspace-grid">
+        {/* preview/stats section */}
+        <main className="workspace-main">
+          <section className="preview-stats-row">
+            <div className="summary-box stat-box">
               <span>Plan Size</span>
               <strong>
                 {totalWidth} × {totalHeight}
               </strong>
             </div>
-
-            <div className="summary-box">
+            <div className="summary-box stat-box">
               <span>Total Rooms</span>
               <strong>{placedRooms.length}</strong>
             </div>
-
-            <div className="summary-box">
+            <div className="summary-box stat-box">
               <span>Room Area</span>
               <strong>{totalRoomArea.toFixed(0)} sq ft</strong>
             </div>
-
-            <div className="summary-box">
+            <div className="summary-box stat-box">
               <span>Space Utilization</span>
               <strong>{utilization}%</strong>
             </div>
-
-            <div className="summary-box actions-box">
-              <div className="view-switch">
-                <button
-                  className={activeView === "2d" ? "active" : ""}
-                  onClick={() => setActiveView("2d")}
-                >
-                  2D
-                </button>
-                <button
-                  className={activeView === "3d" ? "active" : ""}
-                  onClick={() => setActiveView("3d")}
-                >
-                  3D
-                </button>
-              </div>
-
-              <button className="primary-btn" onClick={exportSVG}>
-                Export SVG
-              </button>
-            </div>
-          </div>
+          </section>
 
           {activeView === "2d" && (
-            <section className="preview-card">
-              <div className="section-header">
+            <section className="preview-card preview-card--dominant">
+              <div className="section-header section-header--preview">
                 <h2>2D Floor Plan</h2>
               </div>
 
-              <div className="svg-wrap">
+              <div className="svg-wrap svg-wrap--dominant">
                 <svg
                   id="floor-plan-svg"
                   viewBox={`0 0 ${svgWidth} ${svgHeight}`}
@@ -2263,22 +1902,12 @@ export default function App() {
                 >
                   <defs>
                     <pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse">
-                      <path
-                        d="M 10 0 L 0 0 0 10"
-                        fill="none"
-                        stroke="#dbe3ec"
-                        strokeWidth="1"
-                      />
+                      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#dbe3ec" strokeWidth="1" />
                     </pattern>
 
                     <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
                       <rect width="50" height="50" fill="url(#smallGrid)" />
-                      <path
-                        d="M 50 0 L 0 0 0 50"
-                        fill="none"
-                        stroke="#bdd0e8"
-                        strokeWidth="1"
-                      />
+                      <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#bdd0e8" strokeWidth="1" />
                     </pattern>
                   </defs>
 
@@ -2347,12 +1976,7 @@ export default function App() {
                     {placedRooms.map((room) => (
                       <g key={`furniture-${room.id}`}>
                         {(room.furniture || []).map((item) => (
-                          <Furniture2D
-                            key={item.id}
-                            room={room}
-                            furnitureItem={item}
-                            scale={numericScale}
-                          />
+                          <Furniture2D key={item.id} room={room} furnitureItem={item} scale={numericScale} />
                         ))}
                       </g>
                     ))}
@@ -2420,12 +2044,12 @@ export default function App() {
           )}
 
           {activeView === "3d" && (
-            <section className="preview-card">
-              <div className="section-header">
+            <section className="preview-card preview-card--dominant">
+              <div className="section-header section-header--preview">
                 <h2>3D Floor Plan</h2>
               </div>
 
-              <div className="three-wrap">
+              <div className="three-wrap three-wrap--dominant">
                 <Canvas
                   shadows
                   camera={{
@@ -2450,56 +2074,382 @@ export default function App() {
             </section>
           )}
         </main>
-      </div>
 
-      {isProjectModalOpen && (
-        <div className="project-modal-overlay" onClick={() => setIsProjectModalOpen(false)}>
-          <div className="project-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="project-modal-header">
-              <div>
-                <h3>Open Project</h3>
-                <p>Select a saved project to restore your design.</p>
-              </div>
-
-              <button
-                className="icon-btn"
-                onClick={() => setIsProjectModalOpen(false)}
-                aria-label="Close project modal"
-              >
-                <X size={16} />
+        {/* collapsible room cards / accordion behavior */}
+        <aside className="rooms-sidebar input-card">
+          <div className="section-header rooms-sidebar-header">
+            <h2>Rooms</h2>
+            <div className="header-actions rooms-sidebar-actions">
+              <button className="secondary-btn" onClick={autoArrangeRooms}>
+                <LayoutGrid size={16} />
+                Auto Arrange
+              </button>
+              <button className="ghost-btn" onClick={resetPlan}>
+                <RotateCcw size={16} />
+                Reset
+              </button>
+              <button className="primary-btn" onClick={addRoom}>
+                <Plus size={16} />
+                New Room
               </button>
             </div>
-
-            <div className="project-modal-body">
-              {savedProjects.length === 0 ? (
-                <div className="project-empty-state">
-                  No saved projects yet. Save your current design to see it here.
-                </div>
-              ) : (
-                <div className="project-list">
-                  {savedProjects.map((project) => (
-                    <button
-                      key={project.id}
-                      className="project-item"
-                      onClick={() => handleOpenSavedProject(project.id)}
-                    >
-                      <div className="project-item-meta">
-                        <strong className="project-item-title">{project.name}</strong>
-                        <span className="project-item-subtext">
-                          {project.data?.rooms?.length || 0} rooms •{" "}
-                          {project.data?.selectedCategory || "office"} •{" "}
-                          {formatProjectTimestamp(project.updatedAt)}
-                        </span>
-                      </div>
-                      <span className="project-item-open">Open</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
-        </div>
-      )}
+
+          <div className="room-list room-list--sidebar">
+            {rooms.map((room, index) => {
+              const roomFurnitureSelection =
+                furnitureSelections[room.id] || getDefaultFurnitureSelection(selectedCategory);
+              const isExpanded = expandedRoomId === room.id;
+
+              return (
+                <div className={`room-card accordion-room-card ${isExpanded ? "expanded" : "collapsed"}`} key={room.id}>
+                  <button
+                    type="button"
+                    className="room-accordion-trigger"
+                    onClick={() => setExpandedRoomId(isExpanded ? null : room.id)}
+                  >
+                    <div className="room-accordion-title-wrap">
+                      <span className="room-accordion-arrow">{isExpanded ? "▾" : "▸"}</span>
+                      <span className="room-accordion-title">{room.name || `Room ${index + 1}`}</span>
+                    </div>
+                    <span className="room-accordion-meta">
+                      {room.width} × {room.height}
+                    </span>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="room-accordion-content">
+                      <div className="room-card-header room-card-header--inner">
+                        <span>Room {index + 1}</span>
+                        <button
+                          className="icon-btn"
+                          onClick={() => removeRoom(room.id)}
+                          disabled={rooms.length === 1}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+
+                      <div className="form-grid one-col">
+                        <div className="field">
+                          <label>Name</label>
+                          <input
+                            value={room.name}
+                            onChange={(e) => updateRoom(room.id, "name", e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-grid two-col">
+                        <div className="field">
+                          <label>Width (ft)</label>
+                          <input
+                            type="number"
+                            value={room.width}
+                            onChange={(e) => updateRoom(room.id, "width", Number(e.target.value) || 0)}
+                          />
+                        </div>
+
+                        <div className="field">
+                          <label>Height (ft)</label>
+                          <input
+                            type="number"
+                            value={room.height}
+                            onChange={(e) => updateRoom(room.id, "height", Number(e.target.value) || 0)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-grid two-col">
+                        <div className="field">
+                          <label>X Position (ft)</label>
+                          <input
+                            type="number"
+                            value={room.x}
+                            onChange={(e) => updateRoom(room.id, "x", Number(e.target.value) || 0)}
+                          />
+                        </div>
+
+                        <div className="field">
+                          <label>Y Position (ft)</label>
+                          <input
+                            type="number"
+                            value={room.y}
+                            onChange={(e) => updateRoom(room.id, "y", Number(e.target.value) || 0)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="section-header compact">
+                        <h3>Doors</h3>
+                        <div className="header-actions">
+                          <button type="button" className="secondary-btn" onClick={() => addDoorToRoom(room.id)}>
+                            <Plus size={16} />
+                            Add Door
+                          </button>
+                        </div>
+                      </div>
+
+                      {(room.doors || []).map((door, doorIndex) => (
+                        <div className="opening-card" key={`door-${doorIndex}`}>
+                          <div className="room-card-header">
+                            <span>Door {doorIndex + 1}</span>
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              onClick={() => removeDoor(room.id, doorIndex)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+
+                          <div className="form-grid two-col">
+                            <div className="field">
+                              <label>Wall</label>
+                              <select
+                                value={door.wall}
+                                onChange={(e) => updateDoor(room.id, doorIndex, "wall", e.target.value)}
+                              >
+                                {WALL_OPTIONS.map((wall) => (
+                                  <option key={wall} value={wall}>
+                                    {wall}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="field">
+                              <label>Offset (ft)</label>
+                              <input
+                                type="number"
+                                value={door.offset}
+                                onChange={(e) => updateDoor(room.id, doorIndex, "offset", e.target.value)}
+                              />
+                            </div>
+
+                            <div className="field">
+                              <label>Width (ft)</label>
+                              <input
+                                type="number"
+                                value={door.width}
+                                onChange={(e) => updateDoor(room.id, doorIndex, "width", e.target.value)}
+                              />
+                            </div>
+
+                            <div className="field">
+                              <label>Height (ft)</label>
+                              <input
+                                type="number"
+                                value={door.height}
+                                onChange={(e) => updateDoor(room.id, doorIndex, "height", e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      <div className="section-header compact">
+                        <h3>Windows</h3>
+                        <div className="header-actions">
+                          <button type="button" className="secondary-btn" onClick={() => addWindowToRoom(room.id)}>
+                            <Plus size={16} />
+                            Add Window
+                          </button>
+                        </div>
+                      </div>
+
+                      {(room.windows || []).map((windowItem, windowIndex) => (
+                        <div className="opening-card" key={`window-${windowIndex}`}>
+                          <div className="room-card-header">
+                            <span>Window {windowIndex + 1}</span>
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              onClick={() => removeWindow(room.id, windowIndex)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+
+                          <div className="form-grid two-col">
+                            <div className="field">
+                              <label>Wall</label>
+                              <select
+                                value={windowItem.wall}
+                                onChange={(e) => updateWindow(room.id, windowIndex, "wall", e.target.value)}
+                              >
+                                {WALL_OPTIONS.map((wall) => (
+                                  <option key={wall} value={wall}>
+                                    {wall}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="field">
+                              <label>Offset (ft)</label>
+                              <input
+                                type="number"
+                                value={windowItem.offset}
+                                onChange={(e) => updateWindow(room.id, windowIndex, "offset", e.target.value)}
+                              />
+                            </div>
+
+                            <div className="field">
+                              <label>Width (ft)</label>
+                              <input
+                                type="number"
+                                value={windowItem.width}
+                                onChange={(e) => updateWindow(room.id, windowIndex, "width", e.target.value)}
+                              />
+                            </div>
+
+                            <div className="field">
+                              <label>Height (ft)</label>
+                              <input
+                                type="number"
+                                value={windowItem.height}
+                                onChange={(e) => updateWindow(room.id, windowIndex, "height", e.target.value)}
+                              />
+                            </div>
+
+                            <div className="field field--span-2">
+                              <label>Sill Height (ft)</label>
+                              <input
+                                type="number"
+                                value={windowItem.sillHeight}
+                                onChange={(e) => updateWindow(room.id, windowIndex, "sillHeight", e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      <div className="section-header compact furniture-section-header">
+                        <h3>
+                          <Sofa size={16} />
+                          Furniture
+                        </h3>
+                        <div className="header-actions">
+                          <button type="button" className="secondary-btn" onClick={() => addFurnitureToRoom(room.id)}>
+                            <Plus size={16} />
+                            Add Furniture
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="opening-card furniture-panel">
+                        <div className="form-grid one-col">
+                          <div className="field">
+                            <label>Furniture Type</label>
+                            <select
+                              value={roomFurnitureSelection}
+                              onChange={(e) =>
+                                setFurnitureSelections((prev) => ({
+                                  ...prev,
+                                  [room.id]: e.target.value,
+                                }))
+                              }
+                            >
+                              {furnitureOptions.map((item) => (
+                                <option key={item.type} value={item.type}>
+                                  {item.type}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {(room.furniture || []).map((item) => {
+                          const slab = isKitchenSlab(item);
+
+                          return (
+                            <div className="furniture-card" key={item.id}>
+                              <div className="room-card-header">
+                                <div className="furniture-meta">
+                                  <strong>{item.type}</strong>
+                                  <span>
+                                    {slab
+                                      ? `${item.attachedWall || "bottom"} wall attached`
+                                      : `${item.width} ft × ${item.depth} ft`}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="icon-btn"
+                                  onClick={() => removeFurniture(room.id, item.id)}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+
+                              {!slab ? (
+                                <div className="form-grid two-col">
+                                  <div className="field">
+                                    <label>X Position (ft)</label>
+                                    <input
+                                      type="number"
+                                      value={item.x}
+                                      onChange={(e) => updateFurniture(room.id, item.id, "x", e.target.value)}
+                                    />
+                                  </div>
+
+                                  <div className="field">
+                                    <label>Y Position (ft)</label>
+                                    <input
+                                      type="number"
+                                      value={item.y}
+                                      onChange={(e) => updateFurniture(room.id, item.id, "y", e.target.value)}
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="form-grid two-col">
+                                  <div className="field">
+                                    <label>Wall</label>
+                                    <select
+                                      value={item.attachedWall || "bottom"}
+                                      onChange={(e) => updateFurniture(room.id, item.id, "attachedWall", e.target.value)}
+                                    >
+                                      {WALL_OPTIONS.map((wall) => (
+                                        <option key={wall} value={wall}>
+                                          {wall}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div className="field">
+                                    <label>Length (ft)</label>
+                                    <input
+                                      type="number"
+                                      value={item.slabLength || item.width}
+                                      onChange={(e) => updateFurniture(room.id, item.id, "slabLength", e.target.value)}
+                                    />
+                                  </div>
+
+                                  <div className="field field--span-2">
+                                    <label>Offset (ft)</label>
+                                    <input
+                                      type="number"
+                                      value={item.offset || 0}
+                                      onChange={(e) => updateFurniture(room.id, item.id, "offset", e.target.value)}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
