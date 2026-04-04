@@ -31,6 +31,11 @@ const DEFAULT_WINDOW_WIDTH = 4;
 const DEFAULT_WINDOW_HEIGHT = 3;
 const DEFAULT_WINDOW_SILL_HEIGHT = 3;
 
+// boundary clamp logic
+const FURNITURE_WALL_CLEARANCE = 0.18;
+const DEFAULT_KITCHEN_SLAB_DEPTH = 2;
+const DEFAULT_KITCHEN_SLAB_HEIGHT = 3;
+
 const PRODUCT_CATEGORIES = [
   "storage",
   "office",
@@ -41,7 +46,7 @@ const PRODUCT_CATEGORIES = [
 ];
 
 /**
- * ADDED: Furniture preset map with fixed realistic sizes (feet).
+ * Furniture preset map with realistic sizes (feet).
  * width = X span
  * depth = Y span
  * height = 3D height
@@ -74,6 +79,7 @@ const FURNITURE_PRESETS = {
     { type: "Sofa", width: 7, depth: 3, height: 3, color: "#c8d6ea" },
     { type: "Center Table", width: 4, depth: 2, height: 1.5, color: "#ddd3c5" },
     { type: "Kitchen Counter", width: 8, depth: 2, height: 3, color: "#d4d8dc" },
+    { type: "Kitchen Slab", width: 8, depth: 2, height: 3, color: "#cfd6de", wallAttached: true },
     { type: "Stove / Cooktop", width: 2.5, depth: 2, height: 2.8, color: "#c9c9cf" },
     { type: "Sink", width: 2.5, depth: 2, height: 3, color: "#c5dbe5" },
     { type: "Dining Table", width: 6, depth: 3.5, height: 2.5, color: "#d8ccb9" },
@@ -101,6 +107,10 @@ function clamp(value, min, max) {
 function getWallLength(room, wall) {
   if (wall === "top" || wall === "bottom") return Number(room.width) || 0;
   return Number(room.height) || 0;
+}
+
+function isKitchenSlab(item) {
+  return String(item?.type || "").toLowerCase() === "kitchen slab";
 }
 
 function normalizeDoor(door, room) {
@@ -148,24 +158,120 @@ function normalizeWindow(windowItem, room, wallHeight) {
 }
 
 /**
- * ADDED: normalize furniture positions inside room bounds.
+ * kitchen slab + wall attachment
+ * Returns derived geometry for wall-attached slab.
+ */
+function getKitchenSlabGeometry(furnitureItem, room) {
+  const wall = WALL_OPTIONS.includes(furnitureItem?.attachedWall)
+    ? furnitureItem.attachedWall
+    : "bottom";
+
+  const roomWidth = Number(room.width) || 0;
+  const roomHeight = Number(room.height) || 0;
+  const depth = Math.max(Number(furnitureItem?.slabDepth) || DEFAULT_KITCHEN_SLAB_DEPTH, 0.4);
+  const height = Math.max(Number(furnitureItem?.height) || DEFAULT_KITCHEN_SLAB_HEIGHT, 0.4);
+
+  const wallLength = wall === "top" || wall === "bottom" ? roomWidth : roomHeight;
+  const length = clamp(
+    Number(furnitureItem?.slabLength) || Number(furnitureItem?.width) || 4,
+    1,
+    Math.max(1, wallLength - FURNITURE_WALL_CLEARANCE * 2)
+  );
+
+  const maxOffset = Math.max(0, wallLength - length - FURNITURE_WALL_CLEARANCE * 2);
+  const offset = clamp(
+    Number(furnitureItem?.offset) || 0,
+    0,
+    maxOffset
+  );
+
+  if (wall === "top") {
+    return {
+      ...furnitureItem,
+      attachedWall: wall,
+      slabLength: length,
+      slabDepth: depth,
+      offset,
+      width: length,
+      depth,
+      height,
+      x: FURNITURE_WALL_CLEARANCE + offset,
+      y: FURNITURE_WALL_CLEARANCE,
+    };
+  }
+
+  if (wall === "bottom") {
+    return {
+      ...furnitureItem,
+      attachedWall: wall,
+      slabLength: length,
+      slabDepth: depth,
+      offset,
+      width: length,
+      depth,
+      height,
+      x: FURNITURE_WALL_CLEARANCE + offset,
+      y: Math.max(FURNITURE_WALL_CLEARANCE, roomHeight - depth - FURNITURE_WALL_CLEARANCE),
+    };
+  }
+
+  if (wall === "left") {
+    return {
+      ...furnitureItem,
+      attachedWall: wall,
+      slabLength: length,
+      slabDepth: depth,
+      offset,
+      width: depth,
+      depth: length,
+      height,
+      x: FURNITURE_WALL_CLEARANCE,
+      y: FURNITURE_WALL_CLEARANCE + offset,
+    };
+  }
+
+  return {
+    ...furnitureItem,
+    attachedWall: wall,
+    slabLength: length,
+    slabDepth: depth,
+    offset,
+    width: depth,
+    depth: length,
+    height,
+    x: Math.max(FURNITURE_WALL_CLEARANCE, roomWidth - depth - FURNITURE_WALL_CLEARANCE),
+    y: FURNITURE_WALL_CLEARANCE + offset,
+  };
+}
+
+/**
+ * boundary clamp logic
  * x and y are LOCAL to the room, not global plan coordinates.
  */
 function normalizeFurniture(furnitureItem, room) {
+  if (isKitchenSlab(furnitureItem)) {
+    return getKitchenSlabGeometry(furnitureItem, room);
+  }
+
   const width = Math.max(Number(furnitureItem?.width) || 0.5, 0.3);
   const depth = Math.max(Number(furnitureItem?.depth) || 0.5, 0.3);
   const height = Math.max(Number(furnitureItem?.height) || 0.5, 0.3);
 
-  const maxX = Math.max(0, (Number(room.width) || 0) - width);
-  const maxY = Math.max(0, (Number(room.height) || 0) - depth);
+  const roomWidth = Number(room.width) || 0;
+  const roomHeight = Number(room.height) || 0;
+
+  const minX = FURNITURE_WALL_CLEARANCE;
+  const minY = FURNITURE_WALL_CLEARANCE;
+  const maxX = Math.max(minX, roomWidth - width - FURNITURE_WALL_CLEARANCE);
+  const maxY = Math.max(minY, roomHeight - depth - FURNITURE_WALL_CLEARANCE);
 
   return {
     ...furnitureItem,
     width,
     depth,
     height,
-    x: clamp(Number(furnitureItem?.x) || 0, 0, maxX),
-    y: clamp(Number(furnitureItem?.y) || 0, 0, maxY),
+    x: clamp(Number(furnitureItem?.x) || minX, minX, maxX),
+    y: clamp(Number(furnitureItem?.y) || minY, minY, maxY),
   };
 }
 
@@ -483,11 +589,7 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
   });
 
   const verticalBreaks = Array.from(
-    new Set([
-      0,
-      height,
-      ...openings.flatMap((opening) => [opening.bottom, opening.top]),
-    ])
+    new Set([0, height, ...openings.flatMap((opening) => [opening.bottom, opening.top])])
   )
     .filter((value) => value >= 0 && value <= height)
     .sort((a, b) => a - b);
@@ -567,8 +669,33 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
   );
 }
 
+function FurnitureMaterial({ color }) {
+  return (
+    <meshStandardMaterial
+      color={color || "#cfd8e3"}
+      roughness={0.88}
+      metalness={0.04}
+    />
+  );
+}
+
+function FurnitureLabel({ x, y, z, text }) {
+  return (
+    <DreiText
+      position={[x, y, z]}
+      fontSize={0.22}
+      color="#243246"
+      anchorX="center"
+      anchorY="middle"
+    >
+      {text}
+    </DreiText>
+  );
+}
+
 /**
- * ADDED: 3D furniture renderer
+ * improved 3D shapes
+ * Lightweight recognizable geometry only.
  */
 function Furniture3D({ room, furnitureItem }) {
   const roomX = Number(room.x) || 0;
@@ -580,28 +707,176 @@ function Furniture3D({ room, furnitureItem }) {
 
   const x = roomX + (Number(furnitureItem.x) || 0) + width / 2;
   const z = roomY + (Number(furnitureItem.y) || 0) + depth / 2;
-  const y = height / 2;
+  const color = furnitureItem.color || "#cfd8e3";
+  const labelY = height + 0.35;
+
+  const type = String(furnitureItem.type || "").toLowerCase();
+
+  const legWidth = Math.max(0.12, Math.min(width, depth) * 0.12);
+
+  if (type.includes("sofa")) {
+    return (
+      <group>
+        <mesh castShadow receiveShadow position={[x, 0.55, z]}>
+          <boxGeometry args={[width, 1.1, depth]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[x, 1.55, z - depth * 0.32]}>
+          <boxGeometry args={[width, 1.1, Math.max(0.3, depth * 0.22)]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[x - width * 0.42, 1.05, z]}>
+          <boxGeometry args={[Math.max(0.25, width * 0.12), 1, depth]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[x + width * 0.42, 1.05, z]}>
+          <boxGeometry args={[Math.max(0.25, width * 0.12), 1, depth]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+        <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
+      </group>
+    );
+  }
+
+  if (
+    type.includes("table") ||
+    type.includes("desk") ||
+    type.includes("workstation") ||
+    type.includes("counter")
+  ) {
+    const topThickness = Math.max(0.14, height * 0.15);
+    const legHeight = Math.max(0.35, height - topThickness);
+
+    return (
+      <group>
+        <mesh castShadow receiveShadow position={[x, legHeight + topThickness / 2, z]}>
+          <boxGeometry args={[width, topThickness, depth]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+
+        {[
+          [-width / 2 + legWidth / 2, legHeight / 2, -depth / 2 + legWidth / 2],
+          [width / 2 - legWidth / 2, legHeight / 2, -depth / 2 + legWidth / 2],
+          [-width / 2 + legWidth / 2, legHeight / 2, depth / 2 - legWidth / 2],
+          [width / 2 - legWidth / 2, legHeight / 2, depth / 2 - legWidth / 2],
+        ].map((pos, idx) => (
+          <mesh
+            key={idx}
+            castShadow
+            receiveShadow
+            position={[x + pos[0], pos[1], z + pos[2]]}
+          >
+            <boxGeometry args={[legWidth, legHeight, legWidth]} />
+            <FurnitureMaterial color={color} />
+          </mesh>
+        ))}
+
+        <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
+      </group>
+    );
+  }
+
+  if (type.includes("chair")) {
+    return (
+      <group>
+        <mesh castShadow receiveShadow position={[x, 1.1, z]}>
+          <boxGeometry args={[width, 0.25, depth]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[x, 2.1, z - depth * 0.34]}>
+          <boxGeometry args={[width, 1.8, Math.max(0.12, depth * 0.16)]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+        {[
+          [-width / 2 + legWidth / 2, 0.55, -depth / 2 + legWidth / 2],
+          [width / 2 - legWidth / 2, 0.55, -depth / 2 + legWidth / 2],
+          [-width / 2 + legWidth / 2, 0.55, depth / 2 - legWidth / 2],
+          [width / 2 - legWidth / 2, 0.55, depth / 2 - legWidth / 2],
+        ].map((pos, idx) => (
+          <mesh
+            key={idx}
+            castShadow
+            receiveShadow
+            position={[x + pos[0], pos[1], z + pos[2]]}
+          >
+            <boxGeometry args={[legWidth, 1.1, legWidth]} />
+            <FurnitureMaterial color={color} />
+          </mesh>
+        ))}
+        <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
+      </group>
+    );
+  }
+
+  if (type.includes("bed")) {
+    return (
+      <group>
+        <mesh castShadow receiveShadow position={[x, 0.35, z]}>
+          <boxGeometry args={[width, 0.7, depth]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[x, 0.9, z]}>
+          <boxGeometry args={[width * 0.92, 0.4, depth * 0.92]} />
+          <meshStandardMaterial color="#f3f5f8" roughness={0.9} metalness={0.02} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[x, 1.2, z - depth * 0.39]}>
+          <boxGeometry args={[width, 0.6, Math.max(0.25, depth * 0.12)]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+        <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
+      </group>
+    );
+  }
+
+  if (
+    type.includes("cabinet") ||
+    type.includes("wardrobe") ||
+    type.includes("rack") ||
+    type.includes("shelf") ||
+    type.includes("display unit")
+  ) {
+    return (
+      <group>
+        <mesh castShadow receiveShadow position={[x, height / 2, z]}>
+          <boxGeometry args={[width, height, depth]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[x - width * 0.24, height / 2, z + depth / 2 + 0.01]}>
+          <boxGeometry args={[0.06, height * 0.72, 0.06]} />
+          <meshStandardMaterial color="#7a8797" roughness={0.7} metalness={0.15} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[x + width * 0.24, height / 2, z + depth / 2 + 0.01]}>
+          <boxGeometry args={[0.06, height * 0.72, 0.06]} />
+          <meshStandardMaterial color="#7a8797" roughness={0.7} metalness={0.15} />
+        </mesh>
+        <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
+      </group>
+    );
+  }
+
+  if (type.includes("kitchen slab")) {
+    return (
+      <group>
+        <mesh castShadow receiveShadow position={[x, height / 2, z]}>
+          <boxGeometry args={[width, height, depth]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[x, height + 0.05, z]}>
+          <boxGeometry args={[width, 0.1, depth]} />
+          <meshStandardMaterial color="#9aa6b4" roughness={0.55} metalness={0.12} />
+        </mesh>
+        <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
+      </group>
+    );
+  }
 
   return (
     <group>
-      <mesh castShadow receiveShadow position={[x, y, z]}>
+      <mesh castShadow receiveShadow position={[x, height / 2, z]}>
         <boxGeometry args={[width, height, depth]} />
-        <meshStandardMaterial
-          color={furnitureItem.color || "#cfd8e3"}
-          roughness={0.88}
-          metalness={0.04}
-        />
+        <FurnitureMaterial color={color} />
       </mesh>
-
-      <DreiText
-        position={[x, height + 0.25, z]}
-        fontSize={0.22}
-        color="#243246"
-        anchorX="center"
-        anchorY="middle"
-      >
-        {furnitureItem.type}
-      </DreiText>
+      <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
     </group>
   );
 }
@@ -732,7 +1007,6 @@ function Floor3DScene({
               );
             })}
 
-            {/* ADDED: 3D furniture rendering happens here */}
             {(room.furniture || []).map((item) => (
               <Furniture3D key={item.id} room={room} furnitureItem={item} />
             ))}
@@ -808,13 +1082,16 @@ function Opening2D({ room, opening, scale, wallThickness }) {
 }
 
 /**
- * ADDED: 2D furniture renderer
+ * 2D corner fix
+ * Furniture only: no rounded corners.
+ * kitchen slab + wall attachment
  */
 function Furniture2D({ room, furnitureItem, scale }) {
   const x = (Number(room.x) + Number(furnitureItem.x)) * scale;
   const y = (Number(room.y) + Number(furnitureItem.y)) * scale;
   const w = Number(furnitureItem.width) * scale;
   const d = Number(furnitureItem.depth) * scale;
+  const isSlab = isKitchenSlab(furnitureItem);
 
   return (
     <g>
@@ -823,11 +1100,29 @@ function Furniture2D({ room, furnitureItem, scale }) {
         y={y}
         width={w}
         height={d}
-        rx="4"
+        rx="0"
         fill={furnitureItem.color || "#cfd8e3"}
-        stroke="#5b6a81"
-        strokeWidth="1.4"
+        stroke={isSlab ? "#4f5f74" : "#5b6a81"}
+        strokeWidth={isSlab ? "1.8" : "1.4"}
       />
+      {isSlab && (
+        <line
+          x1={x}
+          y1={y}
+          x2={
+            furnitureItem.attachedWall === "left" || furnitureItem.attachedWall === "right"
+              ? x
+              : x + w
+          }
+          y2={
+            furnitureItem.attachedWall === "top" || furnitureItem.attachedWall === "bottom"
+              ? y
+              : y + d
+          }
+          stroke="#8a98a8"
+          strokeWidth="2"
+        />
+      )}
       {w > 34 && d > 20 && (
         <text
           x={x + w / 2}
@@ -867,9 +1162,6 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState("office");
   const [rooms, setRooms] = useState(() => getDefaultRooms(40, 30));
 
-  /**
-   * ADDED: per-room furniture dropdown selection state
-   */
   const [furnitureSelections, setFurnitureSelections] = useState({});
 
   const placedRooms = useMemo(() => {
@@ -1009,9 +1301,6 @@ export default function App() {
     );
   };
 
-  /**
-   * ADDED: furniture CRUD
-   */
   const addFurnitureToRoom = (roomId) => {
     const room = rooms.find((item) => item.id === roomId);
     if (!room) return;
@@ -1025,8 +1314,7 @@ export default function App() {
     const preset =
       categoryOptions.find((item) => item.type === selectedType) || categoryOptions[0];
 
-    const maxX = Math.max(0, Number(room.width) - preset.width);
-    const maxY = Math.max(0, Number(room.height) - preset.depth);
+    const isSlab = String(preset.type).toLowerCase() === "kitchen slab";
 
     setRooms((prev) =>
       prev.map((item) =>
@@ -1035,17 +1323,31 @@ export default function App() {
               ...item,
               furniture: [
                 ...(item.furniture || []),
-                {
-                  id: crypto.randomUUID(),
-                  type: preset.type,
-                  category: selectedCategory,
-                  width: preset.width,
-                  depth: preset.depth,
-                  height: preset.height,
-                  x: Math.min(1, maxX),
-                  y: Math.min(1, maxY),
-                  color: preset.color,
-                },
+                isSlab
+                  ? {
+                      id: crypto.randomUUID(),
+                      type: preset.type,
+                      category: selectedCategory,
+                      width: preset.width,
+                      depth: preset.depth,
+                      height: preset.height,
+                      slabLength: preset.width,
+                      slabDepth: preset.depth,
+                      attachedWall: "bottom",
+                      offset: 0,
+                      color: preset.color,
+                    }
+                  : {
+                      id: crypto.randomUUID(),
+                      type: preset.type,
+                      category: selectedCategory,
+                      width: preset.width,
+                      depth: preset.depth,
+                      height: preset.height,
+                      x: FURNITURE_WALL_CLEARANCE,
+                      y: FURNITURE_WALL_CLEARANCE,
+                      color: preset.color,
+                    },
               ],
             }
           : item
@@ -1061,16 +1363,60 @@ export default function App() {
         const nextFurniture = (room.furniture || []).map((item) => {
           if (item.id !== furnitureId) return item;
 
+          if (isKitchenSlab(item)) {
+            if (key === "attachedWall") {
+              return { ...item, attachedWall: value };
+            }
+
+            if (key === "slabLength") {
+              const wall = WALL_OPTIONS.includes(item.attachedWall) ? item.attachedWall : "bottom";
+              const roomWallLength =
+                wall === "top" || wall === "bottom" ? Number(room.width) : Number(room.height);
+              const length = clamp(
+                Number(value) || 1,
+                1,
+                Math.max(1, roomWallLength - FURNITURE_WALL_CLEARANCE * 2)
+              );
+              return { ...item, slabLength: length };
+            }
+
+            if (key === "offset") {
+              const wall = WALL_OPTIONS.includes(item.attachedWall) ? item.attachedWall : "bottom";
+              const roomWallLength =
+                wall === "top" || wall === "bottom" ? Number(room.width) : Number(room.height);
+              const currentLength = Number(item.slabLength) || Number(item.width) || 1;
+              const maxOffset = Math.max(
+                0,
+                roomWallLength - currentLength - FURNITURE_WALL_CLEARANCE * 2
+              );
+              return {
+                ...item,
+                offset: clamp(Number(value) || 0, 0, maxOffset),
+              };
+            }
+
+            return item;
+          }
+
           if (key === "x" || key === "y") {
             const numericValue = Number(value) || 0;
-            const maxX = Math.max(0, Number(room.width) - Number(item.width));
-            const maxY = Math.max(0, Number(room.height) - Number(item.depth));
+            const minX = FURNITURE_WALL_CLEARANCE;
+            const minY = FURNITURE_WALL_CLEARANCE;
+            const maxX = Math.max(
+              minX,
+              Number(room.width) - Number(item.width) - FURNITURE_WALL_CLEARANCE
+            );
+            const maxY = Math.max(
+              minY,
+              Number(room.height) - Number(item.depth) - FURNITURE_WALL_CLEARANCE
+            );
 
             return {
               ...item,
-              [key]: key === "x"
-                ? clamp(numericValue, 0, maxX)
-                : clamp(numericValue, 0, maxY),
+              [key]:
+                key === "x"
+                  ? clamp(numericValue, minX, maxX)
+                  : clamp(numericValue, minY, maxY),
             };
           }
 
@@ -1165,7 +1511,10 @@ export default function App() {
               <Home size={28} />
               Interactive Floor Plan App
             </h1>
-            <p>Build rooms, edit openings, add furniture, and preview the layout in 2D and 3D.</p>
+            <p>
+              Build rooms, edit openings, add furniture, and preview the layout in
+              2D and 3D.
+            </p>
           </div>
 
           <div className="input-card">
@@ -1269,7 +1618,8 @@ export default function App() {
               <div className="room-list">
                 {rooms.map((room, index) => {
                   const roomFurnitureSelection =
-                    furnitureSelections[room.id] || getDefaultFurnitureSelection(selectedCategory);
+                    furnitureSelections[room.id] ||
+                    getDefaultFurnitureSelection(selectedCategory);
 
                   return (
                     <div className="room-card" key={room.id}>
@@ -1505,12 +1855,7 @@ export default function App() {
                                 type="number"
                                 value={windowItem.sillHeight}
                                 onChange={(e) =>
-                                  updateWindow(
-                                    room.id,
-                                    windowIndex,
-                                    "sillHeight",
-                                    e.target.value
-                                  )
+                                  updateWindow(room.id, windowIndex, "sillHeight", e.target.value)
                                 }
                               />
                             </div>
@@ -1518,7 +1863,6 @@ export default function App() {
                         </div>
                       ))}
 
-                      {/* ADDED: UI toggle/panel for furniture starts here */}
                       <div className="section-header compact furniture-section-header">
                         <h3>
                           <Sofa size={16} />
@@ -1539,7 +1883,7 @@ export default function App() {
                       <div className="opening-card furniture-panel">
                         <div className="form-grid one-col">
                           <div className="field">
-                            <label>Furniture Type ({selectedCategory})</label>
+                            <label>Furniture Type</label>
                             <select
                               value={roomFurnitureSelection}
                               onChange={(e) =>
@@ -1558,53 +1902,108 @@ export default function App() {
                           </div>
                         </div>
 
-                        {(room.furniture || []).map((item, itemIndex) => (
-                          <div className="furniture-card" key={item.id}>
-                            <div className="room-card-header">
-                              <span>Furniture {itemIndex + 1}</span>
-                              <button
-                                type="button"
-                                className="icon-btn"
-                                onClick={() => removeFurniture(room.id, item.id)}
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
+                        {(room.furniture || []).map((item) => {
+                          const slab = isKitchenSlab(item);
 
-                            <div className="furniture-meta">
-                              <strong>{item.type}</strong>
-                              <span>
-                                Fixed Size: {item.width} ft × {item.depth} ft × {item.height} ft
-                              </span>
-                            </div>
-
-                            <div className="form-grid two-col">
-                              <div className="field">
-                                <label>X Position in Room (ft)</label>
-                                <input
-                                  type="number"
-                                  value={item.x}
-                                  onChange={(e) =>
-                                    updateFurniture(room.id, item.id, "x", e.target.value)
-                                  }
-                                />
+                          return (
+                            <div className="furniture-card" key={item.id}>
+                              <div className="room-card-header">
+                                <div className="furniture-meta">
+                                  <strong>{item.type}</strong>
+                                  <span>
+                                    {slab
+                                      ? `${item.attachedWall || "bottom"} wall attached`
+                                      : `${item.width} ft × ${item.depth} ft`}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="icon-btn"
+                                  onClick={() => removeFurniture(room.id, item.id)}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
                               </div>
 
-                              <div className="field">
-                                <label>Y Position in Room (ft)</label>
-                                <input
-                                  type="number"
-                                  value={item.y}
-                                  onChange={(e) =>
-                                    updateFurniture(room.id, item.id, "y", e.target.value)
-                                  }
-                                />
-                              </div>
+                              {!slab ? (
+                                <div className="form-grid two-col">
+                                  <div className="field">
+                                    <label>X Position (ft)</label>
+                                    <input
+                                      type="number"
+                                      value={item.x}
+                                      onChange={(e) =>
+                                        updateFurniture(room.id, item.id, "x", e.target.value)
+                                      }
+                                    />
+                                  </div>
+
+                                  <div className="field">
+                                    <label>Y Position (ft)</label>
+                                    <input
+                                      type="number"
+                                      value={item.y}
+                                      onChange={(e) =>
+                                        updateFurniture(room.id, item.id, "y", e.target.value)
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="form-grid two-col">
+                                  <div className="field">
+                                    <label>Wall</label>
+                                    <select
+                                      value={item.attachedWall || "bottom"}
+                                      onChange={(e) =>
+                                        updateFurniture(
+                                          room.id,
+                                          item.id,
+                                          "attachedWall",
+                                          e.target.value
+                                        )
+                                      }
+                                    >
+                                      {WALL_OPTIONS.map((wall) => (
+                                        <option key={wall} value={wall}>
+                                          {wall}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div className="field">
+                                    <label>Length (ft)</label>
+                                    <input
+                                      type="number"
+                                      value={item.slabLength || item.width}
+                                      onChange={(e) =>
+                                        updateFurniture(
+                                          room.id,
+                                          item.id,
+                                          "slabLength",
+                                          e.target.value
+                                        )
+                                      }
+                                    />
+                                  </div>
+
+                                  <div className="field">
+                                    <label>Offset (ft)</label>
+                                    <input
+                                      type="number"
+                                      value={item.offset || 0}
+                                      onChange={(e) =>
+                                        updateFurniture(room.id, item.id, "offset", e.target.value)
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
-                      {/* ADDED: UI toggle/panel for furniture ends here */}
                     </div>
                   );
                 })}
@@ -1616,13 +2015,20 @@ export default function App() {
         <main className="right-pane">
           <div className="top-summary">
             <div className="summary-box">
-              <span>Total Plan Area</span>
-              <strong>{totalPlanArea} sq ft</strong>
+              <span>Plan Size</span>
+              <strong>
+                {totalWidth} × {totalHeight}
+              </strong>
             </div>
 
             <div className="summary-box">
-              <span>Room Area Used</span>
-              <strong>{totalRoomArea} sq ft</strong>
+              <span>Total Rooms</span>
+              <strong>{placedRooms.length}</strong>
+            </div>
+
+            <div className="summary-box">
+              <span>Room Area</span>
+              <strong>{totalRoomArea.toFixed(0)} sq ft</strong>
             </div>
 
             <div className="summary-box">
@@ -1686,10 +2092,10 @@ export default function App() {
                     </pattern>
                   </defs>
 
-                  <rect width={svgWidth} height={svgHeight} fill="#f7f9fc" />
-                  <rect x="30" y="30" width={canvasWidth + 60} height={canvasHeight + 60} fill="url(#grid)" />
-
+                  <rect width={svgWidth} height={svgHeight} fill="#ffffff" />
                   <g transform="translate(60,60)">
+                    <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />
+
                     {placedRooms.map((room) => {
                       const x = room.x * numericScale;
                       const y = room.y * numericScale;
@@ -1698,23 +2104,18 @@ export default function App() {
 
                       return (
                         <g key={room.id}>
-                          <rect x={x} y={y} width={w} height={h} fill={room.color} rx="3" />
+                          <rect
+                            x={x}
+                            y={y}
+                            width={w}
+                            height={h}
+                            fill={room.color || "#eef4ff"}
+                            stroke="#7e8da3"
+                            strokeWidth={Math.max(2, numericWallThickness * numericScale)}
+                          />
                         </g>
                       );
                     })}
-
-                    {wallSegments.map((seg, index) => (
-                      <line
-                        key={index}
-                        x1={seg.x1 * numericScale}
-                        y1={seg.y1 * numericScale}
-                        x2={seg.x2 * numericScale}
-                        y2={seg.y2 * numericScale}
-                        stroke="#4d5d75"
-                        strokeWidth={Math.max(4, numericWallThickness * numericScale)}
-                        strokeLinecap="square"
-                      />
-                    ))}
 
                     {placedRooms.map((room) => {
                       const { doors, windows } = getRoomOpenings(room, Number(roomHeight));
@@ -1744,7 +2145,6 @@ export default function App() {
                       );
                     })}
 
-                    {/* ADDED: 2D furniture rendering happens here */}
                     {placedRooms.map((room) => (
                       <g key={`furniture-${room.id}`}>
                         {(room.furniture || []).map((item) => (
@@ -1838,12 +2238,11 @@ export default function App() {
                     fov: 42,
                   }}
                 >
-                  <color attach="background" args={["#f4f7fb"]} />
                   <Floor3DScene
                     rooms={placedRooms}
                     totalWidth={Number(totalWidth)}
                     totalHeight={Number(totalHeight)}
-                    wallThickness={numericWallThickness}
+                    wallThickness={Number(wallThickness)}
                     roomHeight={Number(roomHeight)}
                     wallSegments={wallSegments}
                   />
