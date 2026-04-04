@@ -48,7 +48,7 @@ button {
 
 .top-control-card {
   padding: 0;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -57,16 +57,9 @@ button {
 
 .top-control-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 170px;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 168px;
+  gap: 12px;
   align-items: stretch;
-}
-
-.top-control-left {
-  display: grid;
-  grid-template-columns: 304px minmax(0, 1fr);
-  gap: 10px;
-  min-width: 0;
 }
 
 .hero-card,
@@ -75,33 +68,62 @@ button {
   padding: 14px;
 }
 
-.hero-card--compact {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+.top-input-card {
+  padding: 14px 16px 16px;
 }
 
-.hero-top-row {
+.top-input-meta-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 14px;
   margin-bottom: 12px;
 }
 
-.hero-card .pill {
-  display: inline-block;
-  padding: 8px 14px;
+.top-input-brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hero-card .pill,
+.top-input-brand .pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
   border-radius: 999px;
   background: #dbe4ff;
   color: #3e4be0;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.top-input-brand-copy {
+  min-width: 0;
+}
+
+.top-input-brand-copy h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 20px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.top-input-brand-copy p {
+  margin: 0;
+  color: #5b677b;
+  line-height: 1.45;
+  font-size: 12px;
 }
 
 .current-project-chip {
-  padding: 7px 12px;
+  padding: 8px 12px;
   border-radius: 999px;
   background: #f2f4f8;
   border: 1px solid #dbe4f0;
@@ -111,64 +133,21 @@ button {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 155px;
-}
-
-.hero-card h1 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 8px;
-  font-size: 18px;
-  line-height: 1.15;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-
-.hero-card p {
-  margin: 0;
-  color: #5b677b;
-  line-height: 1.55;
-  font-size: 12px;
-}
-
-.top-input-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.top-input-header {
-  min-height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  border: 2px solid #1f2e49;
-  border-radius: 16px;
-  padding: 18px;
-  margin-bottom: 12px;
-  background: rgba(11, 22, 53, 0.03);
-}
-
-.top-input-header h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 800;
-  color: #11181f;
+  max-width: 190px;
 }
 
 .plan-top-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px 14px;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(6, minmax(110px, 1fr));
+  gap: 12px;
   margin-bottom: 0;
+  align-items: end;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .field--span-2 {
@@ -176,9 +155,9 @@ button {
 }
 
 .field label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  color: #2d3c52;
+  color: #34445c;
 }
 
 .field input,
@@ -187,8 +166,8 @@ button {
   width: 100%;
   border: 1px solid #ced8e6;
   background: #fff;
-  border-radius: 14px;
-  padding: 12px 13px;
+  border-radius: 12px;
+  padding: 11px 12px;
   color: #162033;
   outline: none;
   transition: 0.2s ease;
@@ -204,18 +183,21 @@ button {
 .project-actions-card {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 12px;
+  justify-content: stretch;
+  gap: 10px;
+  padding: 12px;
 }
 
 .project-stack-btn {
   width: 100%;
   justify-content: center;
-  min-height: 46px;
+  min-height: 58px;
+  border-radius: 16px;
+  font-size: 13px;
 }
 
 .view-toolbar-card {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   padding: 0;
   background: transparent;
   border: none;
@@ -249,8 +231,9 @@ button {
   gap: 8px;
   background: #0c1b3a;
   color: #fff;
-  padding: 12px 16px;
+  padding: 10px 14px;
   font-weight: 700;
+  font-size: 12px;
 }
 
 .primary-btn:hover,
@@ -389,7 +372,7 @@ button {
 
 .header-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -715,9 +698,21 @@ button {
 
 @media (max-width: 1180px) {
   .top-control-grid,
-  .top-control-left,
   .workspace-grid {
     grid-template-columns: 1fr;
+  }
+
+  .top-input-meta-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .plan-top-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .field--span-2 {
+    grid-column: span 2;
   }
 
   .project-actions-card {
