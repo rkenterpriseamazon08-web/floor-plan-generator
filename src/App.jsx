@@ -1729,33 +1729,28 @@ export default function App() {
       {/* top input section */}
       <section className="top-control-card">
         <div className="top-control-grid">
-          <div className="top-control-left">
-            <div className="hero-card hero-card--compact">
-              <div className="hero-top-row">
-                <div className="pill">Floor Plan Builder</div>
-                <div className="current-project-chip">
-                  {currentProjectId ? `Opened "${planName}"` : `Opened "${planName}"`}
+          <div className="input-card top-input-card">
+            <div className="top-input-meta-row">
+              <div className="top-input-brand">
+                <span className="pill">Floor Plan Builder</span>
+                <div className="top-input-brand-copy">
+                  <h1>
+                    <Home size={20} />
+                    Interactive Floor Plan App
+                  </h1>
+                  <p>Configure plan inputs, then edit rooms from the side panel.</p>
                 </div>
               </div>
-              <h1>
-                <Home size={28} />
-                Interactive Floor Plan App
-              </h1>
-              <p>
-                Build rooms, edit openings, add furniture, and preview the layout in 2D and 3D.
-              </p>
+              <div className="current-project-chip">
+                {currentProjectId ? `Opened "${planName}"` : "Unsaved project"}
+              </div>
             </div>
 
-            <div className="input-card top-input-card">
-              <div className="top-input-header">
-                <h2>All the Plan inputs can be provided here</h2>
-              </div>
+            {projectStatusMessage && (
+              <div className="project-status-banner">{projectStatusMessage}</div>
+            )}
 
-              {projectStatusMessage && (
-                <div className="project-status-banner">{projectStatusMessage}</div>
-              )}
-
-              <div className="form-grid plan-top-grid">
+            <div className="form-grid plan-top-grid">
                 <div className="field field--span-2">
                   <label>Plan Name</label>
                   <input value={planName} onChange={(e) => setPlanName(e.target.value)} />
@@ -1821,7 +1816,6 @@ export default function App() {
                   </select>
                 </div>
               </div>
-            </div>
           </div>
 
           {/* project action button area */}
