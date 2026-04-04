@@ -6,7 +6,6 @@ import {
   Home,
   Plus,
   Trash2,
-  LayoutGrid,
   RotateCcw,
   Sofa,
   Save,
@@ -1741,9 +1740,6 @@ export default function App() {
                   <p>Configure plan inputs, then edit rooms from the side panel.</p>
                 </div>
               </div>
-              <div className="current-project-chip">
-                {currentProjectId ? `Opened "${planName}"` : "Unsaved project"}
-              </div>
             </div>
 
             {projectStatusMessage && (
@@ -1836,26 +1832,6 @@ export default function App() {
         </div>
       </section>
 
-      {/* uniform view buttons */}
-      <section className="view-toolbar-card input-card">
-        <div className="uniform-view-buttons">
-          <button
-            className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
-            onClick={() => setActiveView("2d")}
-          >
-            2D
-          </button>
-          <button
-            className={`view-toolbar-btn ${activeView === "3d" ? "active" : ""}`}
-            onClick={() => setActiveView("3d")}
-          >
-            3D
-          </button>
-          <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>
-            Export SVG
-          </button>
-        </div>
-      </section>
 
       <div className="workspace-grid">
         {/* preview/stats section */}
@@ -1885,6 +1861,23 @@ export default function App() {
             <section className="preview-card preview-card--dominant">
               <div className="section-header section-header--preview">
                 <h2>2D Floor Plan</h2>
+                <div className="preview-toolbar">
+                  <button
+                    className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
+                    onClick={() => setActiveView("2d")}
+                  >
+                    2D
+                  </button>
+                  <button
+                    className={`view-toolbar-btn ${activeView === "3d" ? "active" : ""}`}
+                    onClick={() => setActiveView("3d")}
+                  >
+                    3D
+                  </button>
+                  <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>
+                    Export SVG
+                  </button>
+                </div>
               </div>
 
               <div className="svg-wrap svg-wrap--dominant">
@@ -1988,7 +1981,7 @@ export default function App() {
                             y={y + h / 2 - 8}
                             textAnchor="middle"
                             style={{
-                              fontSize: 14,
+                              fontSize: 11,
                               fontWeight: 700,
                               fill: "#172033",
                               pointerEvents: "none",
@@ -2002,7 +1995,7 @@ export default function App() {
                             y={y + h / 2 + 14}
                             textAnchor="middle"
                             style={{
-                              fontSize: 12,
+                              fontSize: 10,
                               fill: "#56637a",
                               pointerEvents: "none",
                             }}
@@ -2017,7 +2010,7 @@ export default function App() {
                       x={canvasWidth / 2}
                       y={-18}
                       textAnchor="middle"
-                      style={{ fontSize: 13, fontWeight: 600, fill: "#324257" }}
+                      style={{ fontSize: 11, fontWeight: 600, fill: "#324257" }}
                     >
                       Width: {totalWidth} ft
                     </text>
@@ -2027,7 +2020,7 @@ export default function App() {
                       y={canvasHeight / 2}
                       textAnchor="middle"
                       transform={`rotate(-90, -18, ${canvasHeight / 2})`}
-                      style={{ fontSize: 13, fontWeight: 600, fill: "#324257" }}
+                      style={{ fontSize: 11, fontWeight: 600, fill: "#324257" }}
                     >
                       Height: {totalHeight} ft
                     </text>
@@ -2041,6 +2034,23 @@ export default function App() {
             <section className="preview-card preview-card--dominant">
               <div className="section-header section-header--preview">
                 <h2>3D Floor Plan</h2>
+                <div className="preview-toolbar">
+                  <button
+                    className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
+                    onClick={() => setActiveView("2d")}
+                  >
+                    2D
+                  </button>
+                  <button
+                    className={`view-toolbar-btn ${activeView === "3d" ? "active" : ""}`}
+                    onClick={() => setActiveView("3d")}
+                  >
+                    3D
+                  </button>
+                  <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>
+                    Export SVG
+                  </button>
+                </div>
               </div>
 
               <div className="three-wrap three-wrap--dominant">
@@ -2074,10 +2084,6 @@ export default function App() {
           <div className="section-header rooms-sidebar-header">
             <h2>Rooms</h2>
             <div className="header-actions rooms-sidebar-actions">
-              <button className="secondary-btn" onClick={autoArrangeRooms}>
-                <LayoutGrid size={16} />
-                Auto Arrange
-              </button>
               <button className="ghost-btn" onClick={resetPlan}>
                 <RotateCcw size={16} />
                 Reset
