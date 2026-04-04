@@ -41,7 +41,7 @@ button {
 .top-control-card {
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid #dbe4f0;
-  border-radius: 10px; /* reduced border radius */ /* reduced border radius */ /* reduced border radius */
+  border-radius: 18px;
   box-shadow: 0 10px 35px rgba(20, 32, 51, 0.08);
   backdrop-filter: blur(10px);
 }
@@ -59,7 +59,7 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 168px;
   gap: 12px;
-  align-items: stretch;
+  align-items: start; /* removed extra top whitespace */
 }
 
 .hero-card,
@@ -69,7 +69,7 @@ button {
 }
 
 .top-input-card {
-  padding: 14px 16px 16px;
+  padding: 14px 16px 14px; /* removed extra top whitespace */
 }
 
 .top-input-meta-row {
@@ -77,7 +77,7 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 12px;
+  margin-bottom: 10px; /* header/top-section layout fix */
 }
 
 .top-input-brand {
@@ -122,18 +122,20 @@ button {
   font-size: 12px;
 }
 
-
-/* top input row layout fix + reduced field widths */
-.plan-top-grid {
-  display: grid;
-  grid-template-columns: minmax(180px, 1.35fr) repeat(5, minmax(96px, 0.72fr)) minmax(120px, 0.9fr);
-  gap: 10px;
-  margin-bottom: 0;
-  align-items: end;
+.project-status-banner--inline {
+  margin-bottom: 0; /* moved “opened project” placement */
+  margin-left: auto;
+  align-self: flex-start;
+  white-space: nowrap;
 }
 
-.field--plan-name {
-  min-width: 0;
+
+.plan-top-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(6, minmax(110px, 1fr));
+  gap: 12px;
+  margin-bottom: 0;
+  align-items: end;
 }
 
 .field {
@@ -144,13 +146,6 @@ button {
 
 .field--span-2 {
   grid-column: span 2;
-}
-
-/* reduced field widths */
-.plan-top-grid .field input,
-.plan-top-grid .field select {
-  min-width: 0;
-  padding: 10px 11px;
 }
 
 .field label {
@@ -165,7 +160,7 @@ button {
   width: 100%;
   border: 1px solid #ced8e6;
   background: #fff;
-  border-radius: 9px; /* reduced border radius */
+  border-radius: 10px; /* reduced border radius */
   padding: 11px 12px;
   color: #162033;
   outline: none;
@@ -185,13 +180,14 @@ button {
   justify-content: stretch;
   gap: 10px;
   padding: 12px;
+  align-self: stretch;
 }
 
 .project-stack-btn {
   width: 100%;
   justify-content: center;
   min-height: 58px;
-  border-radius: 9px; /* reduced border radius */ /* reduced border radius */
+  border-radius: 12px; /* reduced border radius */
   font-size: 13px;
 }
 
@@ -204,7 +200,7 @@ button {
 .view-toolbar-btn,
 .room-accordion-trigger {
   border: none;
-  border-radius: 10px; /* reduced border radius */
+  border-radius: 12px; /* reduced border radius */
   cursor: pointer;
   transition: 0.2s ease;
 }
@@ -262,12 +258,20 @@ button {
   cursor: not-allowed;
 }
 
+.preview-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px; /* view button spacing and sizing */
+  flex-wrap: wrap;
+}
+
 .view-toolbar-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
-  padding: 10px 14px;
+  min-height: 40px;
+  min-width: 54px;
+  padding: 10px 18px; /* view button spacing and sizing */
   background: #edf2fb;
   color: #30435d;
   font-weight: 700;
@@ -363,7 +367,7 @@ button {
 .svg-wrap,
 .three-wrap {
   overflow: auto;
-  border-radius: 9px; /* reduced border radius */ /* reduced border radius */ /* reduced border radius */
+  border-radius: 14px; /* reduced border radius */
   border: 1px solid #dbe4f0;
   background: #ffffff;
 }
@@ -395,9 +399,9 @@ button {
   min-height: 100%;
   position: sticky;
   top: 12px;
-  max-height: calc(100vh - 24px);
   display: flex;
   flex-direction: column;
+  max-height: calc(100vh - 24px); /* rooms panel scroll/overflow fix */
 }
 
 .rooms-sidebar-header {
@@ -408,18 +412,17 @@ button {
   justify-content: flex-end;
 }
 
-/* rooms panel scroll fix */
 .room-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  max-height: calc(100vh - 230px);
-  overflow-y: auto;
-  overflow-x: hidden;
+  max-height: none;
+  overflow-y: auto; /* rooms panel scroll/overflow fix */
+  overflow-x: visible;
   padding-right: 4px;
-  scroll-padding-bottom: 16px;
+  padding-bottom: 12px;
 }
 
 .room-list--sidebar {
@@ -429,20 +432,19 @@ button {
 .room-card {
   background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
   border: 1px solid #dbe4f0;
-  border-radius: 9px; /* reduced border radius */ /* reduced border radius */
+  border-radius: 12px; /* reduced border radius */
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .accordion-room-card.collapsed {
   border-color: #c8d3e2;
 }
 
-/* expanded room visual styling */
 .accordion-room-card.expanded {
-  border-color: #c9d8ee;
-  background: linear-gradient(180deg, #ffffff 0%, #f4f8ff 100%);
-  box-shadow: 0 10px 24px rgba(39, 62, 110, 0.08);
+  border-color: #b9c9df; /* expanded room visual styling */
+  background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
+  box-shadow: 0 10px 24px rgba(20, 32, 51, 0.08);
 }
 
 .room-accordion-trigger {
@@ -455,10 +457,6 @@ button {
   background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
   color: #152033;
   text-align: left;
-}
-
-.accordion-room-card.expanded .room-accordion-trigger {
-  background: linear-gradient(180deg, #f9fbff 0%, #eef4ff 100%);
 }
 
 .room-accordion-title-wrap {
@@ -490,9 +488,7 @@ button {
 .room-accordion-content {
   padding: 10px 12px 12px;
   border-top: 1px solid #dbe4f0;
-  max-height: min(68vh, 760px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: visible; /* rooms panel scroll/overflow fix */
 }
 
 .room-card-header {
@@ -513,7 +509,7 @@ button {
   margin-top: 10px;
   padding: 12px;
   border: 1px solid #dbe4f0;
-  border-radius: 10px; /* reduced border radius */
+  border-radius: 12px; /* reduced border radius */
   background: rgba(245, 248, 255, 0.72);
 }
 
@@ -530,7 +526,7 @@ button {
 .furniture-card {
   margin-top: 10px;
   padding: 12px;
-  border-radius: 10px; /* reduced border radius */
+  border-radius: 12px; /* reduced border radius */
   border: 1px solid #d6e0ee;
   background: #ffffff;
 }
@@ -555,8 +551,8 @@ button {
 
 .project-status-banner {
   margin-bottom: 12px;
-  padding: 12px 14px;
-  border-radius: 10px; /* reduced border radius */
+  padding: 10px 12px;
+  border-radius: 12px; /* reduced border radius */
   border: 1px solid #dbe4f0;
   background: #f5f8ff;
   color: #223763;
@@ -583,7 +579,7 @@ button {
   flex-direction: column;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid #dbe4f0;
-  border-radius: 10px; /* reduced border radius */ /* reduced border radius */ /* reduced border radius */
+  border-radius: 18px;
   box-shadow: 0 24px 80px rgba(15, 23, 42, 0.24);
   backdrop-filter: blur(10px);
 }
@@ -624,7 +620,7 @@ button {
 .project-item {
   width: 100%;
   border: 1px solid #dbe4f0;
-  border-radius: 10px; /* reduced border radius */ /* reduced border radius */
+  border-radius: 18px;
   background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
   padding: 16px;
   display: flex;
@@ -665,7 +661,7 @@ button {
   justify-content: center;
   min-width: 72px;
   padding: 10px 12px;
-  border-radius: 10px; /* reduced border radius */
+  border-radius: 14px;
   background: #eef3ff;
   color: #223763;
   font-size: 13px;
@@ -675,7 +671,7 @@ button {
 .project-empty-state {
   padding: 20px;
   border: 1px dashed #cfd9e8;
-  border-radius: 10px; /* reduced border radius */ /* reduced border radius */
+  border-radius: 18px;
   background: #f8fbff;
   color: #5b677b;
   text-align: center;
@@ -706,6 +702,11 @@ button {
   .top-input-meta-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .project-status-banner--inline {
+    margin-left: 0;
+    white-space: normal;
   }
 
   .plan-top-grid {
@@ -749,6 +750,10 @@ button {
   .project-actions-card {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .preview-toolbar {
+    width: 100%;
   }
 }
 
