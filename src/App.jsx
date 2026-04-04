@@ -9,6 +9,10 @@ import {
   LayoutGrid,
   RotateCcw,
   Sofa,
+  Save,
+  FolderOpen,
+  FilePlus2,
+  X,
 } from "lucide-react";
 
 const DEFAULT_SCALE = 12;
@@ -44,6 +48,8 @@ const PRODUCT_CATEGORIES = [
   "public toilet",
   "security cabin",
 ];
+
+const PROJECTS_STORAGE_KEY = "floor-plan-generator-projects";
 
 /**
  * Furniture preset map with realistic sizes (feet).
@@ -1151,6 +1157,55 @@ function getDefaultFurnitureSelection(category) {
   return getFurnitureOptionsForCategory(category)[0]?.type || "";
 }
 
+
+function createProjectId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `project-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getDefaultProjectState() {
+  return {
+    planName: "My Floor Plan",
+    totalWidth: 40,
+    totalHeight: 30,
+    wallThickness: WALL_THICKNESS_FT,
+    scale: DEFAULT_SCALE,
+    roomHeight: DEFAULT_ROOM_HEIGHT,
+    activeView: "2d",
+    selectedCategory: "office",
+    rooms: getDefaultRooms(40, 30),
+    furnitureSelections: {},
+  };
+}
+
+function readProjectsFromStorage() {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(PROJECTS_STORAGE_KEY);
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error("Failed to read saved projects:", error);
+    return [];
+  }
+}
+
+function writeProjectsToStorage(projects) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
+  } catch (error) {
+    console.error("Failed to save projects:", error);
+  }
+}
+
 export default function App() {
   const [planName, setPlanName] = useState("My Floor Plan");
   const [totalWidth, setTotalWidth] = useState(40);
@@ -1163,6 +1218,11 @@ export default function App() {
   const [rooms, setRooms] = useState(() => getDefaultRooms(40, 30));
 
   const [furnitureSelections, setFurnitureSelections] = useState({});
+
+  const [savedProjects, setSavedProjects] = useState([]);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [currentProjectId, setCurrentProjectId] = useState(null);
+  const [projectStatusMessage, setProjectStatusMessage] = useState("");
 
   const placedRooms = useMemo(() => {
     return rooms.map((room) =>
@@ -1193,6 +1253,67 @@ export default function App() {
   const utilization = totalPlanArea
     ? ((totalRoomArea / totalPlanArea) * 100).toFixed(1)
     : 0;
+
+  const applyProjectState = (projectState) => {
+    const defaults = getDefaultProjectState();
+    const nextState = {
+      ...defaults,
+      ...(projectState || {}),
+    };
+
+    setPlanName(nextState.planName);
+    setTotalWidth(Number(nextState.totalWidth) || defaults.totalWidth);
+    setTotalHeight(Number(nextState.totalHeight) || defaults.totalHeight);
+    setWallThickness(Number(nextState.wallThickness) || defaults.wallThickness);
+    setScale(Number(nextState.scale) || defaults.scale);
+    setRoomHeight(Number(nextState.roomHeight) || defaults.roomHeight);
+    setActiveView(nextState.activeView === "3d" ? "3d" : "2d");
+    setSelectedCategory(
+      PRODUCT_CATEGORIES.includes(nextState.selectedCategory)
+        ? nextState.selectedCategory
+        : defaults.selectedCategory
+    );
+    setRooms(
+      Array.isArray(nextState.rooms) && nextState.rooms.length
+        ? nextState.rooms
+        : defaults.rooms
+    );
+    setFurnitureSelections(
+      nextState.furnitureSelections && typeof nextState.furnitureSelections === "object"
+        ? nextState.furnitureSelections
+        : defaults.furnitureSelections
+    );
+  };
+
+  const buildCurrentProjectData = () => ({
+    planName,
+    totalWidth,
+    totalHeight,
+    wallThickness,
+    scale,
+    roomHeight,
+    activeView,
+    selectedCategory,
+    rooms,
+    furnitureSelections,
+  });
+
+  const refreshSavedProjects = () => {
+    const projects = readProjectsFromStorage().sort(
+      (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+    );
+    setSavedProjects(projects);
+    return projects;
+  };
+
+  const formatProjectTimestamp = (value) => {
+    if (!value) return "Saved just now";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Saved just now";
+
+    return date.toLocaleString();
+  };
 
   const updateRoom = (id, key, value) => {
     setRooms((prev) =>
@@ -1468,16 +1589,69 @@ export default function App() {
   };
 
   const resetPlan = () => {
-    setPlanName("My Floor Plan");
-    setTotalWidth(40);
-    setTotalHeight(30);
-    setWallThickness(0.5);
-    setScale(12);
-    setRoomHeight(10);
-    setActiveView("2d");
-    setSelectedCategory("office");
-    setFurnitureSelections({});
-    setRooms(getDefaultRooms(40, 30));
+    applyProjectState(getDefaultProjectState());
+    setCurrentProjectId(null);
+    setProjectStatusMessage("");
+  };
+
+  const handleSaveProject = () => {
+    const existingProjects = readProjectsFromStorage();
+    const projectId = currentProjectId || createProjectId();
+    const fallbackName = `Project ${existingProjects.length + 1}`;
+    const safeName = String(planName || "").trim() || fallbackName;
+
+    const projectRecord = {
+      id: projectId,
+      name: safeName,
+      updatedAt: new Date().toISOString(),
+      version: 1,
+      data: {
+        ...buildCurrentProjectData(),
+        planName: safeName,
+      },
+    };
+
+    const nextProjects = currentProjectId
+      ? existingProjects.map((project) => (project.id === projectId ? projectRecord : project))
+      : [projectRecord, ...existingProjects];
+
+    writeProjectsToStorage(nextProjects);
+    setCurrentProjectId(projectId);
+    setPlanName(safeName);
+    setProjectStatusMessage(`Saved "${safeName}"`);
+    setSavedProjects(
+      nextProjects.sort(
+        (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+      )
+    );
+  };
+
+  const handleOpenProjectClick = () => {
+    refreshSavedProjects();
+    setIsProjectModalOpen(true);
+    setProjectStatusMessage("");
+  };
+
+  const handleOpenSavedProject = (projectId) => {
+    const projects = readProjectsFromStorage();
+    const selectedProject = projects.find((project) => project.id === projectId);
+    if (!selectedProject?.data) return;
+
+    applyProjectState(selectedProject.data);
+    setCurrentProjectId(selectedProject.id);
+    setIsProjectModalOpen(false);
+    setProjectStatusMessage(`Opened "${selectedProject.name}"`);
+  };
+
+  const handleNewProject = () => {
+    const shouldContinue = window.confirm(
+      "Start a new project? Unsaved changes in the current design may be lost."
+    );
+
+    if (!shouldContinue) return;
+
+    resetPlan();
+    setIsProjectModalOpen(false);
   };
 
   const exportSVG = () => {
@@ -1521,12 +1695,28 @@ export default function App() {
             <div className="section-header">
               <h2>Plan Inputs</h2>
               <div className="header-actions">
+                <button className="ghost-btn" onClick={handleNewProject}>
+                  <FilePlus2 size={16} />
+                  New Project
+                </button>
+                <button className="secondary-btn" onClick={handleOpenProjectClick}>
+                  <FolderOpen size={16} />
+                  Open Project
+                </button>
+                <button className="primary-btn" onClick={handleSaveProject}>
+                  <Save size={16} />
+                  Save Project
+                </button>
                 <button className="primary-btn" onClick={addRoom}>
                   <Plus size={16} />
                   New Room
                 </button>
               </div>
             </div>
+
+            {projectStatusMessage && (
+              <div className="project-status-banner">{projectStatusMessage}</div>
+            )}
 
             <div className="form-grid one-col">
               <div className="field">
@@ -2261,6 +2451,55 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {isProjectModalOpen && (
+        <div className="project-modal-overlay" onClick={() => setIsProjectModalOpen(false)}>
+          <div className="project-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="project-modal-header">
+              <div>
+                <h3>Open Project</h3>
+                <p>Select a saved project to restore your design.</p>
+              </div>
+
+              <button
+                className="icon-btn"
+                onClick={() => setIsProjectModalOpen(false)}
+                aria-label="Close project modal"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="project-modal-body">
+              {savedProjects.length === 0 ? (
+                <div className="project-empty-state">
+                  No saved projects yet. Save your current design to see it here.
+                </div>
+              ) : (
+                <div className="project-list">
+                  {savedProjects.map((project) => (
+                    <button
+                      key={project.id}
+                      className="project-item"
+                      onClick={() => handleOpenSavedProject(project.id)}
+                    >
+                      <div className="project-item-meta">
+                        <strong className="project-item-title">{project.name}</strong>
+                        <span className="project-item-subtext">
+                          {project.data?.rooms?.length || 0} rooms •{" "}
+                          {project.data?.selectedCategory || "office"} •{" "}
+                          {formatProjectTimestamp(project.updatedAt)}
+                        </span>
+                      </div>
+                      <span className="project-item-open">Open</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
