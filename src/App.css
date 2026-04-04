@@ -1,5 +1,32 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap");
 
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.24);
+  --glass-bg-strong: rgba(255, 255, 255, 0.34);
+  --glass-bg-soft: rgba(255, 255, 255, 0.18);
+  --glass-border: rgba(255, 255, 255, 0.42);
+  --glass-border-soft: rgba(205, 220, 241, 0.62);
+  --glass-shadow: 0 12px 34px rgba(20, 32, 51, 0.10);
+  --glass-shadow-soft: 0 8px 20px rgba(20, 32, 51, 0.06);
+  --glass-blur: 18px;
+  --glass-saturate: 160%;
+
+  --text-main: #142033;
+  --text-muted: #5b677b;
+  --text-soft: #68758b;
+
+  --radius-xl: 16px;
+  --radius-lg: 12px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+
+  --surface-dark: #0c1b3a;
+  --surface-dark-hover: #10244a;
+  --surface-accent: rgba(233, 239, 255, 0.72);
+  --surface-accent-strong: rgba(219, 228, 255, 0.82);
+  --focus-ring: 0 0 0 4px rgba(127, 142, 255, 0.14);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -12,7 +39,7 @@ body,
   min-height: 100%;
   font-family: "Montserrat", sans-serif;
   background: #eef3fb;
-  color: #142033;
+  color: var(--text-main);
 }
 
 button,
@@ -30,8 +57,10 @@ button {
   min-height: 100vh;
   padding: 12px;
   background:
-    radial-gradient(circle at top left, rgba(193, 207, 255, 0.35), transparent 30%),
-    linear-gradient(180deg, #edf2fa 0%, #f7f9fd 100%);
+    radial-gradient(circle at 12% 10%, rgba(137, 180, 255, 0.28), transparent 26%),
+    radial-gradient(circle at 88% 16%, rgba(196, 167, 255, 0.18), transparent 22%),
+    radial-gradient(circle at 55% 100%, rgba(167, 230, 255, 0.14), transparent 24%),
+    linear-gradient(180deg, #eaf1fb 0%, #f6f9fd 100%);
 }
 
 .hero-card,
@@ -39,11 +68,12 @@ button {
 .preview-card,
 .summary-box,
 .top-control-card {
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid #dbe4f0;
-  border-radius: 14px;
-  box-shadow: 0 10px 35px rgba(20, 32, 51, 0.08);
-  backdrop-filter: blur(10px);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border-soft);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
 }
 
 .top-control-card {
@@ -52,6 +82,7 @@ button {
   background: transparent;
   border: none;
   box-shadow: none;
+  -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 
@@ -70,6 +101,12 @@ button {
 
 .top-input-card {
   padding: 12px 16px 12px;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 2px)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(calc(var(--glass-blur) + 2px)) saturate(var(--glass-saturate));
 }
 
 .top-input-meta-row {
@@ -94,11 +131,14 @@ button {
   align-items: center;
   padding: 7px 12px;
   border-radius: 999px;
-  background: #dbe4ff;
+  background: rgba(219, 228, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.48);
   color: #3e4be0;
   font-size: 10px;
   font-weight: 700;
   white-space: nowrap;
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  backdrop-filter: blur(10px) saturate(150%);
 }
 
 .top-input-brand-copy {
@@ -119,7 +159,7 @@ button {
 
 .top-input-brand-copy p {
   margin: 0;
-  color: #5b677b;
+  color: var(--text-muted);
   line-height: 1.45;
   font-size: 12px;
 }
@@ -127,12 +167,14 @@ button {
 .project-status-banner,
 .project-status-banner--inline {
   padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid #dbe4f0;
-  background: #f5f8ff;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: rgba(245, 248, 255, 0.46);
   color: #223763;
   font-size: 13px;
   font-weight: 700;
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
 }
 
 .project-status-banner {
@@ -186,13 +228,15 @@ button {
 .field textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid #ced8e6;
-  background: #fff;
-  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.38);
+  border-radius: var(--radius-md);
   padding: 10px 12px;
   color: #162033;
   outline: none;
   transition: 0.2s ease;
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
 }
 
 .field input,
@@ -204,7 +248,7 @@ button {
 .field select:focus,
 .field textarea:focus {
   border-color: #7f8eff;
-  box-shadow: 0 0 0 4px rgba(127, 142, 255, 0.14);
+  box-shadow: var(--focus-ring);
 }
 
 /* tighter top-right project actions pane so it matches the header/input card height */
@@ -216,14 +260,20 @@ button {
   padding: 8px;
   min-height: 100%;
   align-self: stretch;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 2px)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(calc(var(--glass-blur) + 2px)) saturate(var(--glass-saturate));
 }
 
 .project-stack-btn {
   width: 100%;
   justify-content: center;
-  min-height: 34px;
-  padding: 8px 14px;
-  border-radius: 10px;
+  min-height: 40px;
+  padding: 9px 16px;
+  border-radius: var(--radius-lg);
   font-size: 12px;
   line-height: 1.2;
 }
@@ -236,7 +286,7 @@ button {
 .view-toolbar-btn,
 .room-accordion-trigger {
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: 0.2s ease;
 }
@@ -245,7 +295,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #0c1b3a;
+  background: var(--surface-dark);
   color: #fff;
   padding: 10px 14px;
   font-weight: 700;
@@ -256,27 +306,33 @@ button {
 .view-toolbar-btn--dark:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 18px rgba(12, 27, 58, 0.2);
+  background: var(--surface-dark-hover);
 }
 
 .secondary-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #e9efff;
+  background: var(--surface-accent);
   color: #223763;
   padding: 11px 14px;
   font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
 }
 
 .ghost-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #f5f7fb;
+  background: rgba(245, 247, 251, 0.52);
   color: #3f4b61;
   padding: 11px 14px;
   font-weight: 700;
-  border: 1px solid #dbe4f0;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
 }
 
 .icon-btn {
@@ -284,9 +340,11 @@ button {
   height: 36px;
   display: grid;
   place-items: center;
-  background: #f5f7fb;
+  background: rgba(245, 247, 251, 0.58);
   color: #24334c;
-  border: 1px solid #dbe4f0;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  -webkit-backdrop-filter: blur(12px) saturate(145%);
+  backdrop-filter: blur(12px) saturate(145%);
 }
 
 .icon-btn:disabled {
@@ -301,19 +359,24 @@ button {
   min-height: 38px;
   min-width: 52px;
   padding: 10px 16px;
-  background: #edf2fb;
+  background: rgba(237, 242, 251, 0.58);
   color: #30435d;
   font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
 }
 
 .view-toolbar-btn.active {
-  background: #0c1b3a;
+  background: var(--surface-dark);
   color: #fff;
+  border-color: rgba(12, 27, 58, 0.2);
 }
 
 .view-toolbar-btn--dark {
-  background: #0c1b3a;
+  background: var(--surface-dark);
   color: #fff;
+  border: 1px solid rgba(12, 27, 58, 0.2);
 }
 
 .preview-toolbar,
@@ -350,11 +413,14 @@ button {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
 }
 
 .summary-box span {
   font-size: 10px;
-  color: #68758b;
+  color: var(--text-soft);
   margin-bottom: 6px;
   font-weight: 700;
   text-transform: uppercase;
@@ -369,6 +435,7 @@ button {
 
 .preview-card--dominant {
   padding: 10px;
+  background: rgba(255, 255, 255, 0.26);
 }
 
 .section-header {
@@ -404,9 +471,11 @@ button {
 .svg-wrap,
 .three-wrap {
   overflow: auto;
-  border-radius: 14px;
-  border: 1px solid #dbe4f0;
-  background: #ffffff;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.50);
+  -webkit-backdrop-filter: blur(16px) saturate(155%);
+  backdrop-filter: blur(16px) saturate(155%);
 }
 
 .svg-wrap--dominant {
@@ -440,6 +509,12 @@ button {
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 24px);
+  background: rgba(255, 255, 255, 0.26);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
 }
 
 .rooms-sidebar-header {
@@ -469,20 +544,22 @@ button {
 }
 
 .room-card {
-  background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
-  border: 1px solid #dbe4f0;
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: var(--radius-md);
   padding: 0;
   overflow: visible;
+  -webkit-backdrop-filter: blur(14px) saturate(145%);
+  backdrop-filter: blur(14px) saturate(145%);
 }
 
 .accordion-room-card.collapsed {
-  border-color: #c8d3e2;
+  border-color: rgba(200, 211, 226, 0.72);
 }
 
 .accordion-room-card.expanded {
-  border-color: #b9c9df;
-  background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
+  border-color: rgba(185, 201, 223, 0.92);
+  background: rgba(255, 255, 255, 0.34);
   box-shadow: 0 10px 24px rgba(20, 32, 51, 0.08);
 }
 
@@ -493,9 +570,12 @@ button {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+  background: rgba(255, 255, 255, 0.28);
   color: #152033;
   text-align: left;
+  border-radius: inherit;
+  -webkit-backdrop-filter: blur(12px) saturate(145%);
+  backdrop-filter: blur(12px) saturate(145%);
 }
 
 .room-accordion-title-wrap {
@@ -526,8 +606,9 @@ button {
 
 .room-accordion-content {
   padding: 10px 12px 12px;
-  border-top: 1px solid #dbe4f0;
+  border-top: 1px solid rgba(219, 228, 240, 0.72);
   overflow: visible;
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .room-card-header {
@@ -547,9 +628,11 @@ button {
 .opening-card {
   margin-top: 10px;
   padding: 12px;
-  border: 1px solid #dbe4f0;
-  border-radius: 10px;
-  background: rgba(245, 248, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: var(--radius-md);
+  background: rgba(245, 248, 255, 0.30);
+  -webkit-backdrop-filter: blur(12px) saturate(145%);
+  backdrop-filter: blur(12px) saturate(145%);
 }
 
 .furniture-section-header h3 {
@@ -559,15 +642,17 @@ button {
 }
 
 .furniture-panel {
-  background: rgba(241, 247, 255, 0.8);
+  background: rgba(241, 247, 255, 0.40);
 }
 
 .furniture-card {
   margin-top: 10px;
   padding: 12px;
-  border-radius: 10px;
-  border: 1px solid #d6e0ee;
-  background: #ffffff;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.28);
+  -webkit-backdrop-filter: blur(12px) saturate(145%);
+  backdrop-filter: blur(12px) saturate(145%);
 }
 
 .furniture-meta {
@@ -605,11 +690,12 @@ button {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid #dbe4f0;
-  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
   box-shadow: 0 24px 80px rgba(15, 23, 42, 0.24);
-  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(18px) saturate(155%);
+  backdrop-filter: blur(18px) saturate(155%);
 }
 
 .project-modal-header {
@@ -618,7 +704,7 @@ button {
   justify-content: space-between;
   gap: 16px;
   padding: 22px 22px 18px;
-  border-bottom: 1px solid #e6edf6;
+  border-bottom: 1px solid rgba(230, 237, 246, 0.85);
 }
 
 .project-modal-header h3 {
@@ -630,7 +716,7 @@ button {
 
 .project-modal-header p {
   margin: 0;
-  color: #5b677b;
+  color: var(--text-muted);
   line-height: 1.5;
 }
 
@@ -647,9 +733,9 @@ button {
 
 .project-item {
   width: 100%;
-  border: 1px solid #dbe4f0;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.40);
   padding: 16px;
   display: flex;
   align-items: center;
@@ -658,12 +744,14 @@ button {
   text-align: left;
   cursor: pointer;
   transition: 0.2s ease;
+  -webkit-backdrop-filter: blur(12px) saturate(145%);
+  backdrop-filter: blur(12px) saturate(145%);
 }
 
 .project-item:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 24px rgba(20, 32, 51, 0.08);
-  border-color: #c9d7ea;
+  border-color: rgba(201, 215, 234, 0.92);
 }
 
 .project-item-meta {
@@ -689,22 +777,27 @@ button {
   justify-content: center;
   min-width: 72px;
   padding: 10px 12px;
-  border-radius: 10px;
-  background: #eef3ff;
+  border-radius: var(--radius-md);
+  background: rgba(238, 243, 255, 0.78);
   color: #223763;
   font-size: 13px;
   font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  -webkit-backdrop-filter: blur(12px) saturate(145%);
+  backdrop-filter: blur(12px) saturate(145%);
 }
 
 .project-empty-state {
   padding: 20px;
-  border: 1px dashed #cfd9e8;
-  border-radius: 14px;
-  background: #f8fbff;
+  border: 1px dashed rgba(207, 217, 232, 0.9);
+  border-radius: var(--radius-lg);
+  background: rgba(248, 251, 255, 0.48);
   color: #5b677b;
   text-align: center;
   line-height: 1.6;
   font-weight: 600;
+  -webkit-backdrop-filter: blur(12px) saturate(145%);
+  backdrop-filter: blur(12px) saturate(145%);
 }
 
 /* ordered media queries: large -> small */
@@ -723,7 +816,7 @@ button {
   }
 
   .project-stack-btn {
-    min-height: 34px;
+    min-height: 40px;
   }
 }
 
