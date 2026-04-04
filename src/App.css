@@ -59,7 +59,7 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 168px;
   gap: 12px;
-  align-items: start; /* removed extra top whitespace */
+  align-items: start;
 }
 
 .hero-card,
@@ -69,15 +69,15 @@ button {
 }
 
 .top-input-card {
-  padding: 14px 16px 14px; /* removed extra top whitespace */
+  padding: 14px 16px 16px;
 }
 
 .top-input-meta-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 10px; /* header/top-section layout fix */
+  margin-bottom: 12px;
 }
 
 .top-input-brand {
@@ -85,6 +85,7 @@ button {
   align-items: flex-start;
   gap: 12px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .hero-card .pill,
@@ -102,6 +103,7 @@ button {
 
 .top-input-brand-copy {
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .top-input-brand-copy h1 {
@@ -122,17 +124,37 @@ button {
   font-size: 12px;
 }
 
+.project-status-banner,
 .project-status-banner--inline {
-  margin-bottom: 0; /* moved “opened project” placement */
-  margin-left: auto;
-  align-self: flex-start;
-  white-space: nowrap;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #dbe4f0;
+  background: #f5f8ff;
+  color: #223763;
+  font-size: 13px;
+  font-weight: 700;
 }
 
+.project-status-banner {
+  margin-bottom: 12px;
+}
 
+.project-status-banner--inline {
+  margin-left: auto;
+  margin-bottom: 0;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+/* keep the top controls in one horizontal row on desktop */
 .plan-top-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) repeat(6, minmax(110px, 1fr));
+  grid-template-columns: 1.35fr repeat(6, minmax(110px, 1fr));
   gap: 12px;
   margin-bottom: 0;
   align-items: end;
@@ -142,10 +164,15 @@ button {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .field--span-2 {
   grid-column: span 2;
+}
+
+.field--compact-plan-name {
+  min-width: 0;
 }
 
 .field label {
@@ -158,13 +185,19 @@ button {
 .field select,
 .field textarea {
   width: 100%;
+  min-width: 0;
   border: 1px solid #ced8e6;
   background: #fff;
-  border-radius: 10px; /* reduced border radius */
-  padding: 11px 12px;
+  border-radius: 12px;
+  padding: 10px 12px;
   color: #162033;
   outline: none;
   transition: 0.2s ease;
+}
+
+.field input,
+.field select {
+  min-height: 44px;
 }
 
 .field input:focus,
@@ -180,17 +213,15 @@ button {
   justify-content: stretch;
   gap: 10px;
   padding: 12px;
-  align-self: stretch;
 }
 
 .project-stack-btn {
   width: 100%;
   justify-content: center;
   min-height: 58px;
-  border-radius: 12px; /* reduced border radius */
+  border-radius: 14px;
   font-size: 13px;
 }
-
 
 .primary-btn,
 .secondary-btn,
@@ -200,7 +231,7 @@ button {
 .view-toolbar-btn,
 .room-accordion-trigger {
   border: none;
-  border-radius: 12px; /* reduced border radius */
+  border-radius: 12px;
   cursor: pointer;
   transition: 0.2s ease;
 }
@@ -258,20 +289,13 @@ button {
   cursor: not-allowed;
 }
 
-.preview-toolbar {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px; /* view button spacing and sizing */
-  flex-wrap: wrap;
-}
-
 .view-toolbar-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 40px;
-  min-width: 54px;
-  padding: 10px 18px; /* view button spacing and sizing */
+  min-height: 38px;
+  min-width: 52px;
+  padding: 10px 16px;
   background: #edf2fb;
   color: #30435d;
   font-weight: 700;
@@ -285,6 +309,14 @@ button {
 .view-toolbar-btn--dark {
   background: #0c1b3a;
   color: #fff;
+}
+
+.preview-toolbar,
+.uniform-view-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .workspace-grid {
@@ -367,7 +399,7 @@ button {
 .svg-wrap,
 .three-wrap {
   overflow: auto;
-  border-radius: 14px; /* reduced border radius */
+  border-radius: 14px;
   border: 1px solid #dbe4f0;
   background: #ffffff;
 }
@@ -395,17 +427,19 @@ button {
   height: 100% !important;
 }
 
+/* room panel scroll fix */
 .rooms-sidebar {
   min-height: 100%;
   position: sticky;
   top: 12px;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 24px); /* rooms panel scroll/overflow fix */
+  max-height: calc(100vh - 24px);
 }
 
 .rooms-sidebar-header {
   align-items: flex-start;
+  flex: 0 0 auto;
 }
 
 .rooms-sidebar-actions {
@@ -419,7 +453,7 @@ button {
   flex: 1 1 auto;
   min-height: 0;
   max-height: none;
-  overflow-y: auto; /* rooms panel scroll/overflow fix */
+  overflow-y: auto;
   overflow-x: visible;
   padding-right: 4px;
   padding-bottom: 12px;
@@ -432,7 +466,7 @@ button {
 .room-card {
   background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
   border: 1px solid #dbe4f0;
-  border-radius: 12px; /* reduced border radius */
+  border-radius: 12px;
   padding: 0;
   overflow: visible;
 }
@@ -442,7 +476,7 @@ button {
 }
 
 .accordion-room-card.expanded {
-  border-color: #b9c9df; /* expanded room visual styling */
+  border-color: #b9c9df;
   background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
   box-shadow: 0 10px 24px rgba(20, 32, 51, 0.08);
 }
@@ -488,7 +522,7 @@ button {
 .room-accordion-content {
   padding: 10px 12px 12px;
   border-top: 1px solid #dbe4f0;
-  overflow: visible; /* rooms panel scroll/overflow fix */
+  overflow: visible;
 }
 
 .room-card-header {
@@ -509,7 +543,7 @@ button {
   margin-top: 10px;
   padding: 12px;
   border: 1px solid #dbe4f0;
-  border-radius: 12px; /* reduced border radius */
+  border-radius: 12px;
   background: rgba(245, 248, 255, 0.72);
 }
 
@@ -526,7 +560,7 @@ button {
 .furniture-card {
   margin-top: 10px;
   padding: 12px;
-  border-radius: 12px; /* reduced border radius */
+  border-radius: 12px;
   border: 1px solid #d6e0ee;
   background: #ffffff;
 }
@@ -547,17 +581,6 @@ button {
   font-size: 11px;
   color: #617089;
   font-weight: 600;
-}
-
-.project-status-banner {
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border-radius: 12px; /* reduced border radius */
-  border: 1px solid #dbe4f0;
-  background: #f5f8ff;
-  color: #223763;
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .project-modal-overlay {
@@ -620,7 +643,7 @@ button {
 .project-item {
   width: 100%;
   border: 1px solid #dbe4f0;
-  border-radius: 18px;
+  border-radius: 14px;
   background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
   padding: 16px;
   display: flex;
@@ -661,7 +684,7 @@ button {
   justify-content: center;
   min-width: 72px;
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #eef3ff;
   color: #223763;
   font-size: 13px;
@@ -671,7 +694,7 @@ button {
 .project-empty-state {
   padding: 20px;
   border: 1px dashed #cfd9e8;
-  border-radius: 18px;
+  border-radius: 14px;
   background: #f8fbff;
   color: #5b677b;
   text-align: center;
@@ -679,17 +702,37 @@ button {
   font-weight: 600;
 }
 
-@media (max-width: 1380px) {
-  .top-control-left {
-    grid-template-columns: 280px minmax(0, 1fr);
-  }
-
+/* ordered media queries: large -> small */
+@media (max-width: 1500px) {
   .plan-top-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1.2fr repeat(6, minmax(96px, 1fr));
   }
 
+  .project-actions-card {
+    flex-direction: row;
+  }
+
+  .project-stack-btn {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 1380px) {
   .workspace-grid {
     grid-template-columns: minmax(0, 1fr) 380px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .rooms-sidebar {
+    height: auto;
+    max-height: none;
+    position: static;
+    overflow: visible;
+  }
+
+  .room-list {
+    max-height: none;
   }
 }
 
@@ -737,8 +780,12 @@ button {
 
 @media (max-width: 900px) {
   .preview-stats-row,
-  .plan-top-grid,
+  .plan-top-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .uniform-view-buttons {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -747,13 +794,10 @@ button {
   }
 
   .rooms-sidebar-header,
-  .project-actions-card {
+  .project-actions-card,
+  .project-item {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .preview-toolbar {
-    width: 100%;
   }
 }
 
@@ -780,7 +824,8 @@ button {
     align-items: flex-start;
   }
 
-  .hero-card h1 {
+  .hero-card h1,
+  .top-input-brand-copy h1 {
     font-size: 22px;
   }
 
@@ -810,51 +855,13 @@ button {
   .project-item-open {
     min-width: 0;
   }
-}
 
-@media (max-width: 1500px) {
-  .plan-top-grid {
-    grid-template-columns: 1.4fr repeat(6, minmax(110px, 1fr));
+  .preview-toolbar,
+  .uniform-view-buttons {
+    width: 100%;
   }
 
-  .project-actions-card {
-    flex-direction: row;
-  }
-
-  .project-stack-btn {
-    min-height: 44px;
+  .view-toolbar-btn {
+    flex: 1 1 auto;
   }
 }
-  .project-actions-card {
-    flex-direction: row;
-  }
-
-  .project-stack-btn {
-    min-height: 44px;
-  }
-}
-
-@media (max-width: 1200px) {
-  .rooms-sidebar {
-    height: auto;
-    max-height: none;
-    position: static;
-    overflow: visible;
-  }
-
-  .room-list {
-    max-height: none;
-  }
-}
-/* top input row - keep everything in one horizontal line on wide screens */
-.plan-top-grid {
-  display: grid;
-  grid-template-columns: 1.5fr repeat(6, minmax(120px, 1fr));
-  gap: 12px;
-  align-items: end;
-}
-/* compact plan name field so it does not occupy too much horizontal space */
-.field--compact-plan-name {
-  min-width: 0;
-}
-
