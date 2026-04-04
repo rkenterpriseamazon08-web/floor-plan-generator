@@ -293,7 +293,7 @@ textarea {
 
 .view-switch {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 
@@ -366,4 +366,11 @@ textarea {
     height: 480px;
     min-height: 480px;
   }
+}
+.opening-card {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  background: rgba(245, 248, 255, 0.7);
 }
