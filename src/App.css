@@ -122,19 +122,6 @@ button {
   font-size: 12px;
 }
 
-.current-project-chip {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: #f2f4f8;
-  border: 1px solid #dbe4f0;
-  color: #48556c;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 190px;
-}
 
 .plan-top-grid {
   display: grid;
@@ -196,21 +183,6 @@ button {
   font-size: 13px;
 }
 
-.view-toolbar-card {
-  margin-bottom: 12px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
-.uniform-view-buttons {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  max-width: 420px;
-}
 
 .primary-btn,
 .secondary-btn,
@@ -803,5 +775,33 @@ button {
 
   .project-item-open {
     min-width: 0;
+  }
+}
+
+
+@media (max-width: 1500px) {
+  .plan-top-grid {
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+  }
+
+  .project-actions-card {
+    flex-direction: row;
+  }
+
+  .project-stack-btn {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .rooms-sidebar {
+    height: auto;
+    max-height: none;
+    position: static;
+    overflow: visible;
+  }
+
+  .room-list {
+    max-height: none;
   }
 }
