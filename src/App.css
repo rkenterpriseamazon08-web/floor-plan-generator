@@ -812,12 +812,19 @@ button {
   }
 }
 
-
 @media (max-width: 1500px) {
   .plan-top-grid {
-    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    grid-template-columns: 1.4fr repeat(6, minmax(110px, 1fr));
   }
 
+  .project-actions-card {
+    flex-direction: row;
+  }
+
+  .project-stack-btn {
+    min-height: 44px;
+  }
+}
   .project-actions-card {
     flex-direction: row;
   }
@@ -839,3 +846,15 @@ button {
     max-height: none;
   }
 }
+/* top input row - keep everything in one horizontal line on wide screens */
+.plan-top-grid {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(6, minmax(120px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+/* compact plan name field so it does not occupy too much horizontal space */
+.field--compact-plan-name {
+  min-width: 0;
+}
+
