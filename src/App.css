@@ -1,37 +1,34 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap");
 
 :root {
-  /* Enhanced Glass Palette */
-  --glass-bg: rgba(255, 255, 255, 0.45);
-  --glass-bg-strong: rgba(255, 255, 255, 0.65);
-  --glass-bg-soft: rgba(255, 255, 255, 0.25);
+  /* Refined Glass Palette - Smoother gradients and higher legibility */
+  --glass-bg: rgba(255, 255, 255, 0.42);
+  --glass-bg-strong: rgba(255, 255, 255, 0.62);
+  --glass-bg-soft: rgba(255, 255, 255, 0.22);
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-border-soft: rgba(215, 225, 245, 0.65);
   
-  /* Reflective Borders */
-  --glass-border: rgba(255, 255, 255, 0.5);
-  --glass-border-soft: rgba(255, 255, 255, 0.3);
+  /* Deeper, multi-layered shadows for realistic depth */
+  --glass-shadow: 0 8px 32px rgba(20, 32, 51, 0.08), 0 1px 2px rgba(255, 255, 255, 0.3);
+  --glass-shadow-soft: 0 4px 16px rgba(20, 32, 51, 0.04);
   
-  /* Multi-layered Depth Shadows */
-  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.12);
-  --glass-shadow-heavy: 0 16px 48px 0 rgba(31, 38, 135, 0.2);
-  
-  --glass-blur: 20px;
-  --glass-saturate: 180%;
+  --glass-blur: 16px;
+  --glass-saturate: 170%;
 
-  /* Modern Professional Colors */
   --text-main: #0f172a;
   --text-muted: #475569;
   --text-soft: #64748b;
-  --accent-color: #4f46e5;
 
-  --radius-xl: 20px;
-  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-lg: 12px;
   --radius-md: 10px;
   --radius-sm: 8px;
 
   --surface-dark: #1e293b;
   --surface-dark-hover: #0f172a;
-  --surface-accent: rgba(240, 245, 255, 0.8);
-  --focus-ring: 0 0 0 4px rgba(79, 70, 229, 0.15);
+  --surface-accent: rgba(235, 242, 255, 0.85);
+  --surface-accent-strong: rgba(220, 230, 255, 0.9);
+  --focus-ring: 0 0 0 4px rgba(79, 70, 229, 0.12);
 }
 
 * {
@@ -51,315 +48,495 @@ body,
   line-height: 1.5;
 }
 
-/* Background gradients for a deeper feel */
-.app-shell {
-  min-height: 100vh;
-  padding: 24px;
-  background: 
-    radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(147, 51, 234, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
-    #f8fafc;
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
-/* Base Glassmorphism Card Style */
+button {
+  appearance: none;
+}
+
+/* --- Layout Structure (Unchanged from original) --- */
+
+.app-shell {
+  min-height: 100vh;
+  padding: 12px;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(137, 180, 255, 0.22), transparent 26%),
+    radial-gradient(circle at 88% 16%, rgba(196, 167, 255, 0.15), transparent 22%),
+    radial-gradient(circle at 55% 100%, rgba(167, 230, 255, 0.12), transparent 24%),
+    linear-gradient(180deg, #f1f5f9 0%, #f8fafc 100%);
+}
+
 .hero-card,
 .input-card,
 .preview-card,
 .summary-box,
-.project-actions-card,
-.rooms-sidebar {
+.top-control-card {
   background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--glass-border-soft);
   border-radius: var(--radius-xl);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
 }
-
-/* -------------------------------------------------------------------------- */
-/* TOP CONTROLS & HEADER                                                      */
-/* -------------------------------------------------------------------------- */
 
 .top-control-card {
   padding: 0;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
   background: transparent;
   border: none;
   box-shadow: none;
+  -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 
+.top-control-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 188px;
+  gap: 10px;
+  align-items: start;
+}
+
+.hero-card,
+.input-card,
+.preview-card {
+  padding: 12px;
+}
+
 .top-input-card {
-  padding: 20px;
+  padding: 16px;
   background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 4px)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(calc(var(--glass-blur) + 4px)) saturate(var(--glass-saturate));
+}
+
+.top-input-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.top-input-brand {
+  display: flex;
+  align-items: center; /* Better vertical alignment */
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.hero-card .pill,
+.top-input-brand .pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(79, 70, 229, 0.08);
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  color: #4f46e5;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.top-input-brand-copy {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .top-input-brand-copy h1 {
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  color: var(--text-main);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  margin: 0 0 2px;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-main);
 }
 
 .top-input-brand-copy p {
-  font-size: 14px;
-  color: var(--text-soft);
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.4;
+  font-size: 12px;
   font-weight: 500;
 }
 
-.pill {
-  padding: 6px 14px;
-  background: rgba(79, 70, 229, 0.1);
-  color: var(--accent-color);
+.project-status-banner,
+.project-status-banner--inline {
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.5);
+  color: #1e293b;
+  font-size: 12px;
   font-weight: 700;
-  font-size: 11px;
-  border-radius: 999px;
-  border: 1px solid rgba(79, 70, 229, 0.2);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.project-status-banner {
+  margin-bottom: 12px;
 }
 
 .project-status-banner--inline {
-  background: rgba(255, 255, 255, 0.5);
-  padding: 8px 16px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 12px;
-  border: 1px solid var(--glass-border);
+  margin-left: auto;
+  margin-bottom: 0;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
-/* -------------------------------------------------------------------------- */
-/* FORMS & INPUTS                                                             */
-/* -------------------------------------------------------------------------- */
+/* --- Form Grids --- */
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.plan-top-grid {
+  display: grid;
+  grid-template-columns: 1.35fr repeat(6, minmax(110px, 1fr));
+  gap: 12px;
+  margin-bottom: 0;
+  align-items: end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field--span-2 {
+  grid-column: span 2;
+}
 
 .field label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--text-muted);
-  margin-bottom: 4px;
+  color: #475569;
+  letter-spacing: 0.01em;
 }
 
 .field input,
 .field select,
 .field textarea {
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  padding: 12px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.55);
   border-radius: var(--radius-md);
-  font-size: 14px;
-  color: var(--text-main);
+  padding: 10px 12px;
+  color: #0f172a;
+  outline: none;
   transition: all 0.2s ease;
 }
 
 .field input:focus,
 .field select:focus {
   background: #fff;
-  border-color: var(--accent-color);
+  border-color: #6366f1;
   box-shadow: var(--focus-ring);
 }
 
-/* -------------------------------------------------------------------------- */
-/* BUTTONS                                                                    */
-/* -------------------------------------------------------------------------- */
+/* --- Actions Card --- */
+
+.project-actions-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px;
+  min-height: 100%;
+  align-self: stretch;
+  background: var(--glass-bg-strong);
+}
+
+.project-stack-btn {
+  width: 100%;
+  justify-content: center;
+  min-height: 42px;
+  padding: 9px 16px;
+  border-radius: var(--radius-lg);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* --- Buttons --- */
+
+.primary-btn,
+.secondary-btn,
+.ghost-btn,
+.icon-btn,
+.view-switch button,
+.view-toolbar-btn,
+.room-accordion-trigger {
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
 .primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: var(--surface-dark);
-  padding: 12px 20px;
-  border-radius: var(--radius-lg);
+  color: #fff;
+  padding: 10px 16px;
   font-weight: 700;
-  font-size: 13px;
-  transition: all 0.3s ease;
+  font-size: 12px;
 }
 
 .primary-btn:hover {
-  background: var(--accent-color);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.25);
+  background: #000;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.secondary-btn, .ghost-btn {
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid var(--glass-border);
+.secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-accent);
+  color: #1e293b;
+  padding: 11px 16px;
   font-weight: 700;
-  padding: 12px 20px;
+  border: 1px solid var(--glass-border);
 }
 
-.secondary-btn:hover {
-  background: #fff;
-  border-color: var(--accent-color);
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.6);
+  color: #1e293b;
+  border: 1px solid var(--glass-border);
 }
 
-/* -------------------------------------------------------------------------- */
-/* WORKSPACE & PREVIEW                                                        */
-/* -------------------------------------------------------------------------- */
+/* --- Workspace Grid --- */
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 410px;
+  gap: 10px;
+  align-items: start;
+}
+
+.workspace-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preview-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
 
 .summary-box {
-  padding: 16px;
-  text-align: center;
+  padding: 14px;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center; /* Centered content for cleaner look */
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .summary-box span {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-soft);
+  margin-bottom: 4px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
 }
 
 .summary-box strong {
-  font-size: 22px;
-  color: var(--accent-color);
-  display: block;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
 }
 
-.svg-wrap, .three-wrap {
+.svg-wrap,
+.three-wrap {
   border-radius: var(--radius-xl);
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid var(--glass-border);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+  border: 1px solid var(--glass-border-soft);
+  background: rgba(255, 255, 255, 0.7);
 }
 
-/* -------------------------------------------------------------------------- */
-/* PROJECT MODAL & ALIGNMENT FIXES                                            */
-/* -------------------------------------------------------------------------- */
+.svg-wrap--dominant { min-height: 495px; }
+.three-wrap { height: 495px; position: relative; overflow: hidden; }
+
+/* --- Sidebar & Rooms --- */
+
+.rooms-sidebar {
+  min-height: 100%;
+  position: sticky;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 24px);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.room-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 4px;
+  padding-bottom: 12px;
+}
+
+.room-card {
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--glass-border-soft);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.room-accordion-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  background: transparent;
+}
+
+.room-accordion-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* --- Project Modal & Fixes --- */
 
 .project-modal-overlay {
-  background: rgba(15, 23, 42, 0.4);
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.3);
   backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 }
 
 .project-modal {
-  background: rgba(255, 255, 255, 0.85);
-  box-shadow: var(--glass-shadow-heavy);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  width: min(680px, 100%);
+  max-height: min(85vh, 720px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--glass-border);
   border-radius: 24px;
+  box-shadow: 0 32px 64px rgba(15, 23, 42, 0.15);
 }
 
 .project-modal-header {
-  padding: 32px;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .project-modal-header h3 {
-  font-size: 28px;
-  letter-spacing: -0.04em;
+  margin: 0 0 4px;
+  font-size: 24px;
+  font-weight: 800;
 }
 
 .project-item {
-  padding: 20px;
-  margin-bottom: 8px;
-  background: rgba(255, 255, 255, 0.5);
+  width: 100%;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.5);
+  padding: 18px;
   display: flex;
-  align-items: center; /* Perfect vertical alignment */
+  align-items: center; /* CRITICAL: Fixed vertical alignment */
   justify-content: space-between;
+  gap: 20px;
+  text-align: left;
   transition: all 0.2s ease;
 }
 
 .project-item:hover {
   background: #fff;
-  transform: scale(1.01);
-  box-shadow: 0 10px 25px rgba(31, 38, 135, 0.1);
-  border-color: var(--accent-color);
+  border-color: #6366f1;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.05);
 }
 
-/* Alignment fix for text inside project item */
 .project-item-meta {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1; /* Occupy space correctly */
 }
 
 .project-item-title {
-  font-weight: 700;
   font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
-.project-item-subtext {
-  font-size: 13px;
-  color: var(--text-soft);
-}
-
-/* Open Button inside Project list */
 .project-item-open {
+  padding: 10px 18px;
   background: var(--surface-dark);
-  color: white;
-  padding: 10px 20px;
+  color: #fff;
   border-radius: 10px;
   font-weight: 700;
+  font-size: 13px;
 }
 
-/* -------------------------------------------------------------------------- */
-/* ROOM ACCORDION IMPROVEMENTS                                                */
-/* -------------------------------------------------------------------------- */
+/* --- Media Queries (Preserved exactly) --- */
 
-.room-card {
-  margin-bottom: 10px;
-  border: 1px solid var(--glass-border-soft);
+@media (max-width: 1500px) {
+  .top-control-grid { grid-template-columns: minmax(0, 1fr) 180px; }
+  .plan-top-grid { grid-template-columns: 1.2fr repeat(6, minmax(96px, 1fr)); }
 }
 
-.room-accordion-trigger {
-  padding: 16px;
-  background: transparent;
+@media (max-width: 1380px) {
+  .workspace-grid { grid-template-columns: minmax(0, 1fr) 380px; }
 }
 
-.room-accordion-title {
-  font-size: 14px;
-  font-weight: 700;
+@media (max-width: 1200px) {
+  .rooms-sidebar { position: static; height: auto; max-height: none; }
 }
-
-.room-accordion-content {
-  background: rgba(255, 255, 255, 0.3);
-  border-top: 1px solid var(--glass-border-soft);
-  padding: 16px;
-}
-
-/* -------------------------------------------------------------------------- */
-/* MEDIA QUERIES FOR RESPONSIVE ALIGNMENT                                     */
-/* -------------------------------------------------------------------------- */
 
 @media (max-width: 1180px) {
-  .app-shell { padding: 16px; }
-  
-  .project-actions-card {
-    flex-direction: row;
-    gap: 12px;
-    padding: 12px;
-  }
+  .top-control-grid, .workspace-grid { grid-template-columns: 1fr; }
+  .top-input-meta-row { flex-direction: column; align-items: flex-start; }
+  .plan-top-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .project-actions-card { flex-direction: row; }
+}
+
+@media (max-width: 900px) {
+  .preview-stats-row, .plan-top-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 720px) {
-  .top-input-brand-copy h1 { font-size: 20px; }
-  
-  .project-item {
-    flex-direction: row; /* Keep horizontal on mobile if space allows */
-    text-align: left;
-  }
-  
-  .preview-stats-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* Utility Scrollbar for Glassmorphism */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.2);
+  .app-shell { padding: 10px; }
+  .preview-stats-row, .plan-top-grid { grid-template-columns: 1fr; }
+  .project-item { flex-direction: row; align-items: center; } /* Maintain alignment on mobile */
+  .three-wrap { height: 400px; }
 }
