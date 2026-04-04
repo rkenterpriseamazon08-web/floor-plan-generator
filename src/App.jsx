@@ -2,7 +2,14 @@ import React, { useMemo, useState } from "react";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid, Text as DreiText } from "@react-three/drei";
-import { Home, Plus, Trash2, LayoutGrid, RotateCcw } from "lucide-react";
+import {
+  Home,
+  Plus,
+  Trash2,
+  LayoutGrid,
+  RotateCcw,
+  Sofa,
+} from "lucide-react";
 
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 10;
@@ -23,6 +30,69 @@ const DEFAULT_DOOR_HEIGHT = 7;
 const DEFAULT_WINDOW_WIDTH = 4;
 const DEFAULT_WINDOW_HEIGHT = 3;
 const DEFAULT_WINDOW_SILL_HEIGHT = 3;
+
+const PRODUCT_CATEGORIES = [
+  "storage",
+  "office",
+  "cafe",
+  "house",
+  "public toilet",
+  "security cabin",
+];
+
+/**
+ * ADDED: Furniture preset map with fixed realistic sizes (feet).
+ * width = X span
+ * depth = Y span
+ * height = 3D height
+ */
+const FURNITURE_PRESETS = {
+  storage: [
+    { type: "Storage Rack", width: 6, depth: 2, height: 7, color: "#c9d4e5" },
+    { type: "Pallet Stack", width: 4, depth: 4, height: 4, color: "#d9c3a2" },
+    { type: "Small Shelf Unit", width: 3, depth: 1.5, height: 5, color: "#cfd8c8" },
+    { type: "Heavy Duty Shelf", width: 8, depth: 2.5, height: 8, color: "#b8c4d7" },
+    { type: "Utility Table", width: 5, depth: 2.5, height: 3, color: "#ddd4c8" },
+  ],
+  office: [
+    { type: "Workstation Desk", width: 5, depth: 2.5, height: 2.5, color: "#d4dde8" },
+    { type: "Office Chair", width: 2, depth: 2, height: 3, color: "#bcc7d9" },
+    { type: "Conference Table", width: 8, depth: 4, height: 2.5, color: "#d8d1c5" },
+    { type: "Storage Cabinet", width: 4, depth: 1.5, height: 6, color: "#c7d0c0" },
+    { type: "Reception Desk", width: 7, depth: 3, height: 3.5, color: "#d7c8bf" },
+  ],
+  cafe: [
+    { type: "2-Seater Table", width: 2.5, depth: 2.5, height: 2.5, color: "#dfd2c2" },
+    { type: "4-Seater Table", width: 4, depth: 4, height: 2.5, color: "#d7cab8" },
+    { type: "Chair", width: 1.8, depth: 1.8, height: 3, color: "#c7b9ab" },
+    { type: "Service Counter / Cash Desk", width: 6, depth: 2.5, height: 3.5, color: "#d8c3b8" },
+    { type: "Display Unit", width: 4, depth: 2, height: 5, color: "#d3ddd5" },
+  ],
+  house: [
+    { type: "Bed (Single / Double)", width: 6.5, depth: 5, height: 2, color: "#d5dce8" },
+    { type: "Wardrobe", width: 5, depth: 2, height: 7, color: "#c7d0bf" },
+    { type: "Sofa", width: 7, depth: 3, height: 3, color: "#c8d6ea" },
+    { type: "Center Table", width: 4, depth: 2, height: 1.5, color: "#ddd3c5" },
+    { type: "Kitchen Counter", width: 8, depth: 2, height: 3, color: "#d4d8dc" },
+    { type: "Stove / Cooktop", width: 2.5, depth: 2, height: 2.8, color: "#c9c9cf" },
+    { type: "Sink", width: 2.5, depth: 2, height: 3, color: "#c5dbe5" },
+    { type: "Dining Table", width: 6, depth: 3.5, height: 2.5, color: "#d8ccb9" },
+  ],
+  "public toilet": [
+    { type: "Toilet Seat (WC)", width: 2.5, depth: 4, height: 3, color: "#dbe7f2" },
+    { type: "Urinal", width: 2, depth: 1.5, height: 3.5, color: "#d8e7ef" },
+    { type: "Wash Basin", width: 2, depth: 1.5, height: 3, color: "#d9eef5" },
+    { type: "Mirror Panel", width: 3, depth: 0.3, height: 4, color: "#d3e7f8" },
+    { type: "Partition Wall", width: 3, depth: 0.3, height: 6.5, color: "#cfd4dd" },
+  ],
+  "security cabin": [
+    { type: "Guard Chair", width: 2, depth: 2, height: 3, color: "#bfc9d7" },
+    { type: "Small Desk", width: 4, depth: 2, height: 2.5, color: "#d7cdbf" },
+    { type: "Storage Shelf", width: 3, depth: 1.5, height: 6, color: "#c8d1c2" },
+    { type: "CCTV Monitor Unit", width: 3, depth: 1.5, height: 4, color: "#c9d3e4" },
+    { type: "Barrier Control Panel", width: 2.5, depth: 1.5, height: 3.5, color: "#d2c9be" },
+  ],
+};
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -75,6 +145,28 @@ function normalizeWindow(windowItem, room, wallHeight) {
   );
 
   return { wall, offset, width, height, sillHeight };
+}
+
+/**
+ * ADDED: normalize furniture positions inside room bounds.
+ * x and y are LOCAL to the room, not global plan coordinates.
+ */
+function normalizeFurniture(furnitureItem, room) {
+  const width = Math.max(Number(furnitureItem?.width) || 0.5, 0.3);
+  const depth = Math.max(Number(furnitureItem?.depth) || 0.5, 0.3);
+  const height = Math.max(Number(furnitureItem?.height) || 0.5, 0.3);
+
+  const maxX = Math.max(0, (Number(room.width) || 0) - width);
+  const maxY = Math.max(0, (Number(room.height) || 0) - depth);
+
+  return {
+    ...furnitureItem,
+    width,
+    depth,
+    height,
+    x: clamp(Number(furnitureItem?.x) || 0, 0, maxX),
+    y: clamp(Number(furnitureItem?.y) || 0, 0, maxY),
+  };
 }
 
 function getRoomOpenings(room, wallHeight) {
@@ -197,6 +289,7 @@ const createRoom = (index) => ({
   color: ROOM_COLORS[index % ROOM_COLORS.length],
   doors: [],
   windows: [],
+  furniture: [],
 });
 
 function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_HEIGHT) {
@@ -222,6 +315,9 @@ function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_
       ? baseRoom.windows.map((windowItem) =>
           normalizeWindow(windowItem, baseRoom, wallHeight)
         )
+      : [],
+    furniture: Array.isArray(baseRoom.furniture)
+      ? baseRoom.furniture.map((item) => normalizeFurniture(item, baseRoom))
       : [],
   };
 }
@@ -470,6 +566,46 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
     </group>
   );
 }
+
+/**
+ * ADDED: 3D furniture renderer
+ */
+function Furniture3D({ room, furnitureItem }) {
+  const roomX = Number(room.x) || 0;
+  const roomY = Number(room.y) || 0;
+
+  const width = Number(furnitureItem.width) || 1;
+  const depth = Number(furnitureItem.depth) || 1;
+  const height = Number(furnitureItem.height) || 1;
+
+  const x = roomX + (Number(furnitureItem.x) || 0) + width / 2;
+  const z = roomY + (Number(furnitureItem.y) || 0) + depth / 2;
+  const y = height / 2;
+
+  return (
+    <group>
+      <mesh castShadow receiveShadow position={[x, y, z]}>
+        <boxGeometry args={[width, height, depth]} />
+        <meshStandardMaterial
+          color={furnitureItem.color || "#cfd8e3"}
+          roughness={0.88}
+          metalness={0.04}
+        />
+      </mesh>
+
+      <DreiText
+        position={[x, height + 0.25, z]}
+        fontSize={0.22}
+        color="#243246"
+        anchorX="center"
+        anchorY="middle"
+      >
+        {furnitureItem.type}
+      </DreiText>
+    </group>
+  );
+}
+
 function Floor3DScene({
   rooms,
   totalWidth,
@@ -595,6 +731,11 @@ function Floor3DScene({
                 </mesh>
               );
             })}
+
+            {/* ADDED: 3D furniture rendering happens here */}
+            {(room.furniture || []).map((item) => (
+              <Furniture3D key={item.id} room={room} furnitureItem={item} />
+            ))}
           </group>
         );
       })}
@@ -666,6 +807,55 @@ function Opening2D({ room, opening, scale, wallThickness }) {
   );
 }
 
+/**
+ * ADDED: 2D furniture renderer
+ */
+function Furniture2D({ room, furnitureItem, scale }) {
+  const x = (Number(room.x) + Number(furnitureItem.x)) * scale;
+  const y = (Number(room.y) + Number(furnitureItem.y)) * scale;
+  const w = Number(furnitureItem.width) * scale;
+  const d = Number(furnitureItem.depth) * scale;
+
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={d}
+        rx="4"
+        fill={furnitureItem.color || "#cfd8e3"}
+        stroke="#5b6a81"
+        strokeWidth="1.4"
+      />
+      {w > 34 && d > 20 && (
+        <text
+          x={x + w / 2}
+          y={y + d / 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            fill: "#243246",
+            pointerEvents: "none",
+          }}
+        >
+          {furnitureItem.type}
+        </text>
+      )}
+    </g>
+  );
+}
+
+function getFurnitureOptionsForCategory(category) {
+  return FURNITURE_PRESETS[category] || [];
+}
+
+function getDefaultFurnitureSelection(category) {
+  return getFurnitureOptionsForCategory(category)[0]?.type || "";
+}
+
 export default function App() {
   const [planName, setPlanName] = useState("My Floor Plan");
   const [totalWidth, setTotalWidth] = useState(40);
@@ -674,7 +864,13 @@ export default function App() {
   const [scale, setScale] = useState(DEFAULT_SCALE);
   const [roomHeight, setRoomHeight] = useState(DEFAULT_ROOM_HEIGHT);
   const [activeView, setActiveView] = useState("2d");
+  const [selectedCategory, setSelectedCategory] = useState("office");
   const [rooms, setRooms] = useState(() => getDefaultRooms(40, 30));
+
+  /**
+   * ADDED: per-room furniture dropdown selection state
+   */
+  const [furnitureSelections, setFurnitureSelections] = useState({});
 
   const placedRooms = useMemo(() => {
     return rooms.map((room) =>
@@ -813,12 +1009,103 @@ export default function App() {
     );
   };
 
+  /**
+   * ADDED: furniture CRUD
+   */
+  const addFurnitureToRoom = (roomId) => {
+    const room = rooms.find((item) => item.id === roomId);
+    if (!room) return;
+
+    const categoryOptions = getFurnitureOptionsForCategory(selectedCategory);
+    if (!categoryOptions.length) return;
+
+    const selectedType =
+      furnitureSelections[roomId] || getDefaultFurnitureSelection(selectedCategory);
+
+    const preset =
+      categoryOptions.find((item) => item.type === selectedType) || categoryOptions[0];
+
+    const maxX = Math.max(0, Number(room.width) - preset.width);
+    const maxY = Math.max(0, Number(room.height) - preset.depth);
+
+    setRooms((prev) =>
+      prev.map((item) =>
+        item.id === roomId
+          ? {
+              ...item,
+              furniture: [
+                ...(item.furniture || []),
+                {
+                  id: crypto.randomUUID(),
+                  type: preset.type,
+                  category: selectedCategory,
+                  width: preset.width,
+                  depth: preset.depth,
+                  height: preset.height,
+                  x: Math.min(1, maxX),
+                  y: Math.min(1, maxY),
+                  color: preset.color,
+                },
+              ],
+            }
+          : item
+      )
+    );
+  };
+
+  const updateFurniture = (roomId, furnitureId, key, value) => {
+    setRooms((prev) =>
+      prev.map((room) => {
+        if (room.id !== roomId) return room;
+
+        const nextFurniture = (room.furniture || []).map((item) => {
+          if (item.id !== furnitureId) return item;
+
+          if (key === "x" || key === "y") {
+            const numericValue = Number(value) || 0;
+            const maxX = Math.max(0, Number(room.width) - Number(item.width));
+            const maxY = Math.max(0, Number(room.height) - Number(item.depth));
+
+            return {
+              ...item,
+              [key]: key === "x"
+                ? clamp(numericValue, 0, maxX)
+                : clamp(numericValue, 0, maxY),
+            };
+          }
+
+          return item;
+        });
+
+        return { ...room, furniture: nextFurniture };
+      })
+    );
+  };
+
+  const removeFurniture = (roomId, furnitureId) => {
+    setRooms((prev) =>
+      prev.map((room) =>
+        room.id === roomId
+          ? {
+              ...room,
+              furniture: (room.furniture || []).filter((item) => item.id !== furnitureId),
+            }
+          : room
+      )
+    );
+  };
+
   const addRoom = () => {
     setRooms((prev) => [...prev, createRoom(prev.length)]);
   };
 
   const removeRoom = (id) => {
     setRooms((prev) => prev.filter((room) => room.id !== id));
+    setFurnitureSelections((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   const autoArrangeRooms = () => {
@@ -842,6 +1129,8 @@ export default function App() {
     setScale(12);
     setRoomHeight(10);
     setActiveView("2d");
+    setSelectedCategory("office");
+    setFurnitureSelections({});
     setRooms(getDefaultRooms(40, 30));
   };
 
@@ -864,6 +1153,8 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
+  const furnitureOptions = getFurnitureOptionsForCategory(selectedCategory);
+
   return (
     <div className="app-shell">
       <div className="app-grid">
@@ -874,7 +1165,7 @@ export default function App() {
               <Home size={28} />
               Interactive Floor Plan App
             </h1>
-            <p>Build rooms, edit openings, and preview the layout in 2D and 3D.</p>
+            <p>Build rooms, edit openings, add furniture, and preview the layout in 2D and 3D.</p>
           </div>
 
           <div className="input-card">
@@ -944,6 +1235,20 @@ export default function App() {
                   onChange={(e) => setRoomHeight(Number(e.target.value) || 10)}
                 />
               </div>
+
+              <div className="field">
+                <label>Product Category</label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                >
+                  {PRODUCT_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="room-section">
@@ -962,254 +1267,347 @@ export default function App() {
               </div>
 
               <div className="room-list">
-                {rooms.map((room, index) => (
-                  <div className="room-card" key={room.id}>
-                    <div className="room-card-header">
-                      <span>Room {index + 1}</span>
-                      <button
-                        className="icon-btn"
-                        onClick={() => removeRoom(room.id)}
-                        disabled={rooms.length === 1}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                {rooms.map((room, index) => {
+                  const roomFurnitureSelection =
+                    furnitureSelections[room.id] || getDefaultFurnitureSelection(selectedCategory);
 
-                    <div className="form-grid one-col">
-                      <div className="field">
-                        <label>Name</label>
-                        <input
-                          value={room.name}
-                          onChange={(e) => updateRoom(room.id, "name", e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-grid two-col">
-                      <div className="field">
-                        <label>Width (ft)</label>
-                        <input
-                          type="number"
-                          value={room.width}
-                          onChange={(e) =>
-                            updateRoom(room.id, "width", Number(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-
-                      <div className="field">
-                        <label>Height (ft)</label>
-                        <input
-                          type="number"
-                          value={room.height}
-                          onChange={(e) =>
-                            updateRoom(room.id, "height", Number(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-grid two-col">
-                      <div className="field">
-                        <label>X Position (ft)</label>
-                        <input
-                          type="number"
-                          value={room.x}
-                          onChange={(e) =>
-                            updateRoom(room.id, "x", Number(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-
-                      <div className="field">
-                        <label>Y Position (ft)</label>
-                        <input
-                          type="number"
-                          value={room.y}
-                          onChange={(e) =>
-                            updateRoom(room.id, "y", Number(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <div className="section-header compact">
-                      <h3>Doors</h3>
-                      <div className="header-actions">
+                  return (
+                    <div className="room-card" key={room.id}>
+                      <div className="room-card-header">
+                        <span>Room {index + 1}</span>
                         <button
-                          type="button"
-                          className="secondary-btn"
-                          onClick={() => addDoorToRoom(room.id)}
+                          className="icon-btn"
+                          onClick={() => removeRoom(room.id)}
+                          disabled={rooms.length === 1}
                         >
-                          <Plus size={16} />
-                          Add Door
+                          <Trash2 size={16} />
                         </button>
                       </div>
-                    </div>
 
-                    {(room.doors || []).map((door, doorIndex) => (
-                      <div className="opening-card" key={`door-${doorIndex}`}>
-                        <div className="room-card-header">
-                          <span>Door {doorIndex + 1}</span>
-                          <button
-                            type="button"
-                            className="icon-btn"
-                            onClick={() => removeDoor(room.id, doorIndex)}
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                      <div className="form-grid one-col">
+                        <div className="field">
+                          <label>Name</label>
+                          <input
+                            value={room.name}
+                            onChange={(e) => updateRoom(room.id, "name", e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-grid two-col">
+                        <div className="field">
+                          <label>Width (ft)</label>
+                          <input
+                            type="number"
+                            value={room.width}
+                            onChange={(e) =>
+                              updateRoom(room.id, "width", Number(e.target.value) || 0)
+                            }
+                          />
                         </div>
 
-                        <div className="form-grid two-col">
+                        <div className="field">
+                          <label>Height (ft)</label>
+                          <input
+                            type="number"
+                            value={room.height}
+                            onChange={(e) =>
+                              updateRoom(room.id, "height", Number(e.target.value) || 0)
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-grid two-col">
+                        <div className="field">
+                          <label>X Position (ft)</label>
+                          <input
+                            type="number"
+                            value={room.x}
+                            onChange={(e) =>
+                              updateRoom(room.id, "x", Number(e.target.value) || 0)
+                            }
+                          />
+                        </div>
+
+                        <div className="field">
+                          <label>Y Position (ft)</label>
+                          <input
+                            type="number"
+                            value={room.y}
+                            onChange={(e) =>
+                              updateRoom(room.id, "y", Number(e.target.value) || 0)
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="section-header compact">
+                        <h3>Doors</h3>
+                        <div className="header-actions">
+                          <button
+                            type="button"
+                            className="secondary-btn"
+                            onClick={() => addDoorToRoom(room.id)}
+                          >
+                            <Plus size={16} />
+                            Add Door
+                          </button>
+                        </div>
+                      </div>
+
+                      {(room.doors || []).map((door, doorIndex) => (
+                        <div className="opening-card" key={`door-${doorIndex}`}>
+                          <div className="room-card-header">
+                            <span>Door {doorIndex + 1}</span>
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              onClick={() => removeDoor(room.id, doorIndex)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+
+                          <div className="form-grid two-col">
+                            <div className="field">
+                              <label>Wall</label>
+                              <select
+                                value={door.wall}
+                                onChange={(e) =>
+                                  updateDoor(room.id, doorIndex, "wall", e.target.value)
+                                }
+                              >
+                                {WALL_OPTIONS.map((wall) => (
+                                  <option key={wall} value={wall}>
+                                    {wall}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="field">
+                              <label>Offset (ft)</label>
+                              <input
+                                type="number"
+                                value={door.offset}
+                                onChange={(e) =>
+                                  updateDoor(room.id, doorIndex, "offset", e.target.value)
+                                }
+                              />
+                            </div>
+
+                            <div className="field">
+                              <label>Width (ft)</label>
+                              <input
+                                type="number"
+                                value={door.width}
+                                onChange={(e) =>
+                                  updateDoor(room.id, doorIndex, "width", e.target.value)
+                                }
+                              />
+                            </div>
+
+                            <div className="field">
+                              <label>Height (ft)</label>
+                              <input
+                                type="number"
+                                value={door.height}
+                                onChange={(e) =>
+                                  updateDoor(room.id, doorIndex, "height", e.target.value)
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      <div className="section-header compact">
+                        <h3>Windows</h3>
+                        <div className="header-actions">
+                          <button
+                            type="button"
+                            className="secondary-btn"
+                            onClick={() => addWindowToRoom(room.id)}
+                          >
+                            <Plus size={16} />
+                            Add Window
+                          </button>
+                        </div>
+                      </div>
+
+                      {(room.windows || []).map((windowItem, windowIndex) => (
+                        <div className="opening-card" key={`window-${windowIndex}`}>
+                          <div className="room-card-header">
+                            <span>Window {windowIndex + 1}</span>
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              onClick={() => removeWindow(room.id, windowIndex)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+
+                          <div className="form-grid two-col">
+                            <div className="field">
+                              <label>Wall</label>
+                              <select
+                                value={windowItem.wall}
+                                onChange={(e) =>
+                                  updateWindow(room.id, windowIndex, "wall", e.target.value)
+                                }
+                              >
+                                {WALL_OPTIONS.map((wall) => (
+                                  <option key={wall} value={wall}>
+                                    {wall}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="field">
+                              <label>Offset (ft)</label>
+                              <input
+                                type="number"
+                                value={windowItem.offset}
+                                onChange={(e) =>
+                                  updateWindow(room.id, windowIndex, "offset", e.target.value)
+                                }
+                              />
+                            </div>
+
+                            <div className="field">
+                              <label>Width (ft)</label>
+                              <input
+                                type="number"
+                                value={windowItem.width}
+                                onChange={(e) =>
+                                  updateWindow(room.id, windowIndex, "width", e.target.value)
+                                }
+                              />
+                            </div>
+
+                            <div className="field">
+                              <label>Height (ft)</label>
+                              <input
+                                type="number"
+                                value={windowItem.height}
+                                onChange={(e) =>
+                                  updateWindow(room.id, windowIndex, "height", e.target.value)
+                                }
+                              />
+                            </div>
+
+                            <div className="field">
+                              <label>Sill Height (ft)</label>
+                              <input
+                                type="number"
+                                value={windowItem.sillHeight}
+                                onChange={(e) =>
+                                  updateWindow(
+                                    room.id,
+                                    windowIndex,
+                                    "sillHeight",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* ADDED: UI toggle/panel for furniture starts here */}
+                      <div className="section-header compact furniture-section-header">
+                        <h3>
+                          <Sofa size={16} />
+                          Furniture
+                        </h3>
+                        <div className="header-actions">
+                          <button
+                            type="button"
+                            className="secondary-btn"
+                            onClick={() => addFurnitureToRoom(room.id)}
+                          >
+                            <Plus size={16} />
+                            Add Furniture
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="opening-card furniture-panel">
+                        <div className="form-grid one-col">
                           <div className="field">
-                            <label>Wall</label>
+                            <label>Furniture Type ({selectedCategory})</label>
                             <select
-                              value={door.wall}
+                              value={roomFurnitureSelection}
                               onChange={(e) =>
-                                updateDoor(room.id, doorIndex, "wall", e.target.value)
+                                setFurnitureSelections((prev) => ({
+                                  ...prev,
+                                  [room.id]: e.target.value,
+                                }))
                               }
                             >
-                              {WALL_OPTIONS.map((wall) => (
-                                <option key={wall} value={wall}>
-                                  {wall}
+                              {furnitureOptions.map((item) => (
+                                <option key={item.type} value={item.type}>
+                                  {item.type}
                                 </option>
                               ))}
                             </select>
                           </div>
-
-                          <div className="field">
-                            <label>Offset (ft)</label>
-                            <input
-                              type="number"
-                              value={door.offset}
-                              onChange={(e) =>
-                                updateDoor(room.id, doorIndex, "offset", e.target.value)
-                              }
-                            />
-                          </div>
-
-                          <div className="field">
-                            <label>Width (ft)</label>
-                            <input
-                              type="number"
-                              value={door.width}
-                              onChange={(e) =>
-                                updateDoor(room.id, doorIndex, "width", e.target.value)
-                              }
-                            />
-                          </div>
-
-                          <div className="field">
-                            <label>Height (ft)</label>
-                            <input
-                              type="number"
-                              value={door.height}
-                              onChange={(e) =>
-                                updateDoor(room.id, doorIndex, "height", e.target.value)
-                              }
-                            />
-                          </div>
                         </div>
-                      </div>
-                    ))}
 
-                    <div className="section-header compact">
-                      <h3>Windows</h3>
-                      <div className="header-actions">
-                        <button
-                          type="button"
-                          className="secondary-btn"
-                          onClick={() => addWindowToRoom(room.id)}
-                        >
-                          <Plus size={16} />
-                          Add Window
-                        </button>
+                        {(room.furniture || []).map((item, itemIndex) => (
+                          <div className="furniture-card" key={item.id}>
+                            <div className="room-card-header">
+                              <span>Furniture {itemIndex + 1}</span>
+                              <button
+                                type="button"
+                                className="icon-btn"
+                                onClick={() => removeFurniture(room.id, item.id)}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+
+                            <div className="furniture-meta">
+                              <strong>{item.type}</strong>
+                              <span>
+                                Fixed Size: {item.width} ft × {item.depth} ft × {item.height} ft
+                              </span>
+                            </div>
+
+                            <div className="form-grid two-col">
+                              <div className="field">
+                                <label>X Position in Room (ft)</label>
+                                <input
+                                  type="number"
+                                  value={item.x}
+                                  onChange={(e) =>
+                                    updateFurniture(room.id, item.id, "x", e.target.value)
+                                  }
+                                />
+                              </div>
+
+                              <div className="field">
+                                <label>Y Position in Room (ft)</label>
+                                <input
+                                  type="number"
+                                  value={item.y}
+                                  onChange={(e) =>
+                                    updateFurniture(room.id, item.id, "y", e.target.value)
+                                  }
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
+                      {/* ADDED: UI toggle/panel for furniture ends here */}
                     </div>
-
-                    {(room.windows || []).map((windowItem, windowIndex) => (
-                      <div className="opening-card" key={`window-${windowIndex}`}>
-                        <div className="room-card-header">
-                          <span>Window {windowIndex + 1}</span>
-                          <button
-                            type="button"
-                            className="icon-btn"
-                            onClick={() => removeWindow(room.id, windowIndex)}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-
-                        <div className="form-grid two-col">
-                          <div className="field">
-                            <label>Wall</label>
-                            <select
-                              value={windowItem.wall}
-                              onChange={(e) =>
-                                updateWindow(room.id, windowIndex, "wall", e.target.value)
-                              }
-                            >
-                              {WALL_OPTIONS.map((wall) => (
-                                <option key={wall} value={wall}>
-                                  {wall}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="field">
-                            <label>Offset (ft)</label>
-                            <input
-                              type="number"
-                              value={windowItem.offset}
-                              onChange={(e) =>
-                                updateWindow(room.id, windowIndex, "offset", e.target.value)
-                              }
-                            />
-                          </div>
-
-                          <div className="field">
-                            <label>Width (ft)</label>
-                            <input
-                              type="number"
-                              value={windowItem.width}
-                              onChange={(e) =>
-                                updateWindow(room.id, windowIndex, "width", e.target.value)
-                              }
-                            />
-                          </div>
-
-                          <div className="field">
-                            <label>Height (ft)</label>
-                            <input
-                              type="number"
-                              value={windowItem.height}
-                              onChange={(e) =>
-                                updateWindow(room.id, windowIndex, "height", e.target.value)
-                              }
-                            />
-                          </div>
-
-                          <div className="field">
-                            <label>Sill Height (ft)</label>
-                            <input
-                              type="number"
-                              value={windowItem.sillHeight}
-                              onChange={(e) =>
-                                updateWindow(
-                                  room.id,
-                                  windowIndex,
-                                  "sillHeight",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1345,6 +1743,20 @@ export default function App() {
                         </g>
                       );
                     })}
+
+                    {/* ADDED: 2D furniture rendering happens here */}
+                    {placedRooms.map((room) => (
+                      <g key={`furniture-${room.id}`}>
+                        {(room.furniture || []).map((item) => (
+                          <Furniture2D
+                            key={item.id}
+                            room={room}
+                            furnitureItem={item}
+                            scale={numericScale}
+                          />
+                        ))}
+                      </g>
+                    ))}
 
                     {placedRooms.map((room) => {
                       const x = room.x * numericScale;
