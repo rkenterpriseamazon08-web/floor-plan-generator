@@ -74,7 +74,7 @@ const FURNITURE_PRESETS = {
     { type: "Display Unit", width: 4, depth: 2, height: 5, color: "#d3ddd5" },
   ],
   house: [
-    { type: "Bed (Single / Double)", width: 6.5, depth: 5, height: 2, color: "#d5dce8" },
+    { type: "Bed (Single / Double)", width: 6.5, depth: 7, height: 2, color: "#d5dce8" },
     { type: "Wardrobe", width: 5, depth: 2, height: 7, color: "#c7d0bf" },
     { type: "Sofa", width: 7, depth: 3, height: 3, color: "#c8d6ea" },
     { type: "Center Table", width: 4, depth: 2, height: 1.5, color: "#ddd3c5" },
@@ -2095,6 +2095,15 @@ export default function App() {
                   <rect width={svgWidth} height={svgHeight} fill="#ffffff" />
                   <g transform="translate(60,60)">
                     <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />
+                    <rect
+                      x={0}
+                      y={0}
+                      width={canvasWidth}
+                      height={canvasHeight}
+                      fill="none"
+                      stroke="#5f6f86"
+                      strokeWidth={Math.max(3, numericWallThickness * numericScale)}
+                    />
 
                     {placedRooms.map((room) => {
                       const x = room.x * numericScale;
