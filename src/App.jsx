@@ -1751,7 +1751,7 @@ export default function App() {
 
             <div className="form-grid plan-top-grid">
               {/* removed extra top whitespace + top input row layout kept compact via CSS */}
-                <div className="field field--span-2">
+                <div className="field field--compact-plan-name">
                   <label>Plan Name</label>
                   <input value={planName} onChange={(e) => setPlanName(e.target.value)} />
                 </div>
