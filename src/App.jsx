@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid, Text as DreiText } from "@react-three/drei";
@@ -16,12 +16,17 @@ const ROOM_COLORS = [
   "#e9fbf6",
   "#fff7db",
 ];
+
 const WALL_OPTIONS = ["top", "bottom", "left", "right"];
 const DEFAULT_DOOR_WIDTH = 3;
 const DEFAULT_DOOR_HEIGHT = 7;
 const DEFAULT_WINDOW_WIDTH = 4;
 const DEFAULT_WINDOW_HEIGHT = 3;
 const DEFAULT_WINDOW_SILL_HEIGHT = 3;
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
 
 function getWallLength(room, wall) {
   if (wall === "top" || wall === "bottom") return Number(room.width) || 0;
@@ -31,7 +36,11 @@ function getWallLength(room, wall) {
 function normalizeDoor(door, room) {
   const wall = WALL_OPTIONS.includes(door?.wall) ? door.wall : "top";
   const wallLength = getWallLength(room, wall);
-  const width = clamp(Number(door?.width) || DEFAULT_DOOR_WIDTH, 0.5, Math.max(0.5, wallLength));
+  const width = clamp(
+    Number(door?.width) || DEFAULT_DOOR_WIDTH,
+    0.5,
+    Math.max(0.5, wallLength)
+  );
   const height = Math.max(Number(door?.height) || DEFAULT_DOOR_HEIGHT, 0.5);
   const maxOffset = Math.max(0, wallLength - width);
   const offset = clamp(Number(door?.offset) || 0, 0, maxOffset);
@@ -42,16 +51,19 @@ function normalizeDoor(door, room) {
 function normalizeWindow(windowItem, room, wallHeight) {
   const wall = WALL_OPTIONS.includes(windowItem?.wall) ? windowItem.wall : "top";
   const wallLength = getWallLength(room, wall);
+
   const width = clamp(
     Number(windowItem?.width) || DEFAULT_WINDOW_WIDTH,
     0.5,
     Math.max(0.5, wallLength)
   );
+
   const height = clamp(
     Number(windowItem?.height) || DEFAULT_WINDOW_HEIGHT,
     0.5,
     Math.max(0.5, Number(wallHeight) || DEFAULT_ROOM_HEIGHT)
   );
+
   const maxOffset = Math.max(0, wallLength - width);
   const offset = clamp(Number(windowItem?.offset) || 0, 0, maxOffset);
 
@@ -90,13 +102,13 @@ function getOpeningLineSegment(room, opening) {
 
   switch (opening.wall) {
     case "top":
-      return { x1: x + offset, y1: y, x2: x + offset + width, y2: y, wall: "top" };
+      return { x1: x + offset, y1: y, x2: x + offset + width, y2: y };
     case "bottom":
-      return { x1: x + offset, y1: y + h, x2: x + offset + width, y2: y + h, wall: "bottom" };
+      return { x1: x + offset, y1: y + h, x2: x + offset + width, y2: y + h };
     case "left":
-      return { x1: x, y1: y + offset, x2: x, y2: y + offset + width, wall: "left" };
+      return { x1: x, y1: y + offset, x2: x, y2: y + offset + width };
     case "right":
-      return { x1: x + w, y1: y + offset, x2: x + w, y2: y + offset + width, wall: "right" };
+      return { x1: x + w, y1: y + offset, x2: x + w, y2: y + offset + width };
     default:
       return null;
   }
@@ -111,6 +123,7 @@ function subtractRanges(baseStart, baseEnd, cuts) {
 
   cuts.forEach((cut) => {
     const next = [];
+
     parts.forEach((part) => {
       if (!rangesOverlap(part.start, part.end, cut.start, cut.end)) {
         next.push(part);
@@ -125,6 +138,7 @@ function subtractRanges(baseStart, baseEnd, cuts) {
         next.push({ start: cut.end, end: part.end });
       }
     });
+
     parts = next;
   });
 
@@ -134,28 +148,37 @@ function subtractRanges(baseStart, baseEnd, cuts) {
 function getSegmentOpenings(segment, rooms, wallHeight) {
   const isVertical = segment.x1 === segment.x2;
   const fixed = isVertical ? segment.x1 : segment.y1;
-  const segStart = isVertical ? Math.min(segment.y1, segment.y2) : Math.min(segment.x1, segment.x2);
-  const segEnd = isVertical ? Math.max(segment.y1, segment.y2) : Math.max(segment.x1, segment.x2);
+  const segStart = isVertical
+    ? Math.min(segment.y1, segment.y2)
+    : Math.min(segment.x1, segment.x2);
+  const segEnd = isVertical
+    ? Math.max(segment.y1, segment.y2)
+    : Math.max(segment.x1, segment.x2);
 
   const openings = [];
 
   rooms.forEach((room) => {
     const { doors, windows } = getRoomOpenings(room, wallHeight);
+
     [...doors, ...windows].forEach((opening) => {
       const line = getOpeningLineSegment(room, opening);
       if (!line) return;
 
       if (isVertical) {
         if (line.x1 !== line.x2 || Math.abs(line.x1 - fixed) > 0.001) return;
+
         const start = Math.max(segStart, Math.min(line.y1, line.y2));
         const end = Math.min(segEnd, Math.max(line.y1, line.y2));
         if (end - start <= 0.01) return;
+
         openings.push({ ...opening, start, end });
       } else {
         if (line.y1 !== line.y2 || Math.abs(line.y1 - fixed) > 0.001) return;
+
         const start = Math.max(segStart, Math.min(line.x1, line.x2));
         const end = Math.min(segEnd, Math.max(line.x1, line.x2));
         if (end - start <= 0.01) return;
+
         openings.push({ ...opening, start, end });
       }
     });
@@ -163,6 +186,7 @@ function getSegmentOpenings(segment, rooms, wallHeight) {
 
   return openings;
 }
+
 const createRoom = (index) => ({
   id: crypto.randomUUID(),
   name: `Room ${index + 1}`,
@@ -175,11 +199,7 @@ const createRoom = (index) => ({
   windows: [],
 });
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function normalizeRoom(room, totalWidth, totalHeight) {
+function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_HEIGHT) {
   const width = Math.max(Number(room.width) || 0, 0);
   const height = Math.max(Number(room.height) || 0, 0);
   const x = Number(room.x) || 0;
@@ -200,11 +220,12 @@ function normalizeRoom(room, totalWidth, totalHeight) {
       : [],
     windows: Array.isArray(baseRoom.windows)
       ? baseRoom.windows.map((windowItem) =>
-          normalizeWindow(windowItem, baseRoom, DEFAULT_ROOM_HEIGHT)
+          normalizeWindow(windowItem, baseRoom, wallHeight)
         )
       : [],
   };
 }
+
 function fitRoomsInGrid(rooms, totalWidth, totalHeight) {
   if (!rooms.length) return [];
 
@@ -342,11 +363,10 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
     .filter((item) => item.type === "door")
     .map((item) => ({ start: item.start, end: item.end }));
 
-  const fullHeightParts = subtractRanges(
-    isVertical ? Math.min(y1, y2) : Math.min(x1, x2),
-    isVertical ? Math.max(y1, y2) : Math.max(x1, x2),
-    doorCuts
-  );
+  const baseStart = isVertical ? Math.min(y1, y2) : Math.min(x1, x2);
+  const baseEnd = isVertical ? Math.max(y1, y2) : Math.max(x1, x2);
+
+  const fullHeightParts = subtractRanges(baseStart, baseEnd, doorCuts);
 
   return (
     <group>
@@ -394,15 +414,18 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
             0,
             Math.max(0, height - Number(windowItem.height || 0))
           );
+
           const windowHeight = clamp(
             Number(windowItem.height) || 0,
             0.1,
             Math.max(0.1, height - sillHeight)
           );
+
           const topHeight = Math.max(0, height - sillHeight - windowHeight);
 
           if (isVertical) {
             const centerZ = (windowItem.start + windowItem.end) / 2;
+
             return (
               <group key={`window-${index}`}>
                 {sillHeight > 0.01 && (
@@ -411,6 +434,7 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
                     <meshStandardMaterial color="#7e8da3" roughness={0.86} />
                   </mesh>
                 )}
+
                 {topHeight > 0.01 && (
                   <mesh
                     castShadow
@@ -426,6 +450,7 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
           }
 
           const centerX = (windowItem.start + windowItem.end) / 2;
+
           return (
             <group key={`window-${index}`}>
               {sillHeight > 0.01 && (
@@ -434,6 +459,7 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
                   <meshStandardMaterial color="#7e8da3" roughness={0.86} />
                 </mesh>
               )}
+
               {topHeight > 0.01 && (
                 <mesh
                   castShadow
@@ -448,15 +474,6 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
           );
         })}
     </group>
-  );
-}
-
-  const centerX = (Math.min(x1, x2) + Math.max(x1, x2)) / 2;
-  return (
-    <mesh castShadow receiveShadow position={[centerX, height / 2, y1]}>
-      <boxGeometry args={[length, height, wallThickness]} />
-      <meshStandardMaterial color="#7e8da3" roughness={0.86} />
-    </mesh>
   );
 }
 
@@ -512,6 +529,7 @@ function Floor3DScene({
         const d = Math.max(Number(room.height) || 0, 0.2);
         const cx = x + w / 2;
         const cz = z + d / 2;
+        const { windows } = getRoomOpenings(room, h);
 
         return (
           <group key={room.id}>
@@ -547,18 +565,55 @@ function Floor3DScene({
             >
               {`${w} ft × ${d} ft`}
             </DreiText>
+
+            {windows.map((windowItem, idx) => {
+              const line = getOpeningLineSegment(room, windowItem);
+              if (!line) return null;
+
+              const isVertical = line.x1 === line.x2;
+              const centerPos = isVertical
+                ? [
+                    line.x1,
+                    windowItem.sillHeight + windowItem.height / 2,
+                    (line.y1 + line.y2) / 2,
+                  ]
+                : [
+                    (line.x1 + line.x2) / 2,
+                    windowItem.sillHeight + windowItem.height / 2,
+                    line.y1,
+                  ];
+
+              return (
+                <mesh key={`glass-${room.id}-${idx}`} position={centerPos}>
+                  <boxGeometry
+                    args={
+                      isVertical
+                        ? [Math.max(wt * 0.18, 0.04), windowItem.height, windowItem.width]
+                        : [windowItem.width, windowItem.height, Math.max(wt * 0.18, 0.04)]
+                    }
+                  />
+                  <meshStandardMaterial
+                    color="#b9e3ff"
+                    transparent
+                    opacity={0.45}
+                    roughness={0.08}
+                    metalness={0.1}
+                  />
+                </mesh>
+              );
+            })}
           </group>
         );
       })}
 
       {(wallSegments || []).map((segment, index) => (
         <WallMesh
-  key={`${segment.x1}-${segment.y1}-${segment.x2}-${segment.y2}-${index}`}
-  segment={segment}
-  wallThickness={wt}
-  height={h}
-  rooms={rooms}
-/>
+          key={`${segment.x1}-${segment.y1}-${segment.x2}-${segment.y2}-${index}`}
+          segment={segment}
+          wallThickness={wt}
+          height={h}
+          rooms={rooms}
+        />
       ))}
 
       <DreiText
@@ -596,6 +651,7 @@ function Floor3DScene({
     </>
   );
 }
+
 function Opening2D({ room, opening, scale, wallThickness }) {
   const line = getOpeningLineSegment(room, opening);
   if (!line) return null;
@@ -611,11 +667,12 @@ function Opening2D({ room, opening, scale, wallThickness }) {
       y2={line.y2 * scale}
       stroke={isWindow ? "#3b82f6" : "#f7f9fc"}
       strokeWidth={strokeWidth + (isWindow ? 0 : 2)}
-      strokeDasharray={isWindow ? "10 6" : "0"}
+      strokeDasharray={isWindow ? "10 6" : undefined}
       strokeLinecap="square"
     />
   );
 }
+
 export default function App() {
   const [planName, setPlanName] = useState("My Floor Plan");
   const [totalWidth, setTotalWidth] = useState(40);
@@ -624,16 +681,13 @@ export default function App() {
   const [scale, setScale] = useState(DEFAULT_SCALE);
   const [roomHeight, setRoomHeight] = useState(DEFAULT_ROOM_HEIGHT);
   const [activeView, setActiveView] = useState("2d");
-
-  const svgRef = useRef(null);
-
   const [rooms, setRooms] = useState(() => getDefaultRooms(40, 30));
 
   const placedRooms = useMemo(() => {
     return rooms.map((room) =>
-      normalizeRoom(room, Number(totalWidth), Number(totalHeight))
+      normalizeRoom(room, Number(totalWidth), Number(totalHeight), Number(roomHeight))
     );
-  }, [rooms, totalWidth, totalHeight]);
+  }, [rooms, totalWidth, totalHeight, roomHeight]);
 
   const wallSegments = useMemo(() => {
     return buildWallSegments(
@@ -643,8 +697,12 @@ export default function App() {
     );
   }, [placedRooms, totalWidth, totalHeight]);
 
-  const canvasWidth = Number(totalWidth) * Number(scale);
-  const canvasHeight = Number(totalHeight) * Number(scale);
+  const numericScale = Math.max(1, Number(scale) || 1);
+  const numericWallThickness = Math.max(0.1, Number(wallThickness) || WALL_THICKNESS_FT);
+  const canvasWidth = Number(totalWidth) * numericScale;
+  const canvasHeight = Number(totalHeight) * numericScale;
+  const svgWidth = canvasWidth + 120;
+  const svgHeight = canvasHeight + 120;
 
   const totalRoomArea = placedRooms.reduce(
     (sum, room) => sum + Number(room.width) * Number(room.height),
@@ -660,102 +718,108 @@ export default function App() {
       prev.map((room) => (room.id === id ? { ...room, [key]: value } : room))
     );
   };
-const addDoorToRoom = (roomId) => {
-  setRooms((prev) =>
-    prev.map((room) =>
-      room.id === roomId
-        ? {
-            ...room,
-            doors: [
-              ...(room.doors || []),
-              {
-                wall: "top",
-                offset: 0,
-                width: DEFAULT_DOOR_WIDTH,
-                height: DEFAULT_DOOR_HEIGHT,
-              },
-            ],
-          }
-        : room
-    )
-  );
-};
 
-const addWindowToRoom = (roomId) => {
-  setRooms((prev) =>
-    prev.map((room) =>
-      room.id === roomId
-        ? {
-            ...room,
-            windows: [
-              ...(room.windows || []),
-              {
-                wall: "top",
-                offset: 0,
-                width: DEFAULT_WINDOW_WIDTH,
-                height: DEFAULT_WINDOW_HEIGHT,
-                sillHeight: DEFAULT_WINDOW_SILL_HEIGHT,
-              },
-            ],
-          }
-        : room
-    )
-  );
-};
+  const addDoorToRoom = (roomId) => {
+    setRooms((prev) =>
+      prev.map((room) =>
+        room.id === roomId
+          ? {
+              ...room,
+              doors: [
+                ...(room.doors || []),
+                {
+                  wall: "top",
+                  offset: 0,
+                  width: DEFAULT_DOOR_WIDTH,
+                  height: DEFAULT_DOOR_HEIGHT,
+                },
+              ],
+            }
+          : room
+      )
+    );
+  };
 
-const updateDoor = (roomId, index, key, value) => {
-  setRooms((prev) =>
-    prev.map((room) => {
-      if (room.id !== roomId) return room;
-      const nextDoors = [...(room.doors || [])];
-      nextDoors[index] = {
-        ...nextDoors[index],
-        [key]: key === "wall" ? value : Number(value) || 0,
-      };
-      return { ...room, doors: nextDoors };
-    })
-  );
-};
+  const addWindowToRoom = (roomId) => {
+    setRooms((prev) =>
+      prev.map((room) =>
+        room.id === roomId
+          ? {
+              ...room,
+              windows: [
+                ...(room.windows || []),
+                {
+                  wall: "top",
+                  offset: 0,
+                  width: DEFAULT_WINDOW_WIDTH,
+                  height: DEFAULT_WINDOW_HEIGHT,
+                  sillHeight: DEFAULT_WINDOW_SILL_HEIGHT,
+                },
+              ],
+            }
+          : room
+      )
+    );
+  };
 
-const updateWindow = (roomId, index, key, value) => {
-  setRooms((prev) =>
-    prev.map((room) => {
-      if (room.id !== roomId) return room;
-      const nextWindows = [...(room.windows || [])];
-      nextWindows[index] = {
-        ...nextWindows[index],
-        [key]: key === "wall" ? value : Number(value) || 0,
-      };
-      return { ...room, windows: nextWindows };
-    })
-  );
-};
+  const updateDoor = (roomId, index, key, value) => {
+    setRooms((prev) =>
+      prev.map((room) => {
+        if (room.id !== roomId) return room;
 
-const removeDoor = (roomId, index) => {
-  setRooms((prev) =>
-    prev.map((room) =>
-      room.id === roomId
-        ? {
-            ...room,
-            doors: (room.doors || []).filter((_, i) => i !== index),
-          }
-        : room
-    )
-  );
-};
+        const nextDoors = [...(room.doors || [])];
+        nextDoors[index] = {
+          ...nextDoors[index],
+          [key]: key === "wall" ? value : Number(value) || 0,
+        };
 
-const removeWindow = (roomId, index) => {
-  setRooms((prev) =>
-    prev.map((room) =>
-      room.id === roomId
-        ? {
-            ...room,
-            windows: (room.windows || []).filter((_, i) => i !== index),
-          }
-        : room
-    )
-  );
-};
+        return { ...room, doors: nextDoors };
+      })
+    );
+  };
+
+  const updateWindow = (roomId, index, key, value) => {
+    setRooms((prev) =>
+      prev.map((room) => {
+        if (room.id !== roomId) return room;
+
+        const nextWindows = [...(room.windows || [])];
+        nextWindows[index] = {
+          ...nextWindows[index],
+          [key]: key === "wall" ? value : Number(value) || 0,
+        };
+
+        return { ...room, windows: nextWindows };
+      })
+    );
+  };
+
+  const removeDoor = (roomId, index) => {
+    setRooms((prev) =>
+      prev.map((room) =>
+        room.id === roomId
+          ? {
+              ...room,
+              doors: (room.doors || []).filter((_, i) => i !== index),
+            }
+          : room
+      )
+    );
+  };
+
+  const removeWindow = (roomId, index) => {
+    setRooms((prev) =>
+      prev.map((room) =>
+        room.id === roomId
+          ? {
+              ...room,
+              windows: (room.windows || []).filter((_, i) => i !== index),
+            }
+          : room
+      )
+    );
+  };
+
   const addRoom = () => {
     setRooms((prev) => [...prev, createRoom(prev.length)]);
   };
@@ -794,7 +858,9 @@ const removeWindow = (roomId, index) => {
 
     const serializer = new XMLSerializer();
     const source = serializer.serializeToString(svgEl);
-    const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+    const blob = new Blob([source], {
+      type: "image/svg+xml;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
 
     const link = document.createElement("a");
@@ -815,7 +881,7 @@ const removeWindow = (roomId, index) => {
               <Home size={28} />
               Interactive Floor Plan App
             </h1>
-            <p>Build rooms, auto-arrange them, and preview the layout in 2D and 3D.</p>
+            <p>Build rooms, edit openings, and preview the layout in 2D and 3D.</p>
           </div>
 
           <div className="input-card">
@@ -949,80 +1015,7 @@ const removeWindow = (roomId, index) => {
                         />
                       </div>
                     </div>
-{rooms.map((room, index) => (
-  <div className="room-card" key={room.id}>
-    <div className="room-card-header">
-      <span>Room {index + 1}</span>
-      <button
-        className="icon-btn"
-        onClick={() => removeRoom(room.id)}
-        disabled={rooms.length === 1}
-      >
-        <Trash2 size={16} />
-      </button>
-    </div>
 
-    <div className="form-grid one-col">
-      <div className="field">
-        <label>Name</label>
-        <input
-          value={room.name}
-          onChange={(e) => updateRoom(room.id, "name", e.target.value)}
-        />
-      </div>
-    </div>
-
-    <div className="form-grid two-col">
-      <div className="field">
-        <label>Width (ft)</label>
-        <input
-          type="number"
-          value={room.width}
-          onChange={(e) =>
-            updateRoom(room.id, "width", Number(e.target.value) || 0)
-          }
-        />
-      </div>
-
-      <div className="field">
-        <label>Height (ft)</label>
-        <input
-          type="number"
-          value={room.height}
-          onChange={(e) =>
-            updateRoom(room.id, "height", Number(e.target.value) || 0)
-          }
-        />
-      </div>
-    </div>
-
-    <div className="form-grid two-col">
-      <div className="field">
-        <label>X Position (ft)</label>
-        <input
-          type="number"
-          value={room.x}
-          onChange={(e) =>
-            updateRoom(room.id, "x", Number(e.target.value) || 0)
-          }
-        />
-      </div>
-
-      <div className="field">
-        <label>Y Position (ft)</label>
-        <input
-          type="number"
-          value={room.y}
-          onChange={(e) =>
-            updateRoom(room.id, "y", Number(e.target.value) || 0)
-          }
-        />
-      </div>
-    </div>
-
-    {/* PASTE DOORS + WINDOWS BLOCK HERE */}
-  </div>
-))}
                     <div className="form-grid two-col">
                       <div className="field">
                         <label>X Position (ft)</label>
@@ -1046,6 +1039,182 @@ const removeWindow = (roomId, index) => {
                         />
                       </div>
                     </div>
+
+                    <div className="section-header compact">
+                      <h3>Doors</h3>
+                      <div className="header-actions">
+                        <button
+                          type="button"
+                          className="secondary-btn"
+                          onClick={() => addDoorToRoom(room.id)}
+                        >
+                          <Plus size={16} />
+                          Add Door
+                        </button>
+                      </div>
+                    </div>
+
+                    {(room.doors || []).map((door, doorIndex) => (
+                      <div className="opening-card" key={`door-${doorIndex}`}>
+                        <div className="room-card-header">
+                          <span>Door {doorIndex + 1}</span>
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            onClick={() => removeDoor(room.id, doorIndex)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+
+                        <div className="form-grid two-col">
+                          <div className="field">
+                            <label>Wall</label>
+                            <select
+                              value={door.wall}
+                              onChange={(e) =>
+                                updateDoor(room.id, doorIndex, "wall", e.target.value)
+                              }
+                            >
+                              {WALL_OPTIONS.map((wall) => (
+                                <option key={wall} value={wall}>
+                                  {wall}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="field">
+                            <label>Offset (ft)</label>
+                            <input
+                              type="number"
+                              value={door.offset}
+                              onChange={(e) =>
+                                updateDoor(room.id, doorIndex, "offset", e.target.value)
+                              }
+                            />
+                          </div>
+
+                          <div className="field">
+                            <label>Width (ft)</label>
+                            <input
+                              type="number"
+                              value={door.width}
+                              onChange={(e) =>
+                                updateDoor(room.id, doorIndex, "width", e.target.value)
+                              }
+                            />
+                          </div>
+
+                          <div className="field">
+                            <label>Height (ft)</label>
+                            <input
+                              type="number"
+                              value={door.height}
+                              onChange={(e) =>
+                                updateDoor(room.id, doorIndex, "height", e.target.value)
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="section-header compact">
+                      <h3>Windows</h3>
+                      <div className="header-actions">
+                        <button
+                          type="button"
+                          className="secondary-btn"
+                          onClick={() => addWindowToRoom(room.id)}
+                        >
+                          <Plus size={16} />
+                          Add Window
+                        </button>
+                      </div>
+                    </div>
+
+                    {(room.windows || []).map((windowItem, windowIndex) => (
+                      <div className="opening-card" key={`window-${windowIndex}`}>
+                        <div className="room-card-header">
+                          <span>Window {windowIndex + 1}</span>
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            onClick={() => removeWindow(room.id, windowIndex)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+
+                        <div className="form-grid two-col">
+                          <div className="field">
+                            <label>Wall</label>
+                            <select
+                              value={windowItem.wall}
+                              onChange={(e) =>
+                                updateWindow(room.id, windowIndex, "wall", e.target.value)
+                              }
+                            >
+                              {WALL_OPTIONS.map((wall) => (
+                                <option key={wall} value={wall}>
+                                  {wall}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="field">
+                            <label>Offset (ft)</label>
+                            <input
+                              type="number"
+                              value={windowItem.offset}
+                              onChange={(e) =>
+                                updateWindow(room.id, windowIndex, "offset", e.target.value)
+                              }
+                            />
+                          </div>
+
+                          <div className="field">
+                            <label>Width (ft)</label>
+                            <input
+                              type="number"
+                              value={windowItem.width}
+                              onChange={(e) =>
+                                updateWindow(room.id, windowIndex, "width", e.target.value)
+                              }
+                            />
+                          </div>
+
+                          <div className="field">
+                            <label>Height (ft)</label>
+                            <input
+                              type="number"
+                              value={windowItem.height}
+                              onChange={(e) =>
+                                updateWindow(room.id, windowIndex, "height", e.target.value)
+                              }
+                            />
+                          </div>
+
+                          <div className="field">
+                            <label>Sill Height (ft)</label>
+                            <input
+                              type="number"
+                              value={windowItem.sillHeight}
+                              onChange={(e) =>
+                                updateWindow(
+                                  room.id,
+                                  windowIndex,
+                                  "sillHeight",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -1059,47 +1228,52 @@ const removeWindow = (roomId, index) => {
               <span>Total Plan Area</span>
               <strong>{totalPlanArea} sq ft</strong>
             </div>
+
             <div className="summary-box">
               <span>Room Area Used</span>
               <strong>{totalRoomArea} sq ft</strong>
             </div>
+
             <div className="summary-box">
               <span>Space Utilization</span>
               <strong>{utilization}%</strong>
             </div>
+
             <div className="summary-box actions-box">
               <div className="view-switch">
-  <button
-    className={activeView === "2d" ? "active" : ""}
-    onClick={() => setActiveView("2d")}
-  >
-    2D
-  </button>
-  <button
-    className={activeView === "3d" ? "active" : ""}
-    onClick={() => setActiveView("3d")}
-  >
-    3D
-  </button>
-</div>
+                <button
+                  className={activeView === "2d" ? "active" : ""}
+                  onClick={() => setActiveView("2d")}
+                >
+                  2D
+                </button>
+                <button
+                  className={activeView === "3d" ? "active" : ""}
+                  onClick={() => setActiveView("3d")}
+                >
+                  3D
+                </button>
+              </div>
+
               <button className="primary-btn" onClick={exportSVG}>
                 Export SVG
               </button>
             </div>
           </div>
 
-    {activeView === "2d" && (
+          {activeView === "2d" && (
             <section className="preview-card">
               <div className="section-header">
                 <h2>2D Floor Plan</h2>
               </div>
 
               <div className="svg-wrap">
-              <svg
-                viewBox={`0 0 ${Number(totalWidth)} ${Number(totalHeight)}`}
-                width="100%"
-                height="100%"
-              >
+                <svg
+                  id="floor-plan-svg"
+                  viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                  width="100%"
+                  height="100%"
+                >
                   <defs>
                     <pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse">
                       <path
@@ -1109,6 +1283,7 @@ const removeWindow = (roomId, index) => {
                         strokeWidth="1"
                       />
                     </pattern>
+
                     <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
                       <rect width="50" height="50" fill="url(#smallGrid)" />
                       <path
@@ -1120,33 +1295,72 @@ const removeWindow = (roomId, index) => {
                     </pattern>
                   </defs>
 
-                  <rect width="100%" height="100%" fill="#f7f9fc" />
-                  <rect
-                    x="30"
-                    y="30"
-                    width={canvasWidth + 60}
-                    height={canvasHeight + 60}
-                    fill="url(#grid)"
-                  />
+                  <rect width={svgWidth} height={svgHeight} fill="#f7f9fc" />
+                  <rect x="30" y="30" width={canvasWidth + 60} height={canvasHeight + 60} fill="url(#grid)" />
 
                   <g transform="translate(60,60)">
                     {placedRooms.map((room) => {
-                      const x = room.x * scale;
-                      const y = room.y * scale;
-                      const w = room.width * scale;
-                      const h = room.height * scale;
+                      const x = room.x * numericScale;
+                      const y = room.y * numericScale;
+                      const w = room.width * numericScale;
+                      const h = room.height * numericScale;
 
                       return (
                         <g key={room.id}>
-                          <rect
-                            x={x}
-                            y={y}
-                            width={w}
-                            height={h}
-                            fill={room.color}
-                            rx="3"
-                           
-                          />
+                          <rect x={x} y={y} width={w} height={h} fill={room.color} rx="3" />
+                        </g>
+                      );
+                    })}
+
+                    {wallSegments.map((seg, index) => (
+                      <line
+                        key={index}
+                        x1={seg.x1 * numericScale}
+                        y1={seg.y1 * numericScale}
+                        x2={seg.x2 * numericScale}
+                        y2={seg.y2 * numericScale}
+                        stroke="#4d5d75"
+                        strokeWidth={Math.max(4, numericWallThickness * numericScale)}
+                        strokeLinecap="square"
+                      />
+                    ))}
+
+                    {placedRooms.map((room) => {
+                      const { doors, windows } = getRoomOpenings(room, Number(roomHeight));
+
+                      return (
+                        <g key={`openings-${room.id}`}>
+                          {doors.map((door, idx) => (
+                            <Opening2D
+                              key={`door-${room.id}-${idx}`}
+                              room={room}
+                              opening={door}
+                              scale={numericScale}
+                              wallThickness={numericWallThickness}
+                            />
+                          ))}
+
+                          {windows.map((windowItem, idx) => (
+                            <Opening2D
+                              key={`window-${room.id}-${idx}`}
+                              room={room}
+                              opening={windowItem}
+                              scale={numericScale}
+                              wallThickness={numericWallThickness}
+                            />
+                          ))}
+                        </g>
+                      );
+                    })}
+
+                    {placedRooms.map((room) => {
+                      const x = room.x * numericScale;
+                      const y = room.y * numericScale;
+                      const w = room.width * numericScale;
+                      const h = room.height * numericScale;
+
+                      return (
+                        <g key={`labels-${room.id}`}>
                           <text
                             x={x + w / 2}
                             y={y + h / 2 - 8}
@@ -1160,6 +1374,7 @@ const removeWindow = (roomId, index) => {
                           >
                             {room.name}
                           </text>
+
                           <text
                             x={x + w / 2}
                             y={y + h / 2 + 14}
@@ -1175,37 +1390,6 @@ const removeWindow = (roomId, index) => {
                         </g>
                       );
                     })}
-                    {getRoomOpenings(room, roomHeight).doors.map((door, idx) => (
-  <Opening2D
-    key={`door-${room.id}-${idx}`}
-    room={room}
-    opening={door}
-    scale={Number(scale)}
-    wallThickness={Number(wallThickness)}
-  />
-))}
-
-{getRoomOpenings(room, roomHeight).windows.map((windowItem, idx) => (
-  <Opening2D
-    key={`window-${room.id}-${idx}`}
-    room={room}
-    opening={windowItem}
-    scale={Number(scale)}
-    wallThickness={Number(wallThickness)}
-  />
-))}
-                    {wallSegments.map((seg, index) => (
-                      <line
-                        key={index}
-                        x1={seg.x1 * scale}
-                        y1={seg.y1 * scale}
-                        x2={seg.x2 * scale}
-                        y2={seg.y2 * scale}
-                        stroke="#4d5d75"
-                        strokeWidth={Math.max(4, wallThickness * scale)}
-                        strokeLinecap="square"
-                      />
-                    ))}
 
                     <text
                       x={canvasWidth / 2}
@@ -1231,7 +1415,7 @@ const removeWindow = (roomId, index) => {
             </section>
           )}
 
-        {activeView === "3d" && (
+          {activeView === "3d" && (
             <section className="preview-card">
               <div className="section-header">
                 <h2>3D Floor Plan</h2>
@@ -1254,7 +1438,7 @@ const removeWindow = (roomId, index) => {
                     rooms={placedRooms}
                     totalWidth={Number(totalWidth)}
                     totalHeight={Number(totalHeight)}
-                    wallThickness={Number(wallThickness)}
+                    wallThickness={numericWallThickness}
                     roomHeight={Number(roomHeight)}
                     wallSegments={wallSegments}
                   />
