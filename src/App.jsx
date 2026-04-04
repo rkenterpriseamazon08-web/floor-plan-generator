@@ -358,125 +358,118 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
 
   if (!Number.isFinite(length) || length <= 0) return null;
 
-  const openings = getSegmentOpenings(segment, rooms, height);
-  const doorCuts = openings
-    .filter((item) => item.type === "door")
-    .map((item) => ({ start: item.start, end: item.end }));
+  const openings = getSegmentOpenings(segment, rooms, height).map((opening) => {
+    if (opening.type === "door") {
+      return {
+        ...opening,
+        bottom: 0,
+        top: clamp(Number(opening.height) || DEFAULT_DOOR_HEIGHT, 0.1, height),
+      };
+    }
 
-  const baseStart = isVertical ? Math.min(y1, y2) : Math.min(x1, x2);
-  const baseEnd = isVertical ? Math.max(y1, y2) : Math.max(x1, x2);
+    const sillHeight = clamp(
+      Number(opening.sillHeight) || 0,
+      0,
+      Math.max(0, height - 0.1)
+    );
 
-  const fullHeightParts = subtractRanges(baseStart, baseEnd, doorCuts);
+    const openingHeight = clamp(
+      Number(opening.height) || DEFAULT_WINDOW_HEIGHT,
+      0.1,
+      Math.max(0.1, height - sillHeight)
+    );
+
+    return {
+      ...opening,
+      bottom: sillHeight,
+      top: Math.min(height, sillHeight + openingHeight),
+    };
+  });
+
+  const verticalBreaks = Array.from(
+    new Set([
+      0,
+      height,
+      ...openings.flatMap((opening) => [opening.bottom, opening.top]),
+    ])
+  )
+    .filter((value) => value >= 0 && value <= height)
+    .sort((a, b) => a - b);
+
+  const wallStart = isVertical ? Math.min(y1, y2) : Math.min(x1, x2);
+  const wallEnd = isVertical ? Math.max(y1, y2) : Math.max(x1, x2);
+
+  const bands = [];
+
+  for (let i = 0; i < verticalBreaks.length - 1; i++) {
+    const bandBottom = verticalBreaks[i];
+    const bandTop = verticalBreaks[i + 1];
+    const bandHeight = bandTop - bandBottom;
+
+    if (bandHeight <= 0.01) continue;
+
+    const cuts = openings
+      .filter((opening) => opening.bottom < bandTop && opening.top > bandBottom)
+      .map((opening) => ({
+        start: opening.start,
+        end: opening.end,
+      }));
+
+    const horizontalParts = subtractRanges(wallStart, wallEnd, cuts);
+
+    horizontalParts.forEach((part) => {
+      const partLength = part.end - part.start;
+      if (partLength <= 0.01) return;
+
+      bands.push({
+        start: part.start,
+        end: part.end,
+        bottom: bandBottom,
+        top: bandTop,
+        bandHeight,
+        partLength,
+      });
+    });
+  }
 
   return (
     <group>
-      {fullHeightParts.map((part, index) => {
-        const partLength = part.end - part.start;
-        if (partLength <= 0.01) return null;
-
+      {bands.map((band, index) => {
         if (isVertical) {
-          const centerZ = (part.start + part.end) / 2;
+          const centerZ = (band.start + band.end) / 2;
+          const centerY = (band.bottom + band.top) / 2;
+
           return (
             <mesh
-              key={`base-${index}`}
+              key={`band-${index}`}
               castShadow
               receiveShadow
-              position={[x1, height / 2, centerZ]}
+              position={[x1, centerY, centerZ]}
             >
-              <boxGeometry args={[wallThickness, height, partLength]} />
+              <boxGeometry args={[wallThickness, band.bandHeight, band.partLength]} />
               <meshStandardMaterial color="#7e8da3" roughness={0.86} />
             </mesh>
           );
         }
 
-        const centerX = (part.start + part.end) / 2;
+        const centerX = (band.start + band.end) / 2;
+        const centerY = (band.bottom + band.top) / 2;
+
         return (
           <mesh
-            key={`base-${index}`}
+            key={`band-${index}`}
             castShadow
             receiveShadow
-            position={[centerX, height / 2, y1]}
+            position={[centerX, centerY, y1]}
           >
-            <boxGeometry args={[partLength, height, wallThickness]} />
+            <boxGeometry args={[band.partLength, band.bandHeight, wallThickness]} />
             <meshStandardMaterial color="#7e8da3" roughness={0.86} />
           </mesh>
         );
       })}
-
-      {openings
-        .filter((item) => item.type === "window")
-        .map((windowItem, index) => {
-          const openingLength = windowItem.end - windowItem.start;
-          if (openingLength <= 0.01) return null;
-
-          const sillHeight = clamp(
-            Number(windowItem.sillHeight) || 0,
-            0,
-            Math.max(0, height - Number(windowItem.height || 0))
-          );
-
-          const windowHeight = clamp(
-            Number(windowItem.height) || 0,
-            0.1,
-            Math.max(0.1, height - sillHeight)
-          );
-
-          const topHeight = Math.max(0, height - sillHeight - windowHeight);
-
-          if (isVertical) {
-            const centerZ = (windowItem.start + windowItem.end) / 2;
-
-            return (
-              <group key={`window-${index}`}>
-                {sillHeight > 0.01 && (
-                  <mesh castShadow receiveShadow position={[x1, sillHeight / 2, centerZ]}>
-                    <boxGeometry args={[wallThickness, sillHeight, openingLength]} />
-                    <meshStandardMaterial color="#7e8da3" roughness={0.86} />
-                  </mesh>
-                )}
-
-                {topHeight > 0.01 && (
-                  <mesh
-                    castShadow
-                    receiveShadow
-                    position={[x1, sillHeight + windowHeight + topHeight / 2, centerZ]}
-                  >
-                    <boxGeometry args={[wallThickness, topHeight, openingLength]} />
-                    <meshStandardMaterial color="#7e8da3" roughness={0.86} />
-                  </mesh>
-                )}
-              </group>
-            );
-          }
-
-          const centerX = (windowItem.start + windowItem.end) / 2;
-
-          return (
-            <group key={`window-${index}`}>
-              {sillHeight > 0.01 && (
-                <mesh castShadow receiveShadow position={[centerX, sillHeight / 2, y1]}>
-                  <boxGeometry args={[openingLength, sillHeight, wallThickness]} />
-                  <meshStandardMaterial color="#7e8da3" roughness={0.86} />
-                </mesh>
-              )}
-
-              {topHeight > 0.01 && (
-                <mesh
-                  castShadow
-                  receiveShadow
-                  position={[centerX, sillHeight + windowHeight + topHeight / 2, y1]}
-                >
-                  <boxGeometry args={[openingLength, topHeight, wallThickness]} />
-                  <meshStandardMaterial color="#7e8da3" roughness={0.86} />
-                </mesh>
-              )}
-            </group>
-          );
-        })}
     </group>
   );
 }
-
 function Floor3DScene({
   rooms,
   totalWidth,
