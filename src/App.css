@@ -338,6 +338,51 @@ textarea {
   height: 100% !important;
 }
 
+.opening-card {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  background: rgba(245, 248, 255, 0.7);
+}
+
+/* ADDED: furniture UI styling */
+.furniture-section-header h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.furniture-panel {
+  background: rgba(241, 247, 255, 0.8);
+}
+
+.furniture-card {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #d6e0ee;
+  background: #ffffff;
+}
+
+.furniture-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.furniture-meta strong {
+  font-size: 14px;
+  color: #1e2b42;
+}
+
+.furniture-meta span {
+  font-size: 12px;
+  color: #617089;
+  font-weight: 600;
+}
+
 @media (max-width: 1200px) {
   .app-grid {
     grid-template-columns: 1fr;
@@ -366,11 +411,4 @@ textarea {
     height: 480px;
     min-height: 480px;
   }
-}
-.opening-card {
-  margin-top: 12px;
-  padding: 14px;
-  border: 1px solid #dbe4f0;
-  border-radius: 16px;
-  background: rgba(245, 248, 255, 0.7);
 }
