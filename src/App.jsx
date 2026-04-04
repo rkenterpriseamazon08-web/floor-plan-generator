@@ -1128,6 +1128,7 @@ function Furniture2D({ room, furnitureItem, scale }) {
           strokeWidth="2"
         />
       )}
+      {/* smaller 2D plan text */}
       {w > 34 && d > 20 && (
         <text
           x={x + w / 2}
@@ -1135,7 +1136,7 @@ function Furniture2D({ room, furnitureItem, scale }) {
           textAnchor="middle"
           dominantBaseline="middle"
           style={{
-            fontSize: 10,
+            fontSize: 8,
             fontWeight: 700,
             fill: "#243246",
             pointerEvents: "none",
@@ -1746,8 +1747,9 @@ export default function App() {
               <div className="project-status-banner">{projectStatusMessage}</div>
             )}
 
+            {/* top input row layout fix + reduced field widths */}
             <div className="form-grid plan-top-grid">
-                <div className="field field--span-2">
+                <div className="field field--plan-name">
                   <label>Plan Name</label>
                   <input value={planName} onChange={(e) => setPlanName(e.target.value)} />
                 </div>
@@ -1981,7 +1983,7 @@ export default function App() {
                             y={y + h / 2 - 8}
                             textAnchor="middle"
                             style={{
-                              fontSize: 11,
+                              fontSize: 9,
                               fontWeight: 700,
                               fill: "#172033",
                               pointerEvents: "none",
@@ -1995,7 +1997,7 @@ export default function App() {
                             y={y + h / 2 + 14}
                             textAnchor="middle"
                             style={{
-                              fontSize: 10,
+                              fontSize: 8,
                               fill: "#56637a",
                               pointerEvents: "none",
                             }}
@@ -2010,7 +2012,7 @@ export default function App() {
                       x={canvasWidth / 2}
                       y={-18}
                       textAnchor="middle"
-                      style={{ fontSize: 11, fontWeight: 600, fill: "#324257" }}
+                      style={{ fontSize: 9, fontWeight: 600, fill: "#324257" }}
                     >
                       Width: {totalWidth} ft
                     </text>
@@ -2020,7 +2022,7 @@ export default function App() {
                       y={canvasHeight / 2}
                       textAnchor="middle"
                       transform={`rotate(-90, -18, ${canvasHeight / 2})`}
-                      style={{ fontSize: 11, fontWeight: 600, fill: "#324257" }}
+                      style={{ fontSize: 9, fontWeight: 600, fill: "#324257" }}
                     >
                       Height: {totalHeight} ft
                     </text>
@@ -2095,6 +2097,7 @@ export default function App() {
             </div>
           </div>
 
+          {/* rooms panel scroll fix */}
           <div className="room-list room-list--sidebar">
             {rooms.map((room, index) => {
               const roomFurnitureSelection =
@@ -2102,7 +2105,10 @@ export default function App() {
               const isExpanded = expandedRoomId === room.id;
 
               return (
-                <div className={`room-card accordion-room-card ${isExpanded ? "expanded" : "collapsed"}`} key={room.id}>
+                <div
+                  className={`room-card accordion-room-card ${isExpanded ? "expanded" : "collapsed"}`}
+                  key={room.id}
+                >
                   <button
                     type="button"
                     className="room-accordion-trigger"
