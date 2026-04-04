@@ -41,14 +41,14 @@ button {
 .top-control-card {
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid #dbe4f0;
-  border-radius: 18px;
+  border-radius: 14px;
   box-shadow: 0 10px 35px rgba(20, 32, 51, 0.08);
   backdrop-filter: blur(10px);
 }
 
 .top-control-card {
   padding: 0;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -57,27 +57,27 @@ button {
 
 .top-control-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 156px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 188px;
+  gap: 10px;
   align-items: start;
 }
 
 .hero-card,
 .input-card,
 .preview-card {
-  padding: 14px;
+  padding: 12px;
 }
 
 .top-input-card {
-  padding: 14px 16px 14px;
+  padding: 12px 16px 12px;
 }
 
 .top-input-meta-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .top-input-brand {
@@ -126,8 +126,8 @@ button {
 
 .project-status-banner,
 .project-status-banner--inline {
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
   border: 1px solid #dbe4f0;
   background: #f5f8ff;
   color: #223763;
@@ -188,7 +188,7 @@ button {
   min-width: 0;
   border: 1px solid #ced8e6;
   background: #fff;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 10px 12px;
   color: #162033;
   outline: none;
@@ -207,22 +207,25 @@ button {
   box-shadow: 0 0 0 4px rgba(127, 142, 255, 0.14);
 }
 
+/* tighter top-right project actions pane so it matches the header/input card height */
 .project-actions-card {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   gap: 8px;
-  padding: 10px;
-  align-self: start;
+  padding: 8px;
+  min-height: 100%;
+  align-self: stretch;
 }
 
 .project-stack-btn {
   width: 100%;
   justify-content: center;
-  min-height: 50px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  font-size: 13px;
+  min-height: 34px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .primary-btn,
@@ -233,7 +236,7 @@ button {
 .view-toolbar-btn,
 .room-accordion-trigger {
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
   transition: 0.2s ease;
 }
@@ -323,8 +326,8 @@ button {
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 410px;
+  gap: 10px;
   align-items: start;
 }
 
@@ -338,13 +341,12 @@ button {
 .preview-stats-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 0;
+  gap: 8px;
 }
 
 .summary-box {
-  padding: 14px;
-  min-height: 78px;
+  padding: 12px 14px;
+  min-height: 68px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -366,7 +368,7 @@ button {
 }
 
 .preview-card--dominant {
-  padding: 12px;
+  padding: 10px;
 }
 
 .section-header {
@@ -390,7 +392,7 @@ button {
 }
 
 .section-header--preview {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .header-actions {
@@ -469,7 +471,7 @@ button {
 .room-card {
   background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
   border: 1px solid #dbe4f0;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 0;
   overflow: visible;
 }
@@ -546,7 +548,7 @@ button {
   margin-top: 10px;
   padding: 12px;
   border: 1px solid #dbe4f0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgba(245, 248, 255, 0.72);
 }
 
@@ -563,7 +565,7 @@ button {
 .furniture-card {
   margin-top: 10px;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid #d6e0ee;
   background: #ffffff;
 }
@@ -687,7 +689,7 @@ button {
   justify-content: center;
   min-width: 72px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #eef3ff;
   color: #223763;
   font-size: 13px;
@@ -707,16 +709,21 @@ button {
 
 /* ordered media queries: large -> small */
 @media (max-width: 1500px) {
+  .top-control-grid {
+    grid-template-columns: minmax(0, 1fr) 180px;
+  }
+
   .plan-top-grid {
     grid-template-columns: 1.2fr repeat(6, minmax(96px, 1fr));
   }
 
-  .top-control-grid {
-    grid-template-columns: minmax(0, 1fr) 148px;
+  .project-actions-card {
+    flex-direction: column;
+    padding: 8px;
   }
 
   .project-stack-btn {
-    min-height: 46px;
+    min-height: 34px;
   }
 }
 
@@ -766,13 +773,10 @@ button {
   .project-actions-card {
     flex-direction: row;
     align-items: stretch;
-    gap: 10px;
-    padding: 10px;
   }
 
   .project-stack-btn {
     flex: 1;
-    min-height: 44px;
   }
 
   .rooms-sidebar {
