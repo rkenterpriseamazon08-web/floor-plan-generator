@@ -312,7 +312,9 @@ button {
   box-shadow: 0 14px 22px rgba(16, 40, 77, 0.2);
   background: linear-gradient(180deg, #1a3f71 0%, #14325d 100%);
 }
-
+.view-toolbar-btn--upload {
+  min-width: 148px;
+}
 .secondary-btn {
   display: inline-flex;
   align-items: center;
@@ -371,7 +373,6 @@ button {
   font-weight: 700;
   border: 1px solid rgba(214, 224, 238, 0.95);
   box-shadow: 0 6px 12px rgba(24, 45, 78, 0.04);
-  white-space: nowrap;
 }
 
 .view-toolbar-btn.active {
@@ -388,17 +389,10 @@ button {
 
 .preview-toolbar,
 .uniform-view-buttons {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
   gap: 10px;
   flex-wrap: wrap;
-  width: 100%;
-}
-
-.preview-toolbar .view-toolbar-btn:first-child {
-  min-width: 170px;
-  flex: 0 0 auto;
 }
 
 .workspace-grid {
@@ -578,6 +572,7 @@ button {
   border-color: rgba(127, 157, 255, 0.95);
   color: #274a82;
 }
+
 
 .preview-stats-row {
   display: grid;
@@ -1137,10 +1132,6 @@ button {
 
   .view-toolbar-btn {
     flex: 1 1 auto;
-  }
-
-  .preview-toolbar .view-toolbar-btn:first-child {
-    min-width: 100%;
   }
 }
 
