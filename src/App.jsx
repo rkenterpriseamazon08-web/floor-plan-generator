@@ -17,6 +17,8 @@ import {
   Send,
   Sparkles,
   Bot,
+  Image as ImageIcon,
+  Loader2,
 } from "lucide-react";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzZaB4kwA-KK7r6cqfzARoUM6CZ5Ubo6Mi1d3sxSRxjhXmsy1XLOm7sTulnbAmr18hiBQ/exec";
 const MAX_SYNC_ROOMS = 8;
@@ -57,6 +59,7 @@ const PRODUCT_CATEGORIES = [
 const PROJECTS_STORAGE_KEY = "floor-plan-generator-projects";
 const FLOOR_PLAN_OPENAI_KEY_STORAGE = "floor-plan-openai-api-key";
 const OPENAI_MODEL = "gpt-4.1-mini";
+const OPENAI_IMAGE_MODEL = "gpt-image-1";
 
 
 /**
@@ -2270,6 +2273,109 @@ ${JSON.stringify(currentState, null, 2)}` ,
 }
 
 
+async function generatePlanRendersWithOpenAI(apiKey, payload) {
+  const safeApiKey = String(apiKey || "").trim();
+  if (!safeApiKey) {
+    throw new Error("OpenAI API key is missing.");
+  }
+
+  const {
+    planName,
+    selectedCategory,
+    totalWidth,
+    totalHeight,
+    rooms,
+    image2D,
+    image3D,
+  } = payload;
+
+  const roomSummary = Array.isArray(rooms)
+    ? rooms.map((room) => ({
+        name: room?.name || "Room",
+        x: Number(room?.x) || 0,
+        y: Number(room?.y) || 0,
+        width: Number(room?.width) || 0,
+        height: Number(room?.height) || 0,
+        color: room?.color || "",
+        doors: Array.isArray(room?.doors) ? room.doors : [],
+        windows: Array.isArray(room?.windows) ? room.windows : [],
+        furniture: Array.isArray(room?.furniture)
+          ? room.furniture.map((item) => ({
+              type: item?.type || "",
+              x: Number(item?.x) || 0,
+              y: Number(item?.y) || 0,
+              width: Number(item?.width) || 0,
+              depth: Number(item?.depth) || 0,
+              height: Number(item?.height) || 0,
+            }))
+          : [],
+      }))
+    : [];
+
+  const prompt = `
+Create a highly realistic architectural visualization collage based on this floor plan.
+
+Project:
+- Name: ${planName || "My Floor Plan"}
+- Category: ${selectedCategory || "office"}
+- Total size: ${Number(totalWidth) || 0} ft x ${Number(totalHeight) || 0} ft
+
+Strict requirements:
+- Return one single high-quality wide collage image
+- The collage must show 4 different camera angles of the same exact plan
+- Keep layout, room positions, wall placements, doors, windows, and furniture faithful to the provided references
+- Do not invent additional rooms
+- Do not change the geometry of the plan
+- Use realistic lighting, shadows, materials, flooring, wall finishes, and furniture styling
+- Make the result look like a premium architectural render
+- Camera angles should include:
+  1. angled isometric overview
+  2. living/front interior perspective
+  3. opposite corner perspective
+  4. close interior detail perspective
+
+Room data:
+${JSON.stringify(roomSummary, null, 2)}
+  `.trim();
+
+  const response = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${safeApiKey}`,
+    },
+    body: JSON.stringify({
+      model: OPENAI_IMAGE_MODEL,
+      prompt,
+      size: "1536x1024",
+      quality: "high",
+      ...(image2D || image3D
+        ? {
+            input_images: [image2D, image3D].filter(Boolean),
+          }
+        : {}),
+    }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    console.error("OpenAI image generation error payload:", result);
+    throw new Error(
+      result?.error?.message ||
+        `Image generation failed with status ${response.status}`
+    );
+  }
+
+  const b64 = result?.data?.[0]?.b64_json;
+  if (!b64) {
+    throw new Error("OpenAI did not return an image.");
+  }
+
+  return `data:image/png;base64,${b64}`;
+}
+
+
 export default function App() {
   const [planName, setPlanName] = useState("My Floor Plan");
   const [totalWidth, setTotalWidth] = useState(40);
@@ -2297,6 +2403,9 @@ export default function App() {
   const [isChatbotBusy, setIsChatbotBusy] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isFloorPlanUploading, setIsFloorPlanUploading] = useState(false);
+  const [isRenderGenerating, setIsRenderGenerating] = useState(false);
+  const [generatedRenderImage, setGeneratedRenderImage] = useState("");
+  const [generatedRenderProjectId, setGeneratedRenderProjectId] = useState(null);
   const threeContainerRef = useRef(null);
   const chatScrollRef = useRef(null);
   const speechRecognitionRef = useRef(null);
@@ -2317,6 +2426,13 @@ const capture2DImage = async () => {
     return "";
   }
 };
+
+  useEffect(() => {
+    if (generatedRenderProjectId !== currentProjectId) {
+      setGeneratedRenderImage("");
+    }
+  }, [currentProjectId, generatedRenderProjectId]);
+
   const placedRooms = useMemo(() => {
     return rooms.map((room) =>
       normalizeRoom(room, Number(totalWidth), Number(totalHeight), Number(roomHeight))
@@ -2921,6 +3037,8 @@ const buildGoogleSheetsPayload = async ({
   const resetPlan = () => {
     applyProjectState(getDefaultProjectState());
     setCurrentProjectId(null);
+    setGeneratedRenderImage("");
+    setGeneratedRenderProjectId(null);
     setProjectStatusMessage("");
   };
 
@@ -3009,6 +3127,8 @@ const buildGoogleSheetsPayload = async ({
 
     applyProjectState(selectedProject.data);
     setCurrentProjectId(selectedProject.id);
+    setGeneratedRenderImage("");
+    setGeneratedRenderProjectId(selectedProject.id);
     setIsProjectModalOpen(false);
     setProjectStatusMessage(`Opened "${selectedProject.name}"`);
   };
@@ -3022,6 +3142,70 @@ const buildGoogleSheetsPayload = async ({
 
     resetPlan();
     setIsProjectModalOpen(false);
+  };
+
+  const handleGenerateRenderImages = async () => {
+    if (isRenderGenerating) return;
+
+    if (!currentProjectId) {
+      setProjectStatusMessage("Please save the project first before generating AI renders.");
+      return;
+    }
+
+    try {
+      setIsRenderGenerating(true);
+      setProjectStatusMessage("Generating realistic AI renders from your saved floor plan...");
+
+      const openAIApiKey = getSavedOpenAIApiKey();
+      if (!openAIApiKey) {
+        throw new Error(
+          "OpenAI API key not found in localStorage. Save it under floor-plan-openai-api-key first."
+        );
+      }
+
+      persistOpenAIApiKey(openAIApiKey);
+
+      const previousView = activeView;
+
+      let image2D = "";
+      let image3D = "";
+
+      if (previousView !== "2d") {
+        setActiveView("2d");
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      }
+      image2D = await capture2DImage();
+
+      if (previousView !== "3d") {
+        setActiveView("3d");
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      }
+      image3D = await capture3DImage();
+
+      setActiveView(previousView);
+
+      const generatedImage = await generatePlanRendersWithOpenAI(openAIApiKey, {
+        planName,
+        selectedCategory,
+        totalWidth,
+        totalHeight,
+        rooms: placedRooms,
+        image2D,
+        image3D,
+      });
+
+      setGeneratedRenderImage(generatedImage);
+      setGeneratedRenderProjectId(currentProjectId);
+      setProjectStatusMessage("AI render generated successfully.");
+    } catch (error) {
+      console.error("AI render generation failed:", error);
+      setProjectStatusMessage(
+        error?.message || "Failed to generate AI render. Please try again."
+      );
+    } finally {
+      setIsRenderGenerating(false);
+      setActiveView("3d");
+    }
   };
 
   const exportSVG = () => {
@@ -3466,6 +3650,24 @@ const buildGoogleSheetsPayload = async ({
                       <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>
                         Export SVG
                       </button>
+                      <button
+                        className="view-toolbar-btn view-toolbar-btn--dark ai-render-btn"
+                        onClick={handleGenerateRenderImages}
+                        disabled={!currentProjectId || isRenderGenerating}
+                        title={!currentProjectId ? "Save the project first" : "Generate realistic AI renders"}
+                      >
+                        {isRenderGenerating ? (
+                          <>
+                            <Loader2 size={16} className="spin-icon" />
+                            Rendering...
+                          </>
+                        ) : (
+                          <>
+                            <ImageIcon size={16} />
+                            AI Render
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
 
@@ -3491,7 +3693,35 @@ const buildGoogleSheetsPayload = async ({
                         wallSegments={wallSegments}
                       />
                     </Canvas>
+
+                    {isRenderGenerating && (
+                      <div className="ai-render-overlay">
+                        <div className="ai-render-loader-card">
+                          <Loader2 size={22} className="spin-icon" />
+                          <strong>Generating realistic render...</strong>
+                          <span>Please wait while ChatGPT creates multiple camera-angle visuals.</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
+
+                  {generatedRenderImage && generatedRenderProjectId === currentProjectId && (
+                    <div className="ai-render-result-card">
+                      <div className="section-header compact">
+                        <h3>
+                          <ImageIcon size={16} />
+                          AI Generated Realistic Render
+                        </h3>
+                      </div>
+                      <div className="ai-render-result-image-wrap">
+                        <img
+                          src={generatedRenderImage}
+                          alt={`${planName} AI realistic render`}
+                          className="ai-render-result-image"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </section>
               )}
             </div>
