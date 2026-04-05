@@ -62,8 +62,7 @@ button {
   min-height: 100vh;
   padding: 12px;
   background:
-    linear-gradient(rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.28)),
-    url("https://i.pinimg.com/736x/34/c2/e9/34c2e9ca48f21b9be24d183017f80dd4.jpg");
+  background: linear-gradient(135deg, #ffffff, #eaf3ff, #f2f7ff);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -1400,9 +1399,7 @@ button {
 .app-shell.dark-theme {
   color: #e8eef8;
   background:
-    linear-gradient(rgba(7, 17, 31, 0.45), rgba(7, 17, 31, 0.55)),
-    url("https://wallpapershome.com/images/wallpapers/dark-abstract-wallpaper-3840x2160-modern-art-innovative-visuals-26426.jpg");
-  background-size: cover;
+  background: linear-gradient(135deg, #03060d, #081426, #122b4a);
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
