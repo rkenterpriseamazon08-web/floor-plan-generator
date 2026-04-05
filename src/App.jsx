@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid, Text as DreiText } from "@react-three/drei";
@@ -13,7 +13,8 @@ import {
   FilePlus2,
   X,
 } from "lucide-react";
-
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzZaB4kwA-KK7r6cqfzARoUM6CZ5Ubo6Mi1d3sxSRxjhXmsy1XLOm7sTulnbAmr18hiBQ/exec";
+const MAX_SYNC_ROOMS = 8;
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 10;
 const WALL_THICKNESS_FT = 0.5;
@@ -1236,7 +1237,39 @@ function writeProjectsToStorage(projects) {
   }
 }
 
+async function svgElementToPngDataUrl(svgEl, outputWidth = 1600) {
+  if (!svgEl) return "";
 
+  const serializer = new XMLSerializer();
+  const source = serializer.serializeToString(svgEl);
+  const svgBlob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = url;
+    });
+
+    const bbox = svgEl.getBoundingClientRect();
+    const aspectRatio = bbox.width && bbox.height ? bbox.height / bbox.width : 0.6;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = outputWidth;
+    canvas.height = Math.round(outputWidth * aspectRatio);
+
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    return canvas.toDataURL("image/png");
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 export default function App() {
   const [planName, setPlanName] = useState("My Floor Plan");
   const [totalWidth, setTotalWidth] = useState(40);
@@ -1254,7 +1287,23 @@ export default function App() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [projectStatusMessage, setProjectStatusMessage] = useState("");
   const [expandedRoomId, setExpandedRoomId] = useState(null);
+  const threeContainerRef = useRef(null);
+const capture2DImage = async () => {
+  const svgEl = document.getElementById("floor-plan-svg");
+  if (!svgEl) return "";
+  return await svgElementToPngDataUrl(svgEl, 1600);
+};
+  const capture3DImage = async () => {
+  const canvas = threeContainerRef.current?.querySelector("canvas");
+  if (!canvas) return "";
 
+  try {
+    return canvas.toDataURL("image/png");
+  } catch (error) {
+    console.error("Failed to capture 3D image:", error);
+    return "";
+  }
+};
   const placedRooms = useMemo(() => {
     return rooms.map((room) =>
       normalizeRoom(room, Number(totalWidth), Number(totalHeight), Number(roomHeight))
@@ -1264,7 +1313,64 @@ export default function App() {
   const wallSegments = useMemo(() => {
     return buildWallSegments(placedRooms, Number(totalWidth), Number(totalHeight));
   }, [placedRooms, totalWidth, totalHeight]);
+const buildGoogleSheetsPayload = async ({
+  projectId,
+  safeName,
+  image2D,
+  image3D,
+}) => {
+  const syncedRooms = placedRooms.slice(0, MAX_SYNC_ROOMS);
 
+  return {
+    projectId,
+    planName: safeName,
+    savedAt: new Date().toISOString(),
+    selectedCategory,
+    totalWidth,
+    totalHeight,
+    wallThickness,
+    scale,
+    roomHeight,
+    planSizeLabel: `${totalWidth} × ${totalHeight}`,
+    totalRooms: placedRooms.length,
+    totalRoomArea: Number(totalRoomArea.toFixed(2)),
+    spaceUtilization: utilization,
+    currentProjectId: currentProjectId || projectId,
+    quotationValue: "",
+    quotationNotes: "",
+    image2D,
+    image3D,
+    rooms: syncedRooms.map((room) => ({
+      id: room.id || "",
+      name: room.name || "",
+      x: Number(room.x) || 0,
+      y: Number(room.y) || 0,
+      width: Number(room.width) || 0,
+      height: Number(room.height) || 0,
+      color: room.color || "",
+      doors: Array.isArray(room.doors) ? room.doors : [],
+      windows: Array.isArray(room.windows) ? room.windows : [],
+      furniture: Array.isArray(room.furniture) ? room.furniture : [],
+    })),
+  };
+};
+  const syncProjectToGoogleSheets = async (payload) => {
+  const response = await fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json();
+
+  if (!result.success) {
+    throw new Error(result.message || "Google Sheets sync failed.");
+  }
+
+  return result;
+};
   const numericScale = Math.max(1, Number(scale) || 1);
   const numericWallThickness = Math.max(0.1, Number(wallThickness) || WALL_THICKNESS_FT);
   const canvasWidth = Number(totalWidth) * numericScale;
@@ -1624,7 +1730,7 @@ export default function App() {
     setProjectStatusMessage("");
   };
 
-  const handleSaveProject = () => {
+  const handleSaveProject = async () => {
     const existingProjects = readProjectsFromStorage();
     const projectId = currentProjectId || createProjectId();
     const fallbackName = `Project ${existingProjects.length + 1}`;
@@ -1648,12 +1754,52 @@ export default function App() {
     writeProjectsToStorage(nextProjects);
     setCurrentProjectId(projectId);
     setPlanName(safeName);
-    setProjectStatusMessage(`Saved "${safeName}"`);
     setSavedProjects(
       nextProjects.sort(
         (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
       )
     );
+    try {
+  setProjectStatusMessage(`Saving "${safeName}" locally and syncing to Google Sheets...`);
+
+  const previousView = activeView;
+
+  let image2D = "";
+  let image3D = "";
+
+  // Capture 2D image
+  if (previousView !== "2d") {
+    setActiveView("2d");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  image2D = await capture2DImage();
+
+  // Capture 3D image
+  if (previousView !== "3d") {
+    setActiveView("3d");
+    await new Promise((resolve) => setTimeout(resolve, 600));
+  }
+  image3D = await capture3DImage();
+
+  // Restore original view
+  setActiveView(previousView);
+
+  const payload = await buildGoogleSheetsPayload({
+    projectId: projectRecord.id,
+    safeName,
+    image2D,
+    image3D,
+  });
+
+  await syncProjectToGoogleSheets(payload);
+
+  setProjectStatusMessage(`Saved "${safeName}" locally and synced to Google Sheets`);
+} catch (error) {
+  console.error("Google Sheets sync failed:", error);
+  setProjectStatusMessage(
+    `Saved "${safeName}" locally, but Google Sheets sync failed`
+  );
+}
   };
 
   const handleOpenProjectClick = () => {
@@ -2107,9 +2253,10 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="three-wrap three-wrap--dominant">
+              <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
                 <Canvas
                   shadows
+                  gl={{ preserveDrawingBuffer: true }}
                   camera={{
                     position: [
                       Math.max(Number(totalWidth) * 0.85, 14),
