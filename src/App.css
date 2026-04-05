@@ -1408,7 +1408,8 @@ button {
 .theme-toggle-option.is-active {
   background: linear-gradient(180deg, #14345f 0%, #10284d 100%);
   color: #ffffff;
-  box-shadow: 0 8px 14px rgba(16, 40, 77, 0.18
+  box-shadow: 0 8px 14px rgba(16, 40, 77, 0.18);
+}
 
 @keyframes premiumAmbientFloat {
   0% {
