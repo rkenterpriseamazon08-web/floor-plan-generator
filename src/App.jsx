@@ -2345,16 +2345,11 @@ ${JSON.stringify(roomSummary, null, 2)}
       Authorization: `Bearer ${safeApiKey}`,
     },
     body: JSON.stringify({
-      model: OPENAI_IMAGE_MODEL,
-      prompt,
-      size: "1536x1024",
-      quality: "high",
-      ...(image2D || image3D
-        ? {
-            input_images: [image2D, image3D].filter(Boolean),
-          }
-        : {}),
-    }),
+  model: OPENAI_IMAGE_MODEL,
+  prompt,
+  size: "1536x1024",
+  quality: "high",
+}),
   });
 
   const result = await response.json();
