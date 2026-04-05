@@ -2501,14 +2501,6 @@ const capture2DImage = async () => {
     }
   }, [currentProjectId, generatedRenderProjectId]);
 
-  useEffect(() => {
-    if (!selectedFurnitureContext) return;
-    const roomExists = placedRooms.some((room) => room.id === selectedFurnitureContext.roomId);
-    if (!roomExists) {
-      setSelectedFurnitureContext(null);
-    }
-  }, [placedRooms, selectedFurnitureContext]);
-
   const placedRooms = useMemo(() => {
     return rooms.map((room) =>
       normalizeRoom(room, Number(totalWidth), Number(totalHeight), Number(roomHeight))
@@ -2518,6 +2510,14 @@ const capture2DImage = async () => {
   const wallSegments = useMemo(() => {
     return buildWallSegments(placedRooms, Number(totalWidth), Number(totalHeight));
   }, [placedRooms, totalWidth, totalHeight]);
+
+  useEffect(() => {
+    if (!selectedFurnitureContext) return;
+    const roomExists = placedRooms.some((room) => room.id === selectedFurnitureContext.roomId);
+    if (!roomExists) {
+      setSelectedFurnitureContext(null);
+    }
+  }, [placedRooms, selectedFurnitureContext]);
 
   const selectedFurnitureDetails = useMemo(() => {
     if (!selectedFurnitureContext?.roomId || !selectedFurnitureContext?.furnitureId) {
