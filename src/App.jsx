@@ -675,7 +675,7 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
   }
 
   return (
-    <group onClick={handleSelect}>
+    <group>
       {bands.map((band, index) => {
         if (isVertical) {
           const centerZ = (band.start + band.end) / 2;
