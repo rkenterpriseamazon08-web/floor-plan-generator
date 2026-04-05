@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid, Text as DreiText } from "@react-three/drei";
@@ -2130,6 +2130,255 @@ ${userPrompt}
   return sanitizeGeminiPlanResponse(parsed, currentState);
 }
 
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function normalizeVisionWallName(wall) {
+  const value = String(wall || "").toLowerCase().trim();
+
+  if (value === "north" || value === "top") return "top";
+  if (value === "south" || value === "bottom") return "bottom";
+  if (value === "west" || value === "left") return "left";
+  if (value === "east" || value === "right") return "right";
+
+  return "top";
+}
+
+function getSafeRoomId() {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `room-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function derivePlanSizeFromVision(rooms, fallbackWidth = 40, fallbackHeight = 30) {
+  if (!Array.isArray(rooms) || !rooms.length) {
+    return {
+      totalWidth: fallbackWidth,
+      totalHeight: fallbackHeight,
+    };
+  }
+
+  const maxX = Math.max(...rooms.map((room) => (Number(room.x) || 0) + (Number(room.width) || 0)));
+  const maxY = Math.max(...rooms.map((room) => (Number(room.y) || 0) + (Number(room.height) || 0)));
+
+  return {
+    totalWidth: Math.max(10, Math.ceil(maxX || fallbackWidth)),
+    totalHeight: Math.max(10, Math.ceil(maxY || fallbackHeight)),
+  };
+}
+
+function sanitizeVisionFloorPlanResponse(raw, currentState) {
+  const safeRaw = raw && typeof raw === "object" ? raw : {};
+  const rawRooms = Array.isArray(safeRaw.rooms) ? safeRaw.rooms : [];
+  const rawDoors = Array.isArray(safeRaw.doors) ? safeRaw.doors : [];
+  const rawWindows = Array.isArray(safeRaw.windows) ? safeRaw.windows : [];
+
+  const hasExplicitCoordinates = rawRooms.some(
+    (room) => Number.isFinite(Number(room?.x)) && Number.isFinite(Number(room?.y)),
+  );
+
+  const draftRooms = rawRooms.map((room, index) => ({
+    id: getSafeRoomId(),
+    name: String(room?.name || `Room ${index + 1}`),
+    x: Math.max(0, Number(room?.x) || 0),
+    y: Math.max(0, Number(room?.y) || 0),
+    width: Math.max(4, Number(room?.width) || 10),
+    height: Math.max(4, Number(room?.height) || 10),
+    color: ROOM_COLORS[index % ROOM_COLORS.length],
+    doors: [],
+    windows: [],
+    furniture: [],
+  }));
+
+  const inferredPlan = derivePlanSizeFromVision(
+    draftRooms,
+    Number(currentState?.totalWidth) || 40,
+    Number(currentState?.totalHeight) || 30,
+  );
+
+  const totalWidth = Math.max(10, Number(safeRaw.totalWidth) || inferredPlan.totalWidth);
+  const totalHeight = Math.max(10, Number(safeRaw.totalHeight) || inferredPlan.totalHeight);
+
+  const positionedRooms = hasExplicitCoordinates
+    ? fitRoomsInGrid(draftRooms, totalWidth, totalHeight).map((room, index) => ({
+        ...room,
+        id: draftRooms[index]?.id || room.id,
+        name: draftRooms[index]?.name || room.name,
+        color: draftRooms[index]?.color || room.color,
+        doors: [],
+        windows: [],
+        furniture: [],
+      }))
+    : fitRoomsInGrid(draftRooms, totalWidth, totalHeight);
+
+  const roomMap = new Map(
+    positionedRooms.map((room) => [String(room.name || "").toLowerCase().trim(), room]),
+  );
+
+  rawDoors.forEach((door) => {
+    const roomName = String(door?.room || "").toLowerCase().trim();
+    const targetRoom = roomMap.get(roomName);
+    if (!targetRoom) return;
+
+    const wall = normalizeVisionWallName(door?.wall);
+    const wallLength = getWallLength(targetRoom, wall);
+    const width = Math.max(1, Number(door?.width) || DEFAULT_DOOR_WIDTH);
+    const maxOffset = Math.max(0, wallLength - width);
+
+    targetRoom.doors.push({
+      wall,
+      offset: clamp(Number(door?.position) || 0, 0, maxOffset),
+      width: clamp(width, 0.5, Math.max(0.5, wallLength)),
+      height: Math.max(1, Number(door?.height) || DEFAULT_DOOR_HEIGHT),
+    });
+  });
+
+  rawWindows.forEach((windowItem) => {
+    const roomName = String(windowItem?.room || "").toLowerCase().trim();
+    const targetRoom = roomMap.get(roomName);
+    if (!targetRoom) return;
+
+    const wall = normalizeVisionWallName(windowItem?.wall);
+    const wallLength = getWallLength(targetRoom, wall);
+    const width = Math.max(1, Number(windowItem?.width) || DEFAULT_WINDOW_WIDTH);
+    const maxOffset = Math.max(0, wallLength - width);
+
+    targetRoom.windows.push({
+      wall,
+      offset: clamp(Number(windowItem?.position) || 0, 0, maxOffset),
+      width: clamp(width, 0.5, Math.max(0.5, wallLength)),
+      height: Math.max(1, Number(windowItem?.height) || DEFAULT_WINDOW_HEIGHT),
+      sillHeight: Math.max(0, Number(windowItem?.sillHeight) || DEFAULT_WINDOW_SILL_HEIGHT),
+    });
+  });
+
+  return {
+    planName: String(safeRaw.planName || currentState?.planName || "Uploaded Floor Plan"),
+    totalWidth,
+    totalHeight,
+    rooms: positionedRooms,
+  };
+}
+
+async function analyzeFloorPlanImageWithGemini(file, currentState) {
+  const safeApiKey = getSavedGeminiApiKey();
+
+  if (!safeApiKey) {
+    throw new Error(
+      "Gemini API key not found in localStorage. Please set floor-plan-gemini-api-key first.",
+    );
+  }
+
+  const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error("Invalid image format. Please upload a PNG or JPG file.");
+  }
+
+  const base64Data = await fileToBase64(file);
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(
+    safeApiKey,
+  )}`;
+
+  const schemaInstructions = {
+    planName: "string",
+    totalWidth: "number",
+    totalHeight: "number",
+    rooms: [
+      { name: "string", x: "number", y: "number", width: "number", height: "number" },
+    ],
+    doors: [
+      { room: "string", wall: "north|south|east|west|top|bottom|left|right", position: "number", width: "number", height: "number" },
+    ],
+    windows: [
+      { room: "string", wall: "north|south|east|west|top|bottom|left|right", position: "number", width: "number", height: "number", sillHeight: "number" },
+    ],
+  };
+
+  const prompt = `
+You are analyzing a 2D architectural floor plan image for a React floor plan generator.
+
+Return ONLY valid JSON. No markdown. No explanation.
+
+Schema:
+${JSON.stringify(schemaInstructions)}
+
+Rules:
+- Detect rooms from the uploaded floor plan.
+- Estimate x, y, width, height for each room in a consistent plan coordinate system.
+- Detect doors and windows and assign each opening to the correct room.
+- wall values must be one of: north, south, east, west.
+- position means offset from the start of that wall.
+- If doors or windows are unclear, return empty arrays instead of guessing wildly.
+- Keep numbers practical and clean.
+- totalWidth and totalHeight should approximate the full plan size.
+- Use simple room names like Bedroom, Kitchen, Living Room, Toilet, Office, etc.
+- Return only JSON.
+
+Current app context:
+${JSON.stringify(currentState, null, 2)}
+`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: file.type,
+                data: base64Data,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: "application/json",
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gemini Vision request failed with status ${response.status}`);
+  }
+
+  const result = await response.json();
+  const rawText =
+    result?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
+
+  if (!rawText) {
+    throw new Error("Gemini Vision returned an empty response.");
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch (error) {
+    const cleaned = rawText.replace(/```json|```/gi, "").trim();
+    parsed = JSON.parse(cleaned);
+  }
+
+  return sanitizeVisionFloorPlanResponse(parsed, currentState);
+}
+
 export default function App() {
   const [planName, setPlanName] = useState("My Floor Plan");
   const [totalWidth, setTotalWidth] = useState(40);
@@ -2156,9 +2405,11 @@ export default function App() {
   const [chatInput, setChatInput] = useState("");
   const [isChatbotBusy, setIsChatbotBusy] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isFloorPlanUploading, setIsFloorPlanUploading] = useState(false);
   const threeContainerRef = useRef(null);
   const chatScrollRef = useRef(null);
   const speechRecognitionRef = useRef(null);
+  const fileUploadInputRef = useRef(null);
   const capture2DImage = async () => {
     const svgEl = document.getElementById("floor-plan-svg");
     if (!svgEl) return "";
@@ -2269,6 +2520,67 @@ export default function App() {
   const utilization = totalPlanArea
     ? ((totalRoomArea / totalPlanArea) * 100).toFixed(1)
     : 0;
+
+  const handleUploadFloorPlanClick = useCallback(() => {
+    if (isFloorPlanUploading) return;
+    fileUploadInputRef.current?.click();
+  }, [isFloorPlanUploading]);
+
+  const handleFloorPlanImageSelected = useCallback(
+    async (event) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+
+      if (!file) return;
+
+      try {
+        setIsFloorPlanUploading(true);
+        setProjectStatusMessage(`Analyzing "${file.name}" and generating floor plan...`);
+
+        const currentState = {
+          planName,
+          totalWidth,
+          totalHeight,
+          wallThickness,
+          scale,
+          roomHeight,
+          selectedCategory,
+          rooms: placedRooms,
+        };
+
+        const aiPlan = await analyzeFloorPlanImageWithGemini(file, currentState);
+
+        if (!Array.isArray(aiPlan.rooms) || !aiPlan.rooms.length) {
+          throw new Error("AI could not detect any rooms from this floor plan image.");
+        }
+
+        setPlanName(aiPlan.planName || "Uploaded Floor Plan");
+        setTotalWidth(Math.max(10, Number(aiPlan.totalWidth) || 40));
+        setTotalHeight(Math.max(10, Number(aiPlan.totalHeight) || 30));
+        setRooms(aiPlan.rooms);
+        setActiveView("2d");
+        setExpandedRoomId(aiPlan.rooms[0]?.id || null);
+        setProjectStatusMessage(`Floor plan uploaded successfully from "${file.name}".`);
+      } catch (error) {
+        console.error("Upload floor plan failed:", error);
+        setProjectStatusMessage(
+          error?.message || "Failed to analyze floor plan image. Please try another image.",
+        );
+      } finally {
+        setIsFloorPlanUploading(false);
+      }
+    },
+    [
+      planName,
+      totalWidth,
+      totalHeight,
+      wallThickness,
+      scale,
+      roomHeight,
+      selectedCategory,
+      placedRooms,
+    ],
+  );
 
   const applyProjectState = (projectState) => {
     const defaults = getDefaultProjectState();
@@ -2912,6 +3224,14 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <input
+        ref={fileUploadInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/jpg"
+        style={{ display: "none" }}
+        onChange={handleFloorPlanImageSelected}
+      />
+
       {isProjectModalOpen && (
         <div
           className="project-modal-overlay"
@@ -3124,6 +3444,13 @@ export default function App() {
                   <div className="section-header section-header--preview">
                     <h2>2D Floor Plan</h2>
                     <div className="preview-toolbar">
+                      <button
+                        className="view-toolbar-btn view-toolbar-btn--upload"
+                        onClick={handleUploadFloorPlanClick}
+                        disabled={isFloorPlanUploading}
+                      >
+                        {isFloorPlanUploading ? "Uploading..." : "Upload Floor Plan"}
+                      </button>
                       <button
                         className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
                         onClick={() => setActiveView("2d")}
@@ -3365,6 +3692,13 @@ export default function App() {
                   <div className="section-header section-header--preview">
                     <h2>3D Floor Plan</h2>
                     <div className="preview-toolbar">
+                      <button
+                        className="view-toolbar-btn view-toolbar-btn--upload"
+                        onClick={handleUploadFloorPlanClick}
+                        disabled={isFloorPlanUploading}
+                      >
+                        {isFloorPlanUploading ? "Uploading..." : "Upload Floor Plan"}
+                      </button>
                       <button
                         className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
                         onClick={() => setActiveView("2d")}
