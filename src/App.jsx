@@ -2633,6 +2633,7 @@ const buildGoogleSheetsPayload = async ({
     selectedCategory,
     totalWidth,
     totalHeight,
+    safeName,
     wallThickness,
     scale,
     roomHeight,
@@ -2660,17 +2661,35 @@ const buildGoogleSheetsPayload = async ({
     })),
   };
 };
-  const syncProjectToGoogleSheets = async (payload) => {
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8",
-      },
-      body: JSON.stringify({
-        action: "saveProject",
-        ...payload,
-      }),
-    });
+  async function syncProjectToGoogleSheets(payload) {
+  const response = await fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const rawText = await response.text();
+  console.log("Apps Script raw response:", rawText);
+
+  let result;
+  try {
+    result = JSON.parse(rawText);
+  } catch (e) {
+    throw new Error(`Apps Script did not return valid JSON. Raw response: ${rawText}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(result?.message || `Request failed with status ${response.status}`);
+  }
+
+  if (!result?.success) {
+    throw new Error(result?.message || "Apps Script returned success: false");
+  }
+
+  return result;
+}
 
     const result = await response.json();
 
@@ -3455,6 +3474,17 @@ const buildGoogleSheetsPayload = async ({
 
       setGeneratedRenderImage(generatedImage);
       setGeneratedRenderProjectId(currentProjectId);
+      await fetch(APPS_SCRIPT_URL, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    action: "updateProjectAiRender",
+    projectId: currentProjectId,
+    ai_render_image_base64: generatedImage || "",
+  }),
+});
       await syncAiRenderToGoogleSheets(currentProjectId, generatedImage);
       setProjectStatusMessage("AI render generated successfully and synced to Google Sheets.");
     } catch (error) {
