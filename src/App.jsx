@@ -2692,15 +2692,15 @@ const buildGoogleSheetsPayload = async ({
               rel="noreferrer"
             >
               <div className="furniture-product-image-wrap">
-               <img
-  src={item.image}
-  alt={item.title}
-  className="furniture-recommendation-image"
-  loading="lazy"
-  onError={(e) => {
-    e.currentTarget.src = "/products/bed-wooden.jpg";
-  }}
-/>
+                <img
+                  src={product.image}
+                  alt={product.title}
+                  className="furniture-recommendation-image"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.src = "/products/bed-wooden.jpg";
+                  }}
+                />
               </div>
               <div className="furniture-product-body">
                 <span className="furniture-product-label">Amazon Option</span>
