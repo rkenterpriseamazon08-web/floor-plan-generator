@@ -568,10 +568,10 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
   const openings = getSegmentOpenings(segment, rooms, height).map((opening) => {
     if (opening.type === "door") {
       return {
-  ...opening,
-  bottom: 0,
-  top: clamp(Number(opening.height) || DEFAULT_DOOR_HEIGHT, 0.1, height),
-};
+        ...opening,
+        bottom: 0,
+        top: clamp(Number(opening.height) || DEFAULT_DOOR_HEIGHT, 0.1, height),
+      };
     }
 
     const sillHeight = clamp(
@@ -587,10 +587,10 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
     );
 
     return {
-  ...opening,
-  bottom: sillHeight,
-  top: Math.min(height, sillHeight + openingHeight),
-};
+      ...opening,
+      bottom: sillHeight,
+      top: Math.min(height, sillHeight + openingHeight),
+    };
   });
 
   const verticalBreaks = Array.from(
@@ -1104,6 +1104,7 @@ function Furniture2D({ room, furnitureItem, scale }) {
   const y = (roomY + localY) * scale;
   const w = width * scale;
   const h = depth * scale;
+  const isSlab = isKitchenSlab(furnitureItem);
 
   const centerX = x + w / 2;
   const centerY = y + h / 2;
@@ -1121,10 +1122,29 @@ function Furniture2D({ room, furnitureItem, scale }) {
         y={y}
         width={w}
         height={h}
-        fill={furnitureItem.color || "#d8dee8"}
-        stroke="#64748b"
-        strokeWidth={1.5}
+        rx="0"
+        fill={furnitureItem.color || "#cfd8e3"}
+        stroke={isSlab ? "#4f5f74" : "#5b6a81"}
+        strokeWidth={isSlab ? "1.8" : "1.4"}
       />
+      {isSlab && (
+        <line
+          x1={x}
+          y1={y}
+          x2={
+            furnitureItem.attachedWall === "left" || furnitureItem.attachedWall === "right"
+              ? x
+              : x + w
+          }
+          y2={
+            furnitureItem.attachedWall === "top" || furnitureItem.attachedWall === "bottom"
+              ? y
+              : y + h
+          }
+          stroke="#8a98a8"
+          strokeWidth="2"
+        />
+      )}
 
       <text
         x={centerX}
@@ -1158,6 +1178,7 @@ function Furniture2D({ room, furnitureItem, scale }) {
     </g>
   );
 }
+
 function getFurnitureOptionsForCategory(category) {
   return FURNITURE_PRESETS[category] || [];
 }
@@ -1926,48 +1947,26 @@ export default function App() {
                       strokeWidth={Math.max(3, numericWallThickness * numericScale)}
                     />
 
-            {placedRooms.map((room) => {
-  const x = room.x * numericScale;
-  const y = room.y * numericScale;
-  const w = room.width * numericScale;
-  const h = room.height * numericScale;
+                    {placedRooms.map((room) => {
+                      const x = room.x * numericScale;
+                      const y = room.y * numericScale;
+                      const w = room.width * numericScale;
+                      const h = room.height * numericScale;
 
-  const roomNameFontSize = Math.max(7, Math.min(10, Math.min(w, h) * 0.11));
-  const roomDimFontSize = Math.max(5.5, Math.min(7.5, Math.min(w, h) * 0.085));
-
-  return (
-    <g key={`labels-${room.id}`}>
-      <text
-        x={x + w / 2}
-        y={y + h / 2 - 12}
-        textAnchor="middle"
-        style={{
-          fontSize: roomNameFontSize,
-          fontWeight: 700,
-          fill: "#172033",
-          opacity: 0.68,
-          pointerEvents: "none",
-        }}
-      >
-        {room.name}
-      </text>
-
-      <text
-        x={x + w / 2}
-        y={y + h / 2 + 12}
-        textAnchor="middle"
-        style={{
-          fontSize: roomDimFontSize,
-          fill: "#56637a",
-          opacity: 0.82,
-          pointerEvents: "none",
-        }}
-      >
-        {room.width} ft × {room.height} ft
-      </text>
-    </g>
-  );
-})}
+                      return (
+                        <g key={room.id}>
+                          <rect
+                            x={x}
+                            y={y}
+                            width={w}
+                            height={h}
+                            fill={room.color || "#eef4ff"}
+                            stroke="#7e8da3"
+                            strokeWidth={Math.max(2, numericWallThickness * numericScale)}
+                          />
+                        </g>
+                      );
+                    })}
 
                     {placedRooms.map((room) => {
                       const { doors, windows } = getRoomOpenings(room, Number(roomHeight));
@@ -2011,17 +2010,20 @@ export default function App() {
                       const w = room.width * numericScale;
                       const h = room.height * numericScale;
 
+                      const roomNameFontSize = Math.max(7, Math.min(10, Math.min(w, h) * 0.11));
+                      const roomDimFontSize = Math.max(5.5, Math.min(7.5, Math.min(w, h) * 0.085));
+
                       return (
                         <g key={`labels-${room.id}`}>
-                          {/* smaller 2D plan text */}
                           <text
                             x={x + w / 2}
-                            y={y + h / 2 - 8}
+                            y={y + h / 2 - 12}
                             textAnchor="middle"
                             style={{
-                              fontSize: 9,
+                              fontSize: roomNameFontSize,
                               fontWeight: 700,
                               fill: "#172033",
+                              opacity: 0.68,
                               pointerEvents: "none",
                             }}
                           >
@@ -2030,11 +2032,12 @@ export default function App() {
 
                           <text
                             x={x + w / 2}
-                            y={y + h / 2 + 14}
+                            y={y + h / 2 + 12}
                             textAnchor="middle"
                             style={{
-                              fontSize: 7.5,
+                              fontSize: roomDimFontSize,
                               fill: "#56637a",
+                              opacity: 0.82,
                               pointerEvents: "none",
                             }}
                           >
@@ -2048,7 +2051,13 @@ export default function App() {
                       x={canvasWidth / 2}
                       y={-18}
                       textAnchor="middle"
-                      style={{ fontSize: 9, fontWeight: 600, fill: "#324257" }}
+                      style={{
+                        fontSize: 7,
+                        fontWeight: 600,
+                        fill: "#324257",
+                        opacity: 0.88,
+                        letterSpacing: "0.2px",
+                      }}
                     >
                       Width: {totalWidth} ft
                     </text>
@@ -2058,7 +2067,13 @@ export default function App() {
                       y={canvasHeight / 2}
                       textAnchor="middle"
                       transform={`rotate(-90, -18, ${canvasHeight / 2})`}
-                      style={{ fontSize: 9, fontWeight: 600, fill: "#324257" }}
+                      style={{
+                        fontSize: 7,
+                        fontWeight: 600,
+                        fill: "#324257",
+                        opacity: 0.88,
+                        letterSpacing: "0.2px",
+                      }}
                     >
                       Height: {totalHeight} ft
                     </text>
