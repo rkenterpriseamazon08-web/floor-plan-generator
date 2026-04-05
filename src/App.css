@@ -312,7 +312,9 @@ button {
   box-shadow: 0 14px 22px rgba(16, 40, 77, 0.2);
   background: linear-gradient(180deg, #1a3f71 0%, #14325d 100%);
 }
-
+.preview-toolbar .view-toolbar-btn:first-child {
+  min-width: 148px;
+}
 .secondary-btn {
   display: inline-flex;
   align-items: center;
