@@ -23,7 +23,7 @@ import {
   Sun,
   Moon,
 } from "lucide-react";
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9CTljUpeTfyytXH6HDLYG_Qjah7anxSSaWlvFCX8j82szBuYLci_sVGms7MfbbAuV0A/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_RUGDUE4kAvsDJZQpmw9VUoDNpE19tppS5IZABKe61oiZqBmUrQIdeY0AMvksiqq3/exec";
 const MAX_SYNC_ROOMS = 8;
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 10;
