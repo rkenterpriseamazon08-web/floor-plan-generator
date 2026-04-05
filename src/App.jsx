@@ -2514,11 +2514,27 @@ export default function App() {
   const chatScrollRef = useRef(null);
   const speechRecognitionRef = useRef(null);
   const fileUploadInputRef = useRef(null);
-const capture2DImage = async () => {
-  const svgEl = document.getElementById("floor-plan-svg");
-  if (!svgEl) return "";
-  return await svgElementToPngDataUrl(svgEl, 1600);
-};
+
+  const waitForViewRender = useCallback(
+    async (view, delay = 250) => {
+      setActiveView(view);
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.setTimeout(resolve, delay);
+          });
+        });
+      });
+    },
+    []
+  );
+
+  const capture2DImage = async () => {
+    const svgEl = document.getElementById("floor-plan-svg");
+    if (!svgEl) return "";
+    return await svgElementToPngDataUrl(svgEl, 1600);
+  };
+
   const capture3DImage = async () => {
   const canvas = threeContainerRef.current?.querySelector("canvas");
   if (!canvas) return "";
@@ -2645,22 +2661,50 @@ const buildGoogleSheetsPayload = async ({
   };
 };
   const syncProjectToGoogleSheets = async (payload) => {
-  const response = await fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8",
-    },
-    body: JSON.stringify(payload),
-  });
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8",
+      },
+      body: JSON.stringify({
+        action: "saveProject",
+        ...payload,
+      }),
+    });
 
-  const result = await response.json();
+    const result = await response.json();
 
-  if (!result.success) {
-    throw new Error(result.message || "Google Sheets sync failed.");
-  }
+    if (!result.success) {
+      throw new Error(result.message || "Google Sheets sync failed.");
+    }
 
-  return result;
-};
+    return result;
+  };
+
+  const syncAiRenderToGoogleSheets = async (projectId, aiRenderImage) => {
+    if (!projectId || !aiRenderImage) return null;
+
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8",
+      },
+      body: JSON.stringify({
+        action: "updateProjectAiRender",
+        projectId,
+        ai_render_image_base64: aiRenderImage,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.message || "AI render sync failed.");
+    }
+
+    return result;
+  };
+
   const numericScale = Math.max(1, Number(scale) || 1);
   const numericWallThickness = Math.max(0.1, Number(wallThickness) || WALL_THICKNESS_FT);
   const canvasWidth = Number(totalWidth) * numericScale;
@@ -3296,20 +3340,20 @@ const buildGoogleSheetsPayload = async ({
 
   // Capture 2D image
   if (previousView !== "2d") {
-    setActiveView("2d");
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await waitForViewRender("2d", 320);
   }
   image2D = await capture2DImage();
 
   // Capture 3D image
   if (previousView !== "3d") {
-    setActiveView("3d");
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await waitForViewRender("3d", 650);
   }
   image3D = await capture3DImage();
 
   // Restore original view
-  setActiveView(previousView);
+  if (previousView !== activeView) {
+    await waitForViewRender(previousView, 120);
+  }
 
   const payload = await buildGoogleSheetsPayload({
     projectId: projectRecord.id,
@@ -3386,18 +3430,18 @@ const buildGoogleSheetsPayload = async ({
       let image3D = "";
 
       if (previousView !== "2d") {
-        setActiveView("2d");
-        await new Promise((resolve) => setTimeout(resolve, 350));
+        await waitForViewRender("2d", 350);
       }
       image2D = await capture2DImage();
 
       if (previousView !== "3d") {
-        setActiveView("3d");
-        await new Promise((resolve) => setTimeout(resolve, 700));
+        await waitForViewRender("3d", 700);
       }
       image3D = await capture3DImage();
 
-      setActiveView(previousView);
+      if (previousView !== activeView) {
+        await waitForViewRender(previousView, 120);
+      }
 
       const generatedImage = await generatePlanRendersWithOpenAI(openAIApiKey, {
         planName,
@@ -3411,7 +3455,8 @@ const buildGoogleSheetsPayload = async ({
 
       setGeneratedRenderImage(generatedImage);
       setGeneratedRenderProjectId(currentProjectId);
-      setProjectStatusMessage("AI render generated successfully.");
+      await syncAiRenderToGoogleSheets(currentProjectId, generatedImage);
+      setProjectStatusMessage("AI render generated successfully and synced to Google Sheets.");
     } catch (error) {
       console.error("AI render generation failed:", error);
       setProjectStatusMessage(
@@ -3419,7 +3464,9 @@ const buildGoogleSheetsPayload = async ({
       );
     } finally {
       setIsRenderGenerating(false);
-      setActiveView("3d");
+      if (activeView !== "3d") {
+        setActiveView("3d");
+      }
     }
   };
 
@@ -3516,22 +3563,24 @@ const buildGoogleSheetsPayload = async ({
                       Interactive Floor Plan App
                     </h1>
 
-                    <button
-                      type="button"
-                      className="theme-toggle"
-                      onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-                      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-                      title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-                    >
-                      <span className={`theme-toggle-option ${theme === "light" ? "is-active" : ""}`}>
-                        <Sun size={14} />
-                        Light
-                      </span>
-                      <span className={`theme-toggle-option ${theme === "dark" ? "is-active" : ""}`}>
-                        <Moon size={14} />
-                        Dark
-                      </span>
-                    </button>
+                    <div className="top-input-title-controls">
+                      <button
+                        type="button"
+                        className="theme-toggle"
+                        onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                        aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+                        title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                      >
+                        <span className={`theme-toggle-option ${theme === "light" ? "is-active" : ""}`}>
+                          <Sun size={14} />
+                          Light
+                        </span>
+                        <span className={`theme-toggle-option ${theme === "dark" ? "is-active" : ""}`}>
+                          <Moon size={14} />
+                          Dark
+                        </span>
+                      </button>
+                    </div>
                   </div>
                   <p>Configure plan inputs, then edit rooms from the side panel.</p>
                 </div>
