@@ -1092,11 +1092,28 @@ function Opening2D({ room, opening, scale, wallThickness }) {
  * kitchen slab + wall attachment
  */
 function Furniture2D({ room, furnitureItem, scale }) {
-  const x = (Number(room.x) + Number(furnitureItem.x)) * scale;
-  const y = (Number(room.y) + Number(furnitureItem.y)) * scale;
-  const w = Number(furnitureItem.width) * scale;
-  const d = Number(furnitureItem.depth) * scale;
-  const isSlab = isKitchenSlab(furnitureItem);
+function Furniture2D({ room, furnitureItem, scale }) {
+  const roomX = Number(room.x) || 0;
+  const roomY = Number(room.y) || 0;
+
+  const localX = Number(furnitureItem.x) || 0;
+  const localY = Number(furnitureItem.y) || 0;
+  const width = Number(furnitureItem.width) || 1;
+  const depth = Number(furnitureItem.depth) || 1;
+
+  const x = (roomX + localX) * scale;
+  const y = (roomY + localY) * scale;
+  const w = width * scale;
+  const h = depth * scale;
+
+  const centerX = x + w / 2;
+  const centerY = y + h / 2;
+
+  const nameFontSize = Math.max(5.5, Math.min(8, Math.min(w, h) * 0.09));
+  const dimFontSize = Math.max(4.75, Math.min(6.5, Math.min(w, h) * 0.075));
+
+  const labelOffsetY = h >= 42 ? -3 : -1;
+  const dimOffsetY = h >= 42 ? 10 : 8;
 
   return (
     <g>
@@ -1104,50 +1121,44 @@ function Furniture2D({ room, furnitureItem, scale }) {
         x={x}
         y={y}
         width={w}
-        height={d}
-        rx="0"
-        fill={furnitureItem.color || "#cfd8e3"}
-        stroke={isSlab ? "#4f5f74" : "#5b6a81"}
-        strokeWidth={isSlab ? "1.8" : "1.4"}
+        height={h}
+        fill={furnitureItem.color || "#d8dee8"}
+        stroke="#64748b"
+        strokeWidth={1.5}
       />
-      {isSlab && (
-        <line
-          x1={x}
-          y1={y}
-          x2={
-            furnitureItem.attachedWall === "left" || furnitureItem.attachedWall === "right"
-              ? x
-              : x + w
-          }
-          y2={
-            furnitureItem.attachedWall === "top" || furnitureItem.attachedWall === "bottom"
-              ? y
-              : y + d
-          }
-          stroke="#8a98a8"
-          strokeWidth="2"
-        />
-      )}
-      {w > 34 && d > 20 && (
-        <text
-          x={x + w / 2}
-          y={y + d / 2}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          style={{
-            fontSize: 8,
-            fontWeight: 700,
-            fill: "#243246",
-            pointerEvents: "none",
-          }}
-        >
-          {furnitureItem.type}
-        </text>
-      )}
+
+      <text
+        x={centerX}
+        y={centerY + labelOffsetY}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        style={{
+          fontSize: nameFontSize,
+          fontWeight: 600,
+          fill: "#243246",
+          pointerEvents: "none",
+        }}
+      >
+        {furnitureItem.type}
+      </text>
+
+      <text
+        x={centerX}
+        y={centerY + dimOffsetY}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        style={{
+          fontSize: dimFontSize,
+          fontWeight: 500,
+          fill: "#5b677c",
+          pointerEvents: "none",
+        }}
+      >
+        {`${width} ft × ${depth} ft`}
+      </text>
     </g>
   );
 }
-
 function getFurnitureOptionsForCategory(category) {
   return FURNITURE_PRESETS[category] || [];
 }
@@ -1916,26 +1927,48 @@ export default function App() {
                       strokeWidth={Math.max(3, numericWallThickness * numericScale)}
                     />
 
-                    {placedRooms.map((room) => {
-                      const x = room.x * numericScale;
-                      const y = room.y * numericScale;
-                      const w = room.width * numericScale;
-                      const h = room.height * numericScale;
+            {placedRooms.map((room) => {
+  const x = room.x * numericScale;
+  const y = room.y * numericScale;
+  const w = room.width * numericScale;
+  const h = room.height * numericScale;
 
-                      return (
-                        <g key={room.id}>
-                          <rect
-                            x={x}
-                            y={y}
-                            width={w}
-                            height={h}
-                            fill={room.color || "#eef4ff"}
-                            stroke="#7e8da3"
-                            strokeWidth={Math.max(2, numericWallThickness * numericScale)}
-                          />
-                        </g>
-                      );
-                    })}
+  const roomNameFontSize = Math.max(7, Math.min(10, Math.min(w, h) * 0.11));
+  const roomDimFontSize = Math.max(5.5, Math.min(7.5, Math.min(w, h) * 0.085));
+
+  return (
+    <g key={`labels-${room.id}`}>
+      <text
+        x={x + w / 2}
+        y={y + h / 2 - 12}
+        textAnchor="middle"
+        style={{
+          fontSize: roomNameFontSize,
+          fontWeight: 700,
+          fill: "#172033",
+          opacity: 0.68,
+          pointerEvents: "none",
+        }}
+      >
+        {room.name}
+      </text>
+
+      <text
+        x={x + w / 2}
+        y={y + h / 2 + 12}
+        textAnchor="middle"
+        style={{
+          fontSize: roomDimFontSize,
+          fill: "#56637a",
+          opacity: 0.82,
+          pointerEvents: "none",
+        }}
+      >
+        {room.width} ft × {room.height} ft
+      </text>
+    </g>
+  );
+})}
 
                     {placedRooms.map((room) => {
                       const { doors, windows } = getRoomOpenings(room, Number(roomHeight));
