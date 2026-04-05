@@ -956,3 +956,14 @@ button {
     flex: 1 1 auto;
   }
 }
+
+/* 2D SVG text readability tuning */
+.svg-wrap svg text {
+  font-family: "Montserrat", sans-serif;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+}
+
+.svg-wrap svg {
+  overflow: visible;
+}
