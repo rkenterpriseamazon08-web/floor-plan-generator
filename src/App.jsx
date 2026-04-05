@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid, Text as DreiText } from "@react-three/drei";
@@ -18,7 +18,8 @@ import {
   Sparkles,
   Bot,
 } from "lucide-react";
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzZaB4kwA-KK7r6cqfzARoUM6CZ5Ubo6Mi1d3sxSRxjhXmsy1XLOm7sTulnbAmr18hiBQ/exec";
+const APPS_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbzZaB4kwA-KK7r6cqfzARoUM6CZ5Ubo6Mi1d3sxSRxjhXmsy1XLOm7sTulnbAmr18hiBQ/exec";
 const MAX_SYNC_ROOMS = 8;
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 10;
@@ -58,7 +59,6 @@ const PROJECTS_STORAGE_KEY = "floor-plan-generator-projects";
 const FLOOR_PLAN_GEMINI_KEY_STORAGE = "floor-plan-gemini-api-key";
 const GEMINI_MODEL = "gemini-2.0-flash";
 
-
 /**
  * Furniture preset map with realistic sizes (feet).
  * width = X span
@@ -69,48 +69,169 @@ const FURNITURE_PRESETS = {
   storage: [
     { type: "Storage Rack", width: 6, depth: 2, height: 7, color: "#c9d4e5" },
     { type: "Pallet Stack", width: 4, depth: 4, height: 4, color: "#d9c3a2" },
-    { type: "Small Shelf Unit", width: 3, depth: 1.5, height: 5, color: "#cfd8c8" },
-    { type: "Heavy Duty Shelf", width: 8, depth: 2.5, height: 8, color: "#b8c4d7" },
-    { type: "Utility Table", width: 5, depth: 2.5, height: 3, color: "#ddd4c8" },
+    {
+      type: "Small Shelf Unit",
+      width: 3,
+      depth: 1.5,
+      height: 5,
+      color: "#cfd8c8",
+    },
+    {
+      type: "Heavy Duty Shelf",
+      width: 8,
+      depth: 2.5,
+      height: 8,
+      color: "#b8c4d7",
+    },
+    {
+      type: "Utility Table",
+      width: 5,
+      depth: 2.5,
+      height: 3,
+      color: "#ddd4c8",
+    },
   ],
   office: [
-    { type: "Workstation Desk", width: 5, depth: 2.5, height: 2.5, color: "#d4dde8" },
+    {
+      type: "Workstation Desk",
+      width: 5,
+      depth: 2.5,
+      height: 2.5,
+      color: "#d4dde8",
+    },
     { type: "Office Chair", width: 2, depth: 2, height: 3, color: "#bcc7d9" },
-    { type: "Conference Table", width: 8, depth: 4, height: 2.5, color: "#d8d1c5" },
-    { type: "Storage Cabinet", width: 4, depth: 1.5, height: 6, color: "#c7d0c0" },
-    { type: "Reception Desk", width: 7, depth: 3, height: 3.5, color: "#d7c8bf" },
+    {
+      type: "Conference Table",
+      width: 8,
+      depth: 4,
+      height: 2.5,
+      color: "#d8d1c5",
+    },
+    {
+      type: "Storage Cabinet",
+      width: 4,
+      depth: 1.5,
+      height: 6,
+      color: "#c7d0c0",
+    },
+    {
+      type: "Reception Desk",
+      width: 7,
+      depth: 3,
+      height: 3.5,
+      color: "#d7c8bf",
+    },
   ],
   cafe: [
-    { type: "2-Seater Table", width: 2.5, depth: 2.5, height: 2.5, color: "#dfd2c2" },
-    { type: "4-Seater Table", width: 4, depth: 4, height: 2.5, color: "#d7cab8" },
+    {
+      type: "2-Seater Table",
+      width: 2.5,
+      depth: 2.5,
+      height: 2.5,
+      color: "#dfd2c2",
+    },
+    {
+      type: "4-Seater Table",
+      width: 4,
+      depth: 4,
+      height: 2.5,
+      color: "#d7cab8",
+    },
     { type: "Chair", width: 1.8, depth: 1.8, height: 3, color: "#c7b9ab" },
-    { type: "Service Counter / Cash Desk", width: 6, depth: 2.5, height: 3.5, color: "#d8c3b8" },
+    {
+      type: "Service Counter / Cash Desk",
+      width: 6,
+      depth: 2.5,
+      height: 3.5,
+      color: "#d8c3b8",
+    },
     { type: "Display Unit", width: 4, depth: 2, height: 5, color: "#d3ddd5" },
   ],
   house: [
-    { type: "Bed (Single / Double)", width: 6.5, depth: 7, height: 2, color: "#d5dce8" },
+    {
+      type: "Bed (Single / Double)",
+      width: 6.5,
+      depth: 7,
+      height: 2,
+      color: "#d5dce8",
+    },
     { type: "Wardrobe", width: 5, depth: 2, height: 7, color: "#c7d0bf" },
     { type: "Sofa", width: 7, depth: 3, height: 3, color: "#c8d6ea" },
     { type: "Center Table", width: 4, depth: 2, height: 1.5, color: "#ddd3c5" },
-    { type: "Kitchen Counter", width: 8, depth: 2, height: 3, color: "#d4d8dc" },
-    { type: "Kitchen Slab", width: 8, depth: 2, height: 3, color: "#cfd6de", wallAttached: true },
-    { type: "Stove / Cooktop", width: 2.5, depth: 2, height: 2.8, color: "#c9c9cf" },
+    {
+      type: "Kitchen Counter",
+      width: 8,
+      depth: 2,
+      height: 3,
+      color: "#d4d8dc",
+    },
+    {
+      type: "Kitchen Slab",
+      width: 8,
+      depth: 2,
+      height: 3,
+      color: "#cfd6de",
+      wallAttached: true,
+    },
+    {
+      type: "Stove / Cooktop",
+      width: 2.5,
+      depth: 2,
+      height: 2.8,
+      color: "#c9c9cf",
+    },
     { type: "Sink", width: 2.5, depth: 2, height: 3, color: "#c5dbe5" },
-    { type: "Dining Table", width: 6, depth: 3.5, height: 2.5, color: "#d8ccb9" },
+    {
+      type: "Dining Table",
+      width: 6,
+      depth: 3.5,
+      height: 2.5,
+      color: "#d8ccb9",
+    },
   ],
   "public toilet": [
-    { type: "Toilet Seat (WC)", width: 2.5, depth: 4, height: 3, color: "#dbe7f2" },
+    {
+      type: "Toilet Seat (WC)",
+      width: 2.5,
+      depth: 4,
+      height: 3,
+      color: "#dbe7f2",
+    },
     { type: "Urinal", width: 2, depth: 1.5, height: 3.5, color: "#d8e7ef" },
     { type: "Wash Basin", width: 2, depth: 1.5, height: 3, color: "#d9eef5" },
     { type: "Mirror Panel", width: 3, depth: 0.3, height: 4, color: "#d3e7f8" },
-    { type: "Partition Wall", width: 3, depth: 0.3, height: 6.5, color: "#cfd4dd" },
+    {
+      type: "Partition Wall",
+      width: 3,
+      depth: 0.3,
+      height: 6.5,
+      color: "#cfd4dd",
+    },
   ],
   "security cabin": [
     { type: "Guard Chair", width: 2, depth: 2, height: 3, color: "#bfc9d7" },
     { type: "Small Desk", width: 4, depth: 2, height: 2.5, color: "#d7cdbf" },
-    { type: "Storage Shelf", width: 3, depth: 1.5, height: 6, color: "#c8d1c2" },
-    { type: "CCTV Monitor Unit", width: 3, depth: 1.5, height: 4, color: "#c9d3e4" },
-    { type: "Barrier Control Panel", width: 2.5, depth: 1.5, height: 3.5, color: "#d2c9be" },
+    {
+      type: "Storage Shelf",
+      width: 3,
+      depth: 1.5,
+      height: 6,
+      color: "#c8d1c2",
+    },
+    {
+      type: "CCTV Monitor Unit",
+      width: 3,
+      depth: 1.5,
+      height: 4,
+      color: "#c9d3e4",
+    },
+    {
+      type: "Barrier Control Panel",
+      width: 2.5,
+      depth: 1.5,
+      height: 3.5,
+      color: "#d2c9be",
+    },
   ],
 };
 
@@ -133,7 +254,7 @@ function normalizeDoor(door, room) {
   const width = clamp(
     Number(door?.width) || DEFAULT_DOOR_WIDTH,
     0.5,
-    Math.max(0.5, wallLength)
+    Math.max(0.5, wallLength),
   );
   const height = Math.max(Number(door?.height) || DEFAULT_DOOR_HEIGHT, 0.5);
   const maxOffset = Math.max(0, wallLength - width);
@@ -143,29 +264,34 @@ function normalizeDoor(door, room) {
 }
 
 function normalizeWindow(windowItem, room, wallHeight) {
-  const wall = WALL_OPTIONS.includes(windowItem?.wall) ? windowItem.wall : "top";
+  const wall = WALL_OPTIONS.includes(windowItem?.wall)
+    ? windowItem.wall
+    : "top";
   const wallLength = getWallLength(room, wall);
 
   const width = clamp(
     Number(windowItem?.width) || DEFAULT_WINDOW_WIDTH,
     0.5,
-    Math.max(0.5, wallLength)
+    Math.max(0.5, wallLength),
   );
 
   const height = clamp(
     Number(windowItem?.height) || DEFAULT_WINDOW_HEIGHT,
     0.5,
-    Math.max(0.5, Number(wallHeight) || DEFAULT_ROOM_HEIGHT)
+    Math.max(0.5, Number(wallHeight) || DEFAULT_ROOM_HEIGHT),
   );
 
   const maxOffset = Math.max(0, wallLength - width);
   const offset = clamp(Number(windowItem?.offset) || 0, 0, maxOffset);
 
-  const maxSill = Math.max(0, (Number(wallHeight) || DEFAULT_ROOM_HEIGHT) - height);
+  const maxSill = Math.max(
+    0,
+    (Number(wallHeight) || DEFAULT_ROOM_HEIGHT) - height,
+  );
   const sillHeight = clamp(
     Number(windowItem?.sillHeight) || DEFAULT_WINDOW_SILL_HEIGHT,
     0,
-    maxSill
+    maxSill,
   );
 
   return { wall, offset, width, height, sillHeight };
@@ -182,22 +308,28 @@ function getKitchenSlabGeometry(furnitureItem, room) {
 
   const roomWidth = Number(room.width) || 0;
   const roomHeight = Number(room.height) || 0;
-  const depth = Math.max(Number(furnitureItem?.slabDepth) || DEFAULT_KITCHEN_SLAB_DEPTH, 0.4);
-  const height = Math.max(Number(furnitureItem?.height) || DEFAULT_KITCHEN_SLAB_HEIGHT, 0.4);
+  const depth = Math.max(
+    Number(furnitureItem?.slabDepth) || DEFAULT_KITCHEN_SLAB_DEPTH,
+    0.4,
+  );
+  const height = Math.max(
+    Number(furnitureItem?.height) || DEFAULT_KITCHEN_SLAB_HEIGHT,
+    0.4,
+  );
 
-  const wallLength = wall === "top" || wall === "bottom" ? roomWidth : roomHeight;
+  const wallLength =
+    wall === "top" || wall === "bottom" ? roomWidth : roomHeight;
   const length = clamp(
     Number(furnitureItem?.slabLength) || Number(furnitureItem?.width) || 4,
     1,
-    Math.max(1, wallLength - FURNITURE_WALL_CLEARANCE * 2)
+    Math.max(1, wallLength - FURNITURE_WALL_CLEARANCE * 2),
   );
 
-  const maxOffset = Math.max(0, wallLength - length - FURNITURE_WALL_CLEARANCE * 2);
-  const offset = clamp(
-    Number(furnitureItem?.offset) || 0,
+  const maxOffset = Math.max(
     0,
-    maxOffset
+    wallLength - length - FURNITURE_WALL_CLEARANCE * 2,
   );
+  const offset = clamp(Number(furnitureItem?.offset) || 0, 0, maxOffset);
 
   if (wall === "top") {
     return {
@@ -225,7 +357,10 @@ function getKitchenSlabGeometry(furnitureItem, room) {
       depth,
       height,
       x: FURNITURE_WALL_CLEARANCE + offset,
-      y: Math.max(FURNITURE_WALL_CLEARANCE, roomHeight - depth - FURNITURE_WALL_CLEARANCE),
+      y: Math.max(
+        FURNITURE_WALL_CLEARANCE,
+        roomHeight - depth - FURNITURE_WALL_CLEARANCE,
+      ),
     };
   }
 
@@ -253,7 +388,10 @@ function getKitchenSlabGeometry(furnitureItem, room) {
     width: depth,
     depth: length,
     height,
-    x: Math.max(FURNITURE_WALL_CLEARANCE, roomWidth - depth - FURNITURE_WALL_CLEARANCE),
+    x: Math.max(
+      FURNITURE_WALL_CLEARANCE,
+      roomWidth - depth - FURNITURE_WALL_CLEARANCE,
+    ),
     y: FURNITURE_WALL_CLEARANCE + offset,
   };
 }
@@ -412,7 +550,12 @@ const createRoom = (index) => ({
   furniture: [],
 });
 
-function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_HEIGHT) {
+function normalizeRoom(
+  room,
+  totalWidth,
+  totalHeight,
+  wallHeight = DEFAULT_ROOM_HEIGHT,
+) {
   const width = Math.max(Number(room.width) || 0, 0);
   const height = Math.max(Number(room.height) || 0, 0);
   const x = Number(room.x) || 0;
@@ -433,7 +576,7 @@ function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_
       : [],
     windows: Array.isArray(baseRoom.windows)
       ? baseRoom.windows.map((windowItem) =>
-          normalizeWindow(windowItem, baseRoom, wallHeight)
+          normalizeWindow(windowItem, baseRoom, wallHeight),
         )
       : [],
     furniture: Array.isArray(baseRoom.furniture)
@@ -485,7 +628,7 @@ function getDefaultRooms(totalWidth, totalHeight) {
       { ...createRoom(2), name: "Kitchen", width: 10, height: 8 },
     ],
     totalWidth,
-    totalHeight
+    totalHeight,
   );
 }
 
@@ -586,13 +729,13 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
     const sillHeight = clamp(
       Number(opening.sillHeight) || 0,
       0,
-      Math.max(0, height - 0.1)
+      Math.max(0, height - 0.1),
     );
 
     const openingHeight = clamp(
       Number(opening.height) || DEFAULT_WINDOW_HEIGHT,
       0.1,
-      Math.max(0.1, height - sillHeight)
+      Math.max(0.1, height - sillHeight),
     );
 
     return {
@@ -603,7 +746,11 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
   });
 
   const verticalBreaks = Array.from(
-    new Set([0, height, ...openings.flatMap((opening) => [opening.bottom, opening.top])])
+    new Set([
+      0,
+      height,
+      ...openings.flatMap((opening) => [opening.bottom, opening.top]),
+    ]),
   )
     .filter((value) => value >= 0 && value <= height)
     .sort((a, b) => a - b);
@@ -658,7 +805,9 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
               receiveShadow
               position={[x1, centerY, centerZ]}
             >
-              <boxGeometry args={[wallThickness, band.bandHeight, band.partLength]} />
+              <boxGeometry
+                args={[wallThickness, band.bandHeight, band.partLength]}
+              />
               <meshStandardMaterial color="#7e8da3" roughness={0.86} />
             </mesh>
           );
@@ -674,7 +823,9 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
             receiveShadow
             position={[centerX, centerY, y1]}
           >
-            <boxGeometry args={[band.partLength, band.bandHeight, wallThickness]} />
+            <boxGeometry
+              args={[band.partLength, band.bandHeight, wallThickness]}
+            />
             <meshStandardMaterial color="#7e8da3" roughness={0.86} />
           </mesh>
         );
@@ -763,7 +914,11 @@ function Furniture3D({ room, furnitureItem }) {
 
     return (
       <group>
-        <mesh castShadow receiveShadow position={[x, legHeight + topThickness / 2, z]}>
+        <mesh
+          castShadow
+          receiveShadow
+          position={[x, legHeight + topThickness / 2, z]}
+        >
           <boxGeometry args={[width, topThickness, depth]} />
           <FurnitureMaterial color={color} />
         </mesh>
@@ -831,7 +986,11 @@ function Furniture3D({ room, furnitureItem }) {
         </mesh>
         <mesh castShadow receiveShadow position={[x, 0.9, z]}>
           <boxGeometry args={[width * 0.92, 0.4, depth * 0.92]} />
-          <meshStandardMaterial color="#f3f5f8" roughness={0.9} metalness={0.02} />
+          <meshStandardMaterial
+            color="#f3f5f8"
+            roughness={0.9}
+            metalness={0.02}
+          />
         </mesh>
         <mesh castShadow receiveShadow position={[x, 1.2, z - depth * 0.39]}>
           <boxGeometry args={[width, 0.6, Math.max(0.25, depth * 0.12)]} />
@@ -855,13 +1014,29 @@ function Furniture3D({ room, furnitureItem }) {
           <boxGeometry args={[width, height, depth]} />
           <FurnitureMaterial color={color} />
         </mesh>
-        <mesh castShadow receiveShadow position={[x - width * 0.24, height / 2, z + depth / 2 + 0.01]}>
+        <mesh
+          castShadow
+          receiveShadow
+          position={[x - width * 0.24, height / 2, z + depth / 2 + 0.01]}
+        >
           <boxGeometry args={[0.06, height * 0.72, 0.06]} />
-          <meshStandardMaterial color="#7a8797" roughness={0.7} metalness={0.15} />
+          <meshStandardMaterial
+            color="#7a8797"
+            roughness={0.7}
+            metalness={0.15}
+          />
         </mesh>
-        <mesh castShadow receiveShadow position={[x + width * 0.24, height / 2, z + depth / 2 + 0.01]}>
+        <mesh
+          castShadow
+          receiveShadow
+          position={[x + width * 0.24, height / 2, z + depth / 2 + 0.01]}
+        >
           <boxGeometry args={[0.06, height * 0.72, 0.06]} />
-          <meshStandardMaterial color="#7a8797" roughness={0.7} metalness={0.15} />
+          <meshStandardMaterial
+            color="#7a8797"
+            roughness={0.7}
+            metalness={0.15}
+          />
         </mesh>
         <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
       </group>
@@ -877,7 +1052,11 @@ function Furniture3D({ room, furnitureItem }) {
         </mesh>
         <mesh castShadow receiveShadow position={[x, height + 0.05, z]}>
           <boxGeometry args={[width, 0.1, depth]} />
-          <meshStandardMaterial color="#9aa6b4" roughness={0.55} metalness={0.12} />
+          <meshStandardMaterial
+            color="#9aa6b4"
+            roughness={0.55}
+            metalness={0.12}
+          />
         </mesh>
         <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
       </group>
@@ -937,7 +1116,11 @@ function Floor3DScene({
         receiveShadow
       >
         <planeGeometry args={[totalWidth, totalHeight]} />
-        <meshStandardMaterial color="#e7ebf0" roughness={0.93} metalness={0.04} />
+        <meshStandardMaterial
+          color="#e7ebf0"
+          roughness={0.93}
+          metalness={0.04}
+        />
       </mesh>
 
       {rooms.map((room) => {
@@ -957,9 +1140,15 @@ function Floor3DScene({
               receiveShadow
             >
               <planeGeometry
-                args={[Math.max(w - wt * 0.6, 0.2), Math.max(d - wt * 0.6, 0.2)]}
+                args={[
+                  Math.max(w - wt * 0.6, 0.2),
+                  Math.max(d - wt * 0.6, 0.2),
+                ]}
               />
-              <meshStandardMaterial color={room.color || "#eef4ff"} roughness={0.95} />
+              <meshStandardMaterial
+                color={room.color || "#eef4ff"}
+                roughness={0.95}
+              />
             </mesh>
 
             <DreiText
@@ -1006,8 +1195,16 @@ function Floor3DScene({
                   <boxGeometry
                     args={
                       isVertical
-                        ? [Math.max(wt * 0.18, 0.04), windowItem.height, windowItem.width]
-                        : [windowItem.width, windowItem.height, Math.max(wt * 0.18, 0.04)]
+                        ? [
+                            Math.max(wt * 0.18, 0.04),
+                            windowItem.height,
+                            windowItem.width,
+                          ]
+                        : [
+                            windowItem.width,
+                            windowItem.height,
+                            Math.max(wt * 0.18, 0.04),
+                          ]
                     }
                   />
                   <meshStandardMaterial
@@ -1141,12 +1338,14 @@ function Furniture2D({ room, furnitureItem, scale }) {
           x1={x}
           y1={y}
           x2={
-            furnitureItem.attachedWall === "left" || furnitureItem.attachedWall === "right"
+            furnitureItem.attachedWall === "left" ||
+            furnitureItem.attachedWall === "right"
               ? x
               : x + w
           }
           y2={
-            furnitureItem.attachedWall === "top" || furnitureItem.attachedWall === "bottom"
+            furnitureItem.attachedWall === "top" ||
+            furnitureItem.attachedWall === "bottom"
               ? y
               : y + h
           }
@@ -1196,9 +1395,11 @@ function getDefaultFurnitureSelection(category) {
   return getFurnitureOptionsForCategory(category)[0]?.type || "";
 }
 
-
 function createProjectId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
 
@@ -1262,7 +1463,8 @@ async function svgElementToPngDataUrl(svgEl, outputWidth = 1600) {
     });
 
     const bbox = svgEl.getBoundingClientRect();
-    const aspectRatio = bbox.width && bbox.height ? bbox.height / bbox.width : 0.6;
+    const aspectRatio =
+      bbox.width && bbox.height ? bbox.height / bbox.width : 0.6;
 
     const canvas = document.createElement("canvas");
     canvas.width = outputWidth;
@@ -1310,13 +1512,14 @@ function persistGeminiApiKey(apiKey) {
 }
 
 function getFriendlyCategoryName(category) {
-  return String(category || "")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  return String(category || "").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function extractPlanDimensions(prompt) {
   const text = String(prompt || "");
-  const multiNumberMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?)/i);
+  const multiNumberMatch = text.match(
+    /(\d+(?:\.\d+)?)\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?)/i,
+  );
   if (multiNumberMatch) {
     return {
       totalWidth: Number(multiNumberMatch[1]) || 40,
@@ -1324,8 +1527,8 @@ function extractPlanDimensions(prompt) {
     };
   }
 
-  const feetNumbers = [...text.matchAll(/(\d+(?:\.\d+)?)\s*(?:ft|feet)/gi)].map((match) =>
-    Number(match[1])
+  const feetNumbers = [...text.matchAll(/(\d+(?:\.\d+)?)\s*(?:ft|feet)/gi)].map(
+    (match) => Number(match[1]),
   );
 
   if (feetNumbers.length >= 2) {
@@ -1339,7 +1542,11 @@ function extractPlanDimensions(prompt) {
 }
 
 function makeDefaultDoorForRoom(room) {
-  const width = clamp(Math.max(2.5, Math.min((Number(room.width) || 8) * 0.28, 4)), 2.5, Math.max(2.5, Number(room.width) || 4));
+  const width = clamp(
+    Math.max(2.5, Math.min((Number(room.width) || 8) * 0.28, 4)),
+    2.5,
+    Math.max(2.5, Number(room.width) || 4),
+  );
   return [
     {
       wall: "bottom",
@@ -1353,8 +1560,14 @@ function makeDefaultDoorForRoom(room) {
 function makeDefaultWindowForRoom(room) {
   const useTopWall = (Number(room.width) || 0) >= (Number(room.height) || 0);
   const wall = useTopWall ? "top" : "right";
-  const wallLength = useTopWall ? Number(room.width) || 6 : Number(room.height) || 6;
-  const width = clamp(Math.max(2.5, Math.min(wallLength * 0.32, 5)), 2.5, Math.max(2.5, wallLength));
+  const wallLength = useTopWall
+    ? Number(room.width) || 6
+    : Number(room.height) || 6;
+  const width = clamp(
+    Math.max(2.5, Math.min(wallLength * 0.32, 5)),
+    2.5,
+    Math.max(2.5, wallLength),
+  );
   return [
     {
       wall,
@@ -1412,15 +1625,16 @@ function getDefaultFurnitureForRoomName(roomName, category) {
   const label = String(roomName || "").toLowerCase();
 
   const matchByIncludes = (terms) =>
-    options.find((item) => terms.some((term) => String(item.type).toLowerCase().includes(term)));
+    options.find((item) =>
+      terms.some((term) => String(item.type).toLowerCase().includes(term)),
+    );
 
   const selected = (() => {
     if (category === "house") {
       if (label.includes("bed")) {
-        return [
-          matchByIncludes(["bed"]),
-          matchByIncludes(["wardrobe"]),
-        ].filter(Boolean);
+        return [matchByIncludes(["bed"]), matchByIncludes(["wardrobe"])].filter(
+          Boolean,
+        );
       }
 
       if (label.includes("living")) {
@@ -1465,7 +1679,8 @@ function getDefaultFurnitureForRoomName(roomName, category) {
         return [matchByIncludes(["service counter"])].filter(Boolean);
       }
       return [
-        matchByIncludes(["4-seater table"]) || matchByIncludes(["2-seater table"]),
+        matchByIncludes(["4-seater table"]) ||
+          matchByIncludes(["2-seater table"]),
         matchByIncludes(["chair"]),
       ].filter(Boolean);
     }
@@ -1496,12 +1711,19 @@ function getDefaultFurnitureForRoomName(roomName, category) {
       createFurnitureFromPreset(preset, category, {
         x: FURNITURE_WALL_CLEARANCE + index * 0.8,
         y: FURNITURE_WALL_CLEARANCE + index * 0.8,
-      })
+      }),
     )
     .filter(Boolean);
 }
 
-function createTemplateRoom(index, name, width, height, category, overrides = {}) {
+function createTemplateRoom(
+  index,
+  name,
+  width,
+  height,
+  category,
+  overrides = {},
+) {
   const room = {
     id:
       typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -1521,9 +1743,14 @@ function createTemplateRoom(index, name, width, height, category, overrides = {}
 
   return {
     ...room,
-    doors: Array.isArray(room.doors) && room.doors.length ? room.doors : makeDefaultDoorForRoom(room),
+    doors:
+      Array.isArray(room.doors) && room.doors.length
+        ? room.doors
+        : makeDefaultDoorForRoom(room),
     windows:
-      Array.isArray(room.windows) && room.windows.length ? room.windows : makeDefaultWindowForRoom(room),
+      Array.isArray(room.windows) && room.windows.length
+        ? room.windows
+        : makeDefaultWindowForRoom(room),
     furniture:
       Array.isArray(room.furniture) && room.furniture.length
         ? room.furniture
@@ -1600,7 +1827,15 @@ function buildPresetTemplate(kind, totalWidth, totalHeight) {
       selectedCategory: "storage",
       totalWidth,
       totalHeight,
-      rooms: [createTemplateRoom(0, "Storage Area", Math.max(18, totalWidth - 4), Math.max(14, totalHeight - 4), "storage")],
+      rooms: [
+        createTemplateRoom(
+          0,
+          "Storage Area",
+          Math.max(18, totalWidth - 4),
+          Math.max(14, totalHeight - 4),
+          "storage",
+        ),
+      ],
     };
   }
 
@@ -1610,7 +1845,15 @@ function buildPresetTemplate(kind, totalWidth, totalHeight) {
       selectedCategory: "security cabin",
       totalWidth,
       totalHeight,
-      rooms: [createTemplateRoom(0, "Security Cabin", Math.max(8, totalWidth - 2), Math.max(8, totalHeight - 2), "security cabin")],
+      rooms: [
+        createTemplateRoom(
+          0,
+          "Security Cabin",
+          Math.max(8, totalWidth - 2),
+          Math.max(8, totalHeight - 2),
+          "security cabin",
+        ),
+      ],
     };
   }
 
@@ -1661,8 +1904,8 @@ function normalizeGeneratedRooms(rooms, totalWidth, totalHeight, category) {
                     slabLength: item.slabLength,
                     slabDepth: item.slabDepth,
                     offset: Number(item.offset) || 0,
-                  }
-                )
+                  },
+                ),
               )
             : getDefaultFurnitureForRoomName(room.name, category),
         doors:
@@ -1677,15 +1920,18 @@ function normalizeGeneratedRooms(rooms, totalWidth, totalHeight, category) {
         windows:
           Array.isArray(room.windows) && room.windows.length
             ? room.windows.map((windowItem) => ({
-                wall: WALL_OPTIONS.includes(windowItem.wall) ? windowItem.wall : "top",
+                wall: WALL_OPTIONS.includes(windowItem.wall)
+                  ? windowItem.wall
+                  : "top",
                 offset: Number(windowItem.offset) || 0,
                 width: Number(windowItem.width) || DEFAULT_WINDOW_WIDTH,
                 height: Number(windowItem.height) || DEFAULT_WINDOW_HEIGHT,
-                sillHeight: Number(windowItem.sillHeight) || DEFAULT_WINDOW_SILL_HEIGHT,
+                sillHeight:
+                  Number(windowItem.sillHeight) || DEFAULT_WINDOW_SILL_HEIGHT,
               }))
             : makeDefaultWindowForRoom(room),
-      }
-    )
+      },
+    ),
   );
 
   return fitRoomsInGrid(baseRooms, Number(totalWidth), Number(totalHeight));
@@ -1697,8 +1943,10 @@ function parseRuleBasedPlanCommand(prompt, currentState) {
 
   const lower = text.toLowerCase();
   const dimensions = extractPlanDimensions(text) || {};
-  const totalWidth = Number(dimensions.totalWidth) || Number(currentState.totalWidth) || 40;
-  const totalHeight = Number(dimensions.totalHeight) || Number(currentState.totalHeight) || 30;
+  const totalWidth =
+    Number(dimensions.totalWidth) || Number(currentState.totalWidth) || 40;
+  const totalHeight =
+    Number(dimensions.totalHeight) || Number(currentState.totalHeight) || 30;
 
   const presetChecks = [
     { terms: ["2bhk", "2 bhk", "two bedroom"], preset: "2bhk" },
@@ -1707,12 +1955,19 @@ function parseRuleBasedPlanCommand(prompt, currentState) {
     { terms: ["cafe", "coffee shop"], preset: "cafe" },
     { terms: ["storage", "warehouse"], preset: "storage" },
     { terms: ["security cabin", "guard room"], preset: "security cabin" },
-    { terms: ["public toilet", "restroom", "washroom"], preset: "public toilet" },
+    {
+      terms: ["public toilet", "restroom", "washroom"],
+      preset: "public toilet",
+    },
   ];
 
   for (const presetCheck of presetChecks) {
     if (presetCheck.terms.some((term) => lower.includes(term))) {
-      const preset = buildPresetTemplate(presetCheck.preset, totalWidth, totalHeight);
+      const preset = buildPresetTemplate(
+        presetCheck.preset,
+        totalWidth,
+        totalHeight,
+      );
       if (!preset) return null;
 
       return {
@@ -1723,10 +1978,9 @@ function parseRuleBasedPlanCommand(prompt, currentState) {
           preset.rooms,
           totalWidth,
           totalHeight,
-          preset.selectedCategory
+          preset.selectedCategory,
         ),
-        responseText:
-          `Created a ${preset.planName} with ${preset.rooms.length} rooms in ${totalWidth} ft × ${totalHeight} ft.`,
+        responseText: `Created a ${preset.planName} with ${preset.rooms.length} rooms in ${totalWidth} ft × ${totalHeight} ft.`,
       };
     }
   }
@@ -1738,7 +1992,7 @@ function parseRuleBasedPlanCommand(prompt, currentState) {
       : "office";
     const roomCount = Math.max(1, Number(addRoomsMatch[1]) || 1);
     const generatedRooms = Array.from({ length: roomCount }, (_, index) =>
-      createTemplateRoom(index, `Room ${index + 1}`, 10, 10, category)
+      createTemplateRoom(index, `Room ${index + 1}`, 10, 10, category),
     );
 
     return {
@@ -1746,7 +2000,12 @@ function parseRuleBasedPlanCommand(prompt, currentState) {
       selectedCategory: category,
       totalWidth,
       totalHeight,
-      rooms: normalizeGeneratedRooms(generatedRooms, totalWidth, totalHeight, category),
+      rooms: normalizeGeneratedRooms(
+        generatedRooms,
+        totalWidth,
+        totalHeight,
+        category,
+      ),
       responseText: `Added ${roomCount} rooms and arranged them inside the current plan.`,
     };
   }
@@ -1761,13 +2020,15 @@ function sanitizeGeminiPlanResponse(aiResponse, currentState) {
     ? aiResponse.selectedCategory
     : currentState.selectedCategory;
 
-  const totalWidth = Number(aiResponse.totalWidth) || Number(currentState.totalWidth) || 40;
-  const totalHeight = Number(aiResponse.totalHeight) || Number(currentState.totalHeight) || 30;
+  const totalWidth =
+    Number(aiResponse.totalWidth) || Number(currentState.totalWidth) || 40;
+  const totalHeight =
+    Number(aiResponse.totalHeight) || Number(currentState.totalHeight) || 30;
   const rooms = normalizeGeneratedRooms(
     Array.isArray(aiResponse.rooms) ? aiResponse.rooms : [],
     totalWidth,
     totalHeight,
-    category
+    category,
   );
 
   if (!rooms.length) return null;
@@ -1791,7 +2052,7 @@ async function generatePlanFromGemini(apiKey, userPrompt, currentState) {
   }
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(
-    safeApiKey
+    safeApiKey,
   )}`;
 
   const schemaInstructions = {
@@ -1850,7 +2111,9 @@ ${userPrompt}
 
   const result = await response.json();
   const rawText =
-    result?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
+    result?.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text || "")
+      .join("") || "";
 
   if (!rawText) {
     throw new Error("Gemini returned an empty response.");
@@ -1867,254 +2130,6 @@ ${userPrompt}
   return sanitizeGeminiPlanResponse(parsed, currentState);
 }
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result || "");
-      const base64 = result.includes(",") ? result.split(",")[1] : result;
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function normalizeVisionWallName(wall) {
-  const value = String(wall || "").toLowerCase().trim();
-
-  if (value === "north" || value === "top") return "top";
-  if (value === "south" || value === "bottom") return "bottom";
-  if (value === "west" || value === "left") return "left";
-  if (value === "east" || value === "right") return "right";
-
-  return "top";
-}
-
-function getSafeRoomId() {
-  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `room-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
-function derivePlanSizeFromVision(rooms, fallbackWidth = 40, fallbackHeight = 30) {
-  if (!Array.isArray(rooms) || !rooms.length) {
-    return {
-      totalWidth: fallbackWidth,
-      totalHeight: fallbackHeight,
-    };
-  }
-
-  const maxX = Math.max(...rooms.map((room) => (Number(room.x) || 0) + (Number(room.width) || 0)));
-  const maxY = Math.max(...rooms.map((room) => (Number(room.y) || 0) + (Number(room.height) || 0)));
-
-  return {
-    totalWidth: Math.max(10, Math.ceil(maxX || fallbackWidth)),
-    totalHeight: Math.max(10, Math.ceil(maxY || fallbackHeight)),
-  };
-}
-
-function sanitizeVisionFloorPlanResponse(raw, currentState) {
-  const safeRaw = raw && typeof raw === "object" ? raw : {};
-  const rawRooms = Array.isArray(safeRaw.rooms) ? safeRaw.rooms : [];
-  const rawDoors = Array.isArray(safeRaw.doors) ? safeRaw.doors : [];
-  const rawWindows = Array.isArray(safeRaw.windows) ? safeRaw.windows : [];
-
-  const hasExplicitCoordinates = rawRooms.some(
-    (room) =>
-      Number.isFinite(Number(room?.x)) &&
-      Number.isFinite(Number(room?.y))
-  );
-
-  const draftRooms = rawRooms.map((room, index) => ({
-    id: getSafeRoomId(),
-    name: String(room?.name || `Room ${index + 1}`),
-    x: Math.max(0, Number(room?.x) || 0),
-    y: Math.max(0, Number(room?.y) || 0),
-    width: Math.max(4, Number(room?.width) || 10),
-    height: Math.max(4, Number(room?.height) || 10),
-    color: ROOM_COLORS[index % ROOM_COLORS.length],
-    doors: [],
-    windows: [],
-    furniture: [],
-  }));
-
-  const inferredPlan = derivePlanSizeFromVision(
-    draftRooms,
-    Number(currentState?.totalWidth) || 40,
-    Number(currentState?.totalHeight) || 30
-  );
-
-  const totalWidth = Math.max(
-    10,
-    Number(safeRaw.totalWidth) || inferredPlan.totalWidth
-  );
-  const totalHeight = Math.max(
-    10,
-    Number(safeRaw.totalHeight) || inferredPlan.totalHeight
-  );
-
-  const positionedRooms = hasExplicitCoordinates
-    ? draftRooms
-    : fitRoomsInGrid(draftRooms, totalWidth, totalHeight);
-
-  const roomMap = new Map(
-    positionedRooms.map((room) => [String(room.name || "").toLowerCase().trim(), room])
-  );
-
-  rawDoors.forEach((door) => {
-    const roomName = String(door?.room || "").toLowerCase().trim();
-    const targetRoom = roomMap.get(roomName);
-    if (!targetRoom) return;
-
-    const wall = normalizeVisionWallName(door?.wall);
-    const wallLength = getWallLength(targetRoom, wall);
-    const width = Math.max(1, Number(door?.width) || DEFAULT_DOOR_WIDTH);
-    const maxOffset = Math.max(0, wallLength - width);
-
-    targetRoom.doors.push({
-      wall,
-      offset: clamp(Number(door?.position) || 0, 0, maxOffset),
-      width: clamp(width, 0.5, Math.max(0.5, wallLength)),
-      height: Math.max(1, Number(door?.height) || DEFAULT_DOOR_HEIGHT),
-    });
-  });
-
-  rawWindows.forEach((windowItem) => {
-    const roomName = String(windowItem?.room || "").toLowerCase().trim();
-    const targetRoom = roomMap.get(roomName);
-    if (!targetRoom) return;
-
-    const wall = normalizeVisionWallName(windowItem?.wall);
-    const wallLength = getWallLength(targetRoom, wall);
-    const width = Math.max(1, Number(windowItem?.width) || DEFAULT_WINDOW_WIDTH);
-    const maxOffset = Math.max(0, wallLength - width);
-
-    targetRoom.windows.push({
-      wall,
-      offset: clamp(Number(windowItem?.position) || 0, 0, maxOffset),
-      width: clamp(width, 0.5, Math.max(0.5, wallLength)),
-      height: Math.max(1, Number(windowItem?.height) || DEFAULT_WINDOW_HEIGHT),
-      sillHeight: Math.max(0, Number(windowItem?.sillHeight) || DEFAULT_WINDOW_SILL_HEIGHT),
-    });
-  });
-
-  return {
-    planName: String(safeRaw.planName || currentState?.planName || "Uploaded Floor Plan"),
-    totalWidth,
-    totalHeight,
-    rooms: positionedRooms,
-  };
-}
-
-async function analyzeFloorPlanImageWithGemini(file, currentState) {
-  const safeApiKey = getSavedGeminiApiKey();
-
-  if (!safeApiKey) {
-    throw new Error(
-      "Gemini API key not found in localStorage. Please set floor-plan-gemini-api-key first."
-    );
-  }
-
-  const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
-  if (!allowedTypes.includes(file.type)) {
-    throw new Error("Invalid image format. Please upload a PNG or JPG file.");
-  }
-
-  const base64Data = await fileToBase64(file);
-
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(
-    safeApiKey
-  )}`;
-
-  const schemaInstructions = {
-    planName: "string",
-    totalWidth: "number",
-    totalHeight: "number",
-    rooms: [
-      { name: "string", x: "number", y: "number", width: "number", height: "number" },
-    ],
-    doors: [
-      { room: "string", wall: "north|south|east|west|top|bottom|left|right", position: "number", width: "number", height: "number" },
-    ],
-    windows: [
-      { room: "string", wall: "north|south|east|west|top|bottom|left|right", position: "number", width: "number", height: "number", sillHeight: "number" },
-    ],
-  };
-
-  const prompt = `
-You are analyzing a 2D architectural floor plan image for a React floor plan generator.
-
-Return ONLY valid JSON. No markdown. No explanation.
-
-Schema:
-${JSON.stringify(schemaInstructions)}
-
-Rules:
-- Detect rooms from the uploaded floor plan.
-- Estimate x, y, width, height for each room in a consistent plan coordinate system.
-- Detect doors and windows and assign each opening to the correct room.
-- wall values must be one of: north, south, east, west.
-- position means offset from the start of that wall.
-- If doors or windows are unclear, return empty arrays instead of guessing wildly.
-- Keep numbers practical and clean.
-- totalWidth and totalHeight should approximate the full plan size.
-- Use simple room names like Bedroom, Kitchen, Living Room, Toilet, Office, etc.
-- Return only JSON.
-
-Current app context:
-${JSON.stringify(currentState, null, 2)}
-`;
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: file.type,
-                data: base64Data,
-              },
-            },
-          ],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: "application/json",
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Gemini Vision request failed with status ${response.status}`);
-  }
-
-  const result = await response.json();
-  const rawText =
-    result?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
-
-  if (!rawText) {
-    throw new Error("Gemini Vision returned an empty response.");
-  }
-
-  let parsed;
-  try {
-    parsed = JSON.parse(rawText);
-  } catch (error) {
-    const cleaned = rawText.replace(/```json|```/gi, "").trim();
-    parsed = JSON.parse(cleaned);
-  }
-
-  return sanitizeVisionFloorPlanResponse(parsed, currentState);
-}
 export default function App() {
   const [planName, setPlanName] = useState("My Floor Plan");
   const [totalWidth, setTotalWidth] = useState(40);
@@ -2135,7 +2150,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState(() => [
     createChatMessage(
       "assistant",
-      "Hi, I can help you navigate the app, create layouts like 1BHK / 2BHK / office / cafe, and apply voice commands."
+      "Hi, I can help you navigate the app, create layouts like 1BHK / 2BHK / office / cafe, and apply voice commands.",
     ),
   ]);
   const [chatInput, setChatInput] = useState("");
@@ -2144,93 +2159,103 @@ export default function App() {
   const threeContainerRef = useRef(null);
   const chatScrollRef = useRef(null);
   const speechRecognitionRef = useRef(null);
-  const [isFloorPlanUploading, setIsFloorPlanUploading] = useState(false);
-  const fileUploadInputRef = useRef(null);
-const capture2DImage = async () => {
-  const svgEl = document.getElementById("floor-plan-svg");
-  if (!svgEl) return "";
-  return await svgElementToPngDataUrl(svgEl, 1600);
-};
+  const capture2DImage = async () => {
+    const svgEl = document.getElementById("floor-plan-svg");
+    if (!svgEl) return "";
+    return await svgElementToPngDataUrl(svgEl, 1600);
+  };
   const capture3DImage = async () => {
-  const canvas = threeContainerRef.current?.querySelector("canvas");
-  if (!canvas) return "";
+    const canvas = threeContainerRef.current?.querySelector("canvas");
+    if (!canvas) return "";
 
-  try {
-    return canvas.toDataURL("image/png");
-  } catch (error) {
-    console.error("Failed to capture 3D image:", error);
-    return "";
-  }
-};
+    try {
+      return canvas.toDataURL("image/png");
+    } catch (error) {
+      console.error("Failed to capture 3D image:", error);
+      return "";
+    }
+  };
   const placedRooms = useMemo(() => {
     return rooms.map((room) =>
-      normalizeRoom(room, Number(totalWidth), Number(totalHeight), Number(roomHeight))
+      normalizeRoom(
+        room,
+        Number(totalWidth),
+        Number(totalHeight),
+        Number(roomHeight),
+      ),
     );
   }, [rooms, totalWidth, totalHeight, roomHeight]);
 
   const wallSegments = useMemo(() => {
-    return buildWallSegments(placedRooms, Number(totalWidth), Number(totalHeight));
+    return buildWallSegments(
+      placedRooms,
+      Number(totalWidth),
+      Number(totalHeight),
+    );
   }, [placedRooms, totalWidth, totalHeight]);
-const buildGoogleSheetsPayload = async ({
-  projectId,
-  safeName,
-  image2D,
-  image3D,
-}) => {
-  const syncedRooms = placedRooms.slice(0, MAX_SYNC_ROOMS);
-
-  return {
+  const buildGoogleSheetsPayload = async ({
     projectId,
-    planName: safeName,
-    savedAt: new Date().toISOString(),
-    selectedCategory,
-    totalWidth,
-    totalHeight,
-    wallThickness,
-    scale,
-    roomHeight,
-    planSizeLabel: `${totalWidth} × ${totalHeight}`,
-    totalRooms: placedRooms.length,
-    totalRoomArea: Number(totalRoomArea.toFixed(2)),
-    spaceUtilization: utilization,
-    currentProjectId: currentProjectId || projectId,
-    quotationValue: "",
-    quotationNotes: "",
+    safeName,
     image2D,
     image3D,
-    rooms: syncedRooms.map((room) => ({
-      id: room.id || "",
-      name: room.name || "",
-      x: Number(room.x) || 0,
-      y: Number(room.y) || 0,
-      width: Number(room.width) || 0,
-      height: Number(room.height) || 0,
-      color: room.color || "",
-      doors: Array.isArray(room.doors) ? room.doors : [],
-      windows: Array.isArray(room.windows) ? room.windows : [],
-      furniture: Array.isArray(room.furniture) ? room.furniture : [],
-    })),
+  }) => {
+    const syncedRooms = placedRooms.slice(0, MAX_SYNC_ROOMS);
+
+    return {
+      projectId,
+      planName: safeName,
+      savedAt: new Date().toISOString(),
+      selectedCategory,
+      totalWidth,
+      totalHeight,
+      wallThickness,
+      scale,
+      roomHeight,
+      planSizeLabel: `${totalWidth} × ${totalHeight}`,
+      totalRooms: placedRooms.length,
+      totalRoomArea: Number(totalRoomArea.toFixed(2)),
+      spaceUtilization: utilization,
+      currentProjectId: currentProjectId || projectId,
+      quotationValue: "",
+      quotationNotes: "",
+      image2D,
+      image3D,
+      rooms: syncedRooms.map((room) => ({
+        id: room.id || "",
+        name: room.name || "",
+        x: Number(room.x) || 0,
+        y: Number(room.y) || 0,
+        width: Number(room.width) || 0,
+        height: Number(room.height) || 0,
+        color: room.color || "",
+        doors: Array.isArray(room.doors) ? room.doors : [],
+        windows: Array.isArray(room.windows) ? room.windows : [],
+        furniture: Array.isArray(room.furniture) ? room.furniture : [],
+      })),
+    };
   };
-};
   const syncProjectToGoogleSheets = async (payload) => {
-  const response = await fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8",
-    },
-    body: JSON.stringify(payload),
-  });
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8",
+      },
+      body: JSON.stringify(payload),
+    });
 
-  const result = await response.json();
+    const result = await response.json();
 
-  if (!result.success) {
-    throw new Error(result.message || "Google Sheets sync failed.");
-  }
+    if (!result.success) {
+      throw new Error(result.message || "Google Sheets sync failed.");
+    }
 
-  return result;
-};
+    return result;
+  };
   const numericScale = Math.max(1, Number(scale) || 1);
-  const numericWallThickness = Math.max(0.1, Number(wallThickness) || WALL_THICKNESS_FT);
+  const numericWallThickness = Math.max(
+    0.1,
+    Number(wallThickness) || WALL_THICKNESS_FT,
+  );
   const canvasWidth = Number(totalWidth) * numericScale;
   const canvasHeight = Number(totalHeight) * numericScale;
   const svgWidth = canvasWidth + 120;
@@ -2238,70 +2263,13 @@ const buildGoogleSheetsPayload = async ({
 
   const totalRoomArea = placedRooms.reduce(
     (sum, room) => sum + Number(room.width) * Number(room.height),
-    0
+    0,
   );
   const totalPlanArea = Number(totalWidth) * Number(totalHeight);
-  const utilization = totalPlanArea ? ((totalRoomArea / totalPlanArea) * 100).toFixed(1) : 0;
-    const handleUploadFloorPlanClick = useCallback(() => {
-    if (isFloorPlanUploading) return;
-    fileUploadInputRef.current?.click();
-  }, [isFloorPlanUploading]);
+  const utilization = totalPlanArea
+    ? ((totalRoomArea / totalPlanArea) * 100).toFixed(1)
+    : 0;
 
-  const handleFloorPlanImageSelected = useCallback(
-    async (event) => {
-      const file = event.target.files?.[0];
-      event.target.value = "";
-
-      if (!file) return;
-
-      try {
-        setIsFloorPlanUploading(true);
-        setProjectStatusMessage(`Analyzing "${file.name}" and generating floor plan...`);
-
-        const currentState = {
-          planName,
-          totalWidth,
-          totalHeight,
-          wallThickness,
-          scale,
-          roomHeight,
-          selectedCategory,
-          rooms: placedRooms,
-        };
-
-        const aiPlan = await analyzeFloorPlanImageWithGemini(file, currentState);
-
-        if (!Array.isArray(aiPlan.rooms) || !aiPlan.rooms.length) {
-          throw new Error("AI could not detect any rooms from this floor plan image.");
-        }
-
-        setPlanName(aiPlan.planName || "Uploaded Floor Plan");
-        setTotalWidth(Math.max(10, Number(aiPlan.totalWidth) || 40));
-        setTotalHeight(Math.max(10, Number(aiPlan.totalHeight) || 30));
-        setRooms(aiPlan.rooms);
-        setActiveView("2d");
-        setExpandedRoomId(aiPlan.rooms[0]?.id || null);
-        setProjectStatusMessage(`Floor plan uploaded successfully from "${file.name}".`);
-      } catch (error) {
-        console.error("Upload floor plan failed:", error);
-        setProjectStatusMessage(
-          error?.message || "Failed to analyze floor plan image. Please try another image."
-        );
-      } finally {
-        setIsFloorPlanUploading(false);
-      }
-    },
-    [
-      planName,
-      totalWidth,
-      totalHeight,
-      wallThickness,
-      scale,
-      roomHeight,
-      selectedCategory,
-      placedRooms,
-    ]
-  );
   const applyProjectState = (projectState) => {
     const defaults = getDefaultProjectState();
     const nextState = {
@@ -2319,18 +2287,21 @@ const buildGoogleSheetsPayload = async ({
     setSelectedCategory(
       PRODUCT_CATEGORIES.includes(nextState.selectedCategory)
         ? nextState.selectedCategory
-        : defaults.selectedCategory
+        : defaults.selectedCategory,
     );
 
     const nextRooms =
-      Array.isArray(nextState.rooms) && nextState.rooms.length ? nextState.rooms : defaults.rooms;
+      Array.isArray(nextState.rooms) && nextState.rooms.length
+        ? nextState.rooms
+        : defaults.rooms;
 
     setRooms(nextRooms);
     setExpandedRoomId(nextRooms[0]?.id || null);
     setFurnitureSelections(
-      nextState.furnitureSelections && typeof nextState.furnitureSelections === "object"
+      nextState.furnitureSelections &&
+        typeof nextState.furnitureSelections === "object"
         ? nextState.furnitureSelections
-        : defaults.furnitureSelections
+        : defaults.furnitureSelections,
     );
   };
 
@@ -2349,7 +2320,9 @@ const buildGoogleSheetsPayload = async ({
 
   const refreshSavedProjects = () => {
     const projects = readProjectsFromStorage().sort(
-      (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+      (a, b) =>
+        new Date(b.updatedAt || 0).getTime() -
+        new Date(a.updatedAt || 0).getTime(),
     );
     setSavedProjects(projects);
     return projects;
@@ -2383,7 +2356,7 @@ const buildGoogleSheetsPayload = async ({
 
     applyProjectState(mergedState);
     setProjectStatusMessage(
-      `Applied ${sourceLabel} layout: ${nextPlan.planName || getFriendlyCategoryName(nextPlan.selectedCategory)}`
+      `Applied ${sourceLabel} layout: ${nextPlan.planName || getFriendlyCategoryName(nextPlan.selectedCategory)}`,
     );
   };
 
@@ -2396,7 +2369,7 @@ const buildGoogleSheetsPayload = async ({
     if (!SpeechRecognition) {
       appendChatMessage(
         "assistant",
-        "Voice input is not supported in this browser. Text commands will still work."
+        "Voice input is not supported in this browser. Text commands will still work.",
       );
       return;
     }
@@ -2415,7 +2388,10 @@ const buildGoogleSheetsPayload = async ({
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => {
       setIsListening(false);
-      appendChatMessage("assistant", "I could not capture the voice command. Please try again.");
+      appendChatMessage(
+        "assistant",
+        "I could not capture the voice command. Please try again.",
+      );
     };
     recognition.onresult = (event) => {
       const transcript = event?.results?.[0]?.[0]?.transcript || "";
@@ -2438,7 +2414,10 @@ const buildGoogleSheetsPayload = async ({
 
     try {
       const currentPlanState = buildCurrentProjectData();
-      const ruleBasedPlan = parseRuleBasedPlanCommand(trimmedInput, currentPlanState);
+      const ruleBasedPlan = parseRuleBasedPlanCommand(
+        trimmedInput,
+        currentPlanState,
+      );
 
       if (ruleBasedPlan) {
         applyGeneratedPlan(ruleBasedPlan, "chatbot");
@@ -2450,18 +2429,22 @@ const buildGoogleSheetsPayload = async ({
       if (!geminiApiKey) {
         appendChatMessage(
           "assistant",
-          "I can handle preset commands right now. For free-form AI planning, save your Gemini key in localStorage under floor-plan-gemini-api-key."
+          "I can handle preset commands right now. For free-form AI planning, save your Gemini key in localStorage under floor-plan-gemini-api-key.",
         );
         return;
       }
 
       persistGeminiApiKey(geminiApiKey);
-      const aiPlan = await generatePlanFromGemini(geminiApiKey, trimmedInput, currentPlanState);
+      const aiPlan = await generatePlanFromGemini(
+        geminiApiKey,
+        trimmedInput,
+        currentPlanState,
+      );
 
       if (!aiPlan) {
         appendChatMessage(
           "assistant",
-          "I understood the request only partially. Please try a more specific command like 'Create a 2BHK in 40 by 30 feet'."
+          "I understood the request only partially. Please try a more specific command like 'Create a 2BHK in 40 by 30 feet'.",
         );
         return;
       }
@@ -2472,7 +2455,7 @@ const buildGoogleSheetsPayload = async ({
       console.error("Chatbot command failed:", error);
       appendChatMessage(
         "assistant",
-        "I could not apply that command. Please try a simpler instruction like 'Create a cafe layout 30 by 20'."
+        "I could not apply that command. Please try a simpler instruction like 'Create a cafe layout 30 by 20'.",
       );
     } finally {
       setIsChatbotBusy(false);
@@ -2495,7 +2478,9 @@ const buildGoogleSheetsPayload = async ({
   }, [chatMessages, isChatbotBusy]);
 
   const updateRoom = (id, key, value) => {
-    setRooms((prev) => prev.map((room) => (room.id === id ? { ...room, [key]: value } : room)));
+    setRooms((prev) =>
+      prev.map((room) => (room.id === id ? { ...room, [key]: value } : room)),
+    );
   };
 
   const addDoorToRoom = (roomId) => {
@@ -2514,8 +2499,8 @@ const buildGoogleSheetsPayload = async ({
                 },
               ],
             }
-          : room
-      )
+          : room,
+      ),
     );
   };
 
@@ -2536,8 +2521,8 @@ const buildGoogleSheetsPayload = async ({
                 },
               ],
             }
-          : room
-      )
+          : room,
+      ),
     );
   };
 
@@ -2553,7 +2538,7 @@ const buildGoogleSheetsPayload = async ({
         };
 
         return { ...room, doors: nextDoors };
-      })
+      }),
     );
   };
 
@@ -2569,7 +2554,7 @@ const buildGoogleSheetsPayload = async ({
         };
 
         return { ...room, windows: nextWindows };
-      })
+      }),
     );
   };
 
@@ -2581,8 +2566,8 @@ const buildGoogleSheetsPayload = async ({
               ...room,
               doors: (room.doors || []).filter((_, i) => i !== index),
             }
-          : room
-      )
+          : room,
+      ),
     );
   };
 
@@ -2594,8 +2579,8 @@ const buildGoogleSheetsPayload = async ({
               ...room,
               windows: (room.windows || []).filter((_, i) => i !== index),
             }
-          : room
-      )
+          : room,
+      ),
     );
   };
 
@@ -2607,10 +2592,12 @@ const buildGoogleSheetsPayload = async ({
     if (!categoryOptions.length) return;
 
     const selectedType =
-      furnitureSelections[roomId] || getDefaultFurnitureSelection(selectedCategory);
+      furnitureSelections[roomId] ||
+      getDefaultFurnitureSelection(selectedCategory);
 
     const preset =
-      categoryOptions.find((item) => item.type === selectedType) || categoryOptions[0];
+      categoryOptions.find((item) => item.type === selectedType) ||
+      categoryOptions[0];
 
     const isSlab = String(preset.type).toLowerCase() === "kitchen slab";
 
@@ -2648,8 +2635,8 @@ const buildGoogleSheetsPayload = async ({
                     },
               ],
             }
-          : item
-      )
+          : item,
+      ),
     );
   };
 
@@ -2667,25 +2654,34 @@ const buildGoogleSheetsPayload = async ({
             }
 
             if (key === "slabLength") {
-              const wall = WALL_OPTIONS.includes(item.attachedWall) ? item.attachedWall : "bottom";
+              const wall = WALL_OPTIONS.includes(item.attachedWall)
+                ? item.attachedWall
+                : "bottom";
               const roomWallLength =
-                wall === "top" || wall === "bottom" ? Number(room.width) : Number(room.height);
+                wall === "top" || wall === "bottom"
+                  ? Number(room.width)
+                  : Number(room.height);
               const length = clamp(
                 Number(value) || 1,
                 1,
-                Math.max(1, roomWallLength - FURNITURE_WALL_CLEARANCE * 2)
+                Math.max(1, roomWallLength - FURNITURE_WALL_CLEARANCE * 2),
               );
               return { ...item, slabLength: length };
             }
 
             if (key === "offset") {
-              const wall = WALL_OPTIONS.includes(item.attachedWall) ? item.attachedWall : "bottom";
+              const wall = WALL_OPTIONS.includes(item.attachedWall)
+                ? item.attachedWall
+                : "bottom";
               const roomWallLength =
-                wall === "top" || wall === "bottom" ? Number(room.width) : Number(room.height);
-              const currentLength = Number(item.slabLength) || Number(item.width) || 1;
+                wall === "top" || wall === "bottom"
+                  ? Number(room.width)
+                  : Number(room.height);
+              const currentLength =
+                Number(item.slabLength) || Number(item.width) || 1;
               const maxOffset = Math.max(
                 0,
-                roomWallLength - currentLength - FURNITURE_WALL_CLEARANCE * 2
+                roomWallLength - currentLength - FURNITURE_WALL_CLEARANCE * 2,
               );
               return {
                 ...item,
@@ -2702,11 +2698,15 @@ const buildGoogleSheetsPayload = async ({
             const minY = FURNITURE_WALL_CLEARANCE;
             const maxX = Math.max(
               minX,
-              Number(room.width) - Number(item.width) - FURNITURE_WALL_CLEARANCE
+              Number(room.width) -
+                Number(item.width) -
+                FURNITURE_WALL_CLEARANCE,
             );
             const maxY = Math.max(
               minY,
-              Number(room.height) - Number(item.depth) - FURNITURE_WALL_CLEARANCE
+              Number(room.height) -
+                Number(item.depth) -
+                FURNITURE_WALL_CLEARANCE,
             );
 
             return {
@@ -2722,7 +2722,7 @@ const buildGoogleSheetsPayload = async ({
         });
 
         return { ...room, furniture: nextFurniture };
-      })
+      }),
     );
   };
 
@@ -2732,10 +2732,12 @@ const buildGoogleSheetsPayload = async ({
         room.id === roomId
           ? {
               ...room,
-              furniture: (room.furniture || []).filter((item) => item.id !== furnitureId),
+              furniture: (room.furniture || []).filter(
+                (item) => item.id !== furnitureId,
+              ),
             }
-          : room
-      )
+          : room,
+      ),
     );
   };
 
@@ -2766,7 +2768,7 @@ const buildGoogleSheetsPayload = async ({
         height: Number(room.height),
       })),
       Number(totalWidth),
-      Number(totalHeight)
+      Number(totalHeight),
     );
     setRooms(arranged);
   };
@@ -2795,7 +2797,9 @@ const buildGoogleSheetsPayload = async ({
     };
 
     const nextProjects = currentProjectId
-      ? existingProjects.map((project) => (project.id === projectId ? projectRecord : project))
+      ? existingProjects.map((project) =>
+          project.id === projectId ? projectRecord : project,
+        )
       : [projectRecord, ...existingProjects];
 
     writeProjectsToStorage(nextProjects);
@@ -2803,50 +2807,56 @@ const buildGoogleSheetsPayload = async ({
     setPlanName(safeName);
     setSavedProjects(
       nextProjects.sort(
-        (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
-      )
+        (a, b) =>
+          new Date(b.updatedAt || 0).getTime() -
+          new Date(a.updatedAt || 0).getTime(),
+      ),
     );
     try {
-  setProjectStatusMessage(`Saving "${safeName}" locally and syncing to Google Sheets...`);
+      setProjectStatusMessage(
+        `Saving "${safeName}" locally and syncing to Google Sheets...`,
+      );
 
-  const previousView = activeView;
+      const previousView = activeView;
 
-  let image2D = "";
-  let image3D = "";
+      let image2D = "";
+      let image3D = "";
 
-  // Capture 2D image
-  if (previousView !== "2d") {
-    setActiveView("2d");
-    await new Promise((resolve) => setTimeout(resolve, 300));
-  }
-  image2D = await capture2DImage();
+      // Capture 2D image
+      if (previousView !== "2d") {
+        setActiveView("2d");
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+      image2D = await capture2DImage();
 
-  // Capture 3D image
-  if (previousView !== "3d") {
-    setActiveView("3d");
-    await new Promise((resolve) => setTimeout(resolve, 600));
-  }
-  image3D = await capture3DImage();
+      // Capture 3D image
+      if (previousView !== "3d") {
+        setActiveView("3d");
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+      image3D = await capture3DImage();
 
-  // Restore original view
-  setActiveView(previousView);
+      // Restore original view
+      setActiveView(previousView);
 
-  const payload = await buildGoogleSheetsPayload({
-    projectId: projectRecord.id,
-    safeName,
-    image2D,
-    image3D,
-  });
+      const payload = await buildGoogleSheetsPayload({
+        projectId: projectRecord.id,
+        safeName,
+        image2D,
+        image3D,
+      });
 
-  await syncProjectToGoogleSheets(payload);
+      await syncProjectToGoogleSheets(payload);
 
-  setProjectStatusMessage(`Saved "${safeName}" locally and synced to Google Sheets`);
-} catch (error) {
-  console.error("Google Sheets sync failed:", error);
-  setProjectStatusMessage(
-    `Saved "${safeName}" locally, but Google Sheets sync failed`
-  );
-}
+      setProjectStatusMessage(
+        `Saved "${safeName}" locally and synced to Google Sheets`,
+      );
+    } catch (error) {
+      console.error("Google Sheets sync failed:", error);
+      setProjectStatusMessage(
+        `Saved "${safeName}" locally, but Google Sheets sync failed`,
+      );
+    }
   };
 
   const handleOpenProjectClick = () => {
@@ -2857,7 +2867,9 @@ const buildGoogleSheetsPayload = async ({
 
   const handleOpenSavedProject = (projectId) => {
     const projects = readProjectsFromStorage();
-    const selectedProject = projects.find((project) => project.id === projectId);
+    const selectedProject = projects.find(
+      (project) => project.id === projectId,
+    );
     if (!selectedProject?.data) return;
 
     applyProjectState(selectedProject.data);
@@ -2868,7 +2880,7 @@ const buildGoogleSheetsPayload = async ({
 
   const handleNewProject = () => {
     const shouldContinue = window.confirm(
-      "Start a new project? Unsaved changes in the current design may be lost."
+      "Start a new project? Unsaved changes in the current design may be lost.",
     );
 
     if (!shouldContinue) return;
@@ -2900,15 +2912,11 @@ const buildGoogleSheetsPayload = async ({
 
   return (
     <div className="app-shell">
-      <input
-  ref={fileUploadInputRef}
-  type="file"
-  accept="image/png,image/jpeg,image/jpg"
-  style={{ display: "none" }}
-  onChange={handleFloorPlanImageSelected}
-/>
       {isProjectModalOpen && (
-        <div className="project-modal-overlay" onClick={() => setIsProjectModalOpen(false)}>
+        <div
+          className="project-modal-overlay"
+          onClick={() => setIsProjectModalOpen(false)}
+        >
           <div className="project-modal" onClick={(e) => e.stopPropagation()}>
             <div className="project-modal-header">
               <div>
@@ -2928,7 +2936,8 @@ const buildGoogleSheetsPayload = async ({
             <div className="project-modal-body">
               {savedProjects.length === 0 ? (
                 <div className="project-empty-state">
-                  No saved projects yet. Save your current design to see it here.
+                  No saved projects yet. Save your current design to see it
+                  here.
                 </div>
               ) : (
                 <div className="project-list">
@@ -2939,10 +2948,12 @@ const buildGoogleSheetsPayload = async ({
                       onClick={() => handleOpenSavedProject(project.id)}
                     >
                       <div className="project-item-meta">
-                        <strong className="project-item-title">{project.name}</strong>
+                        <strong className="project-item-title">
+                          {project.name}
+                        </strong>
                         <span className="project-item-subtext">
-                          {project.data?.rooms?.length || 0} rooms • {" "}
-                          {project.data?.selectedCategory || "office"} • {" "}
+                          {project.data?.rooms?.length || 0} rooms •{" "}
+                          {project.data?.selectedCategory || "office"} •{" "}
                           {formatProjectTimestamp(project.updatedAt)}
                         </span>
                       </div>
@@ -2968,7 +2979,9 @@ const buildGoogleSheetsPayload = async ({
                     <Home size={20} />
                     Interactive Floor Plan App
                   </h1>
-                  <p>Configure plan inputs, then edit rooms from the side panel.</p>
+                  <p>
+                    Configure plan inputs, then edit rooms from the side panel.
+                  </p>
                 </div>
               </div>
 
@@ -2982,91 +2995,104 @@ const buildGoogleSheetsPayload = async ({
 
             <div className="form-grid plan-top-grid">
               {/* removed extra top whitespace + top input row layout kept compact via CSS */}
-                <div className="field field--compact-plan-name">
-                  <label>Plan Name</label>
-                  <input value={planName} onChange={(e) => setPlanName(e.target.value)} />
-                </div>
-
-                <div className="field">
-                  <label>Total Width (ft)</label>
-                  <input
-                    type="number"
-                    value={totalWidth}
-                    onChange={(e) => setTotalWidth(Number(e.target.value) || 0)}
-                  />
-                </div>
-
-                <div className="field">
-                  <label>Total Height (ft)</label>
-                  <input
-                    type="number"
-                    value={totalHeight}
-                    onChange={(e) => setTotalHeight(Number(e.target.value) || 0)}
-                  />
-                </div>
-
-                <div className="field">
-                  <label>Wall Thickness (ft)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={wallThickness}
-                    onChange={(e) => setWallThickness(Number(e.target.value) || 0)}
-                  />
-                </div>
-
-                <div className="field">
-                  <label>Scale (px / ft)</label>
-                  <input
-                    type="number"
-                    value={scale}
-                    onChange={(e) => setScale(Number(e.target.value) || 1)}
-                  />
-                </div>
-
-                <div className="field">
-                  <label>3D Wall Height (ft)</label>
-                  <input
-                    type="number"
-                    value={roomHeight}
-                    onChange={(e) => setRoomHeight(Number(e.target.value) || 10)}
-                  />
-                </div>
-
-                <div className="field">
-                  <label>Product Category</label>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                  >
-                    {PRODUCT_CATEGORIES.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="field field--compact-plan-name">
+                <label>Plan Name</label>
+                <input
+                  value={planName}
+                  onChange={(e) => setPlanName(e.target.value)}
+                />
               </div>
+
+              <div className="field">
+                <label>Total Width (ft)</label>
+                <input
+                  type="number"
+                  value={totalWidth}
+                  onChange={(e) => setTotalWidth(Number(e.target.value) || 0)}
+                />
+              </div>
+
+              <div className="field">
+                <label>Total Height (ft)</label>
+                <input
+                  type="number"
+                  value={totalHeight}
+                  onChange={(e) => setTotalHeight(Number(e.target.value) || 0)}
+                />
+              </div>
+
+              <div className="field">
+                <label>Wall Thickness (ft)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={wallThickness}
+                  onChange={(e) =>
+                    setWallThickness(Number(e.target.value) || 0)
+                  }
+                />
+              </div>
+
+              <div className="field">
+                <label>Scale (px / ft)</label>
+                <input
+                  type="number"
+                  value={scale}
+                  onChange={(e) => setScale(Number(e.target.value) || 1)}
+                />
+              </div>
+
+              <div className="field">
+                <label>3D Wall Height (ft)</label>
+                <input
+                  type="number"
+                  value={roomHeight}
+                  onChange={(e) => setRoomHeight(Number(e.target.value) || 10)}
+                />
+              </div>
+
+              <div className="field">
+                <label>Product Category</label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                >
+                  {PRODUCT_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* project action button area */}
           <aside className="project-actions-card input-card">
-            <button className="ghost-btn project-stack-btn" onClick={handleNewProject}>
+            <button
+              className="ghost-btn project-stack-btn"
+              onClick={handleNewProject}
+            >
               <FilePlus2 size={16} />
               New Project
             </button>
-            <button className="secondary-btn project-stack-btn" onClick={handleOpenProjectClick}>
+            <button
+              className="secondary-btn project-stack-btn"
+              onClick={handleOpenProjectClick}
+            >
               <FolderOpen size={16} />
               Open Project
             </button>
-            <button className="primary-btn project-stack-btn" onClick={handleSaveProject}>
+            <button
+              className="primary-btn project-stack-btn"
+              onClick={handleSaveProject}
+            >
               <Save size={16} />
               Save Project
             </button>
           </aside>
         </div>
       </section>
-
 
       <div className="workspace-grid">
         {/* preview/stats section */}
@@ -3091,8 +3117,6 @@ const buildGoogleSheetsPayload = async ({
               <strong>{utilization}%</strong>
             </div>
           </section>
-
-
           <div className="workspace-content-grid">
             <div className="workspace-preview-column">
               {activeView === "2d" && (
@@ -3100,29 +3124,26 @@ const buildGoogleSheetsPayload = async ({
                   <div className="section-header section-header--preview">
                     <h2>2D Floor Plan</h2>
                     <div className="preview-toolbar">
-  <button
-    className="view-toolbar-btn"
-    onClick={handleUploadFloorPlanClick}
-    disabled={isFloorPlanUploading}
-  >
-    {isFloorPlanUploading ? "Uploading..." : "Upload Floor Plan"}
-  </button>
-  <button
-    className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
-    onClick={() => setActiveView("2d")}
-  >
-    2D
-  </button>
-  <button
-    className={`view-toolbar-btn ${activeView === "3d" ? "active" : ""}`}
-    onClick={() => setActiveView("3d")}
-  >
-    3D
-  </button>
-  <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>
-    Export SVG
-  </button>
-</div>
+                      <button
+                        className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
+                        onClick={() => setActiveView("2d")}
+                      >
+                        2D
+                      </button>
+                      <button
+                        className={`view-toolbar-btn ${activeView === "3d" ? "active" : ""}`}
+                        onClick={() => setActiveView("3d")}
+                      >
+                        3D
+                      </button>
+                      <button
+                        className="view-toolbar-btn view-toolbar-btn--dark"
+                        onClick={exportSVG}
+                      >
+                        Export SVG
+                      </button>
+                    </div>
+                  </div>
 
                   <div className="svg-wrap svg-wrap--dominant">
                     <svg
@@ -3132,19 +3153,47 @@ const buildGoogleSheetsPayload = async ({
                       height="100%"
                     >
                       <defs>
-                        <pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse">
-                          <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#dbe3ec" strokeWidth="1" />
+                        <pattern
+                          id="smallGrid"
+                          width="10"
+                          height="10"
+                          patternUnits="userSpaceOnUse"
+                        >
+                          <path
+                            d="M 10 0 L 0 0 0 10"
+                            fill="none"
+                            stroke="#dbe3ec"
+                            strokeWidth="1"
+                          />
                         </pattern>
 
-                        <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                        <pattern
+                          id="grid"
+                          width="50"
+                          height="50"
+                          patternUnits="userSpaceOnUse"
+                        >
                           <rect width="50" height="50" fill="url(#smallGrid)" />
-                          <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#bdd0e8" strokeWidth="1" />
+                          <path
+                            d="M 50 0 L 0 0 0 50"
+                            fill="none"
+                            stroke="#bdd0e8"
+                            strokeWidth="1"
+                          />
                         </pattern>
                       </defs>
 
-                      <rect width={svgWidth} height={svgHeight} fill="#ffffff" />
+                      <rect
+                        width={svgWidth}
+                        height={svgHeight}
+                        fill="#ffffff"
+                      />
                       <g transform="translate(60,60)">
-                        <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />
+                        <rect
+                          width={canvasWidth}
+                          height={canvasHeight}
+                          fill="url(#grid)"
+                        />
                         <rect
                           x={0}
                           y={0}
@@ -3152,7 +3201,10 @@ const buildGoogleSheetsPayload = async ({
                           height={canvasHeight}
                           fill="none"
                           stroke="#5f6f86"
-                          strokeWidth={Math.max(3, numericWallThickness * numericScale)}
+                          strokeWidth={Math.max(
+                            3,
+                            numericWallThickness * numericScale,
+                          )}
                         />
 
                         {placedRooms.map((room) => {
@@ -3170,14 +3222,20 @@ const buildGoogleSheetsPayload = async ({
                                 height={h}
                                 fill={room.color || "#eef4ff"}
                                 stroke="#7e8da3"
-                                strokeWidth={Math.max(2, numericWallThickness * numericScale)}
+                                strokeWidth={Math.max(
+                                  2,
+                                  numericWallThickness * numericScale,
+                                )}
                               />
                             </g>
                           );
                         })}
 
                         {placedRooms.map((room) => {
-                          const { doors, windows } = getRoomOpenings(room, Number(roomHeight));
+                          const { doors, windows } = getRoomOpenings(
+                            room,
+                            Number(roomHeight),
+                          );
 
                           return (
                             <g key={`openings-${room.id}`}>
@@ -3207,7 +3265,12 @@ const buildGoogleSheetsPayload = async ({
                         {placedRooms.map((room) => (
                           <g key={`furniture-${room.id}`}>
                             {(room.furniture || []).map((item) => (
-                              <Furniture2D key={item.id} room={room} furnitureItem={item} scale={numericScale} />
+                              <Furniture2D
+                                key={item.id}
+                                room={room}
+                                furnitureItem={item}
+                                scale={numericScale}
+                              />
                             ))}
                           </g>
                         ))}
@@ -3218,8 +3281,14 @@ const buildGoogleSheetsPayload = async ({
                           const w = room.width * numericScale;
                           const h = room.height * numericScale;
 
-                          const roomNameFontSize = Math.max(7, Math.min(10, Math.min(w, h) * 0.11));
-                          const roomDimFontSize = Math.max(5.5, Math.min(7.5, Math.min(w, h) * 0.085));
+                          const roomNameFontSize = Math.max(
+                            7,
+                            Math.min(10, Math.min(w, h) * 0.11),
+                          );
+                          const roomDimFontSize = Math.max(
+                            5.5,
+                            Math.min(7.5, Math.min(w, h) * 0.085),
+                          );
 
                           return (
                             <g key={`labels-${room.id}`}>
@@ -3296,31 +3365,31 @@ const buildGoogleSheetsPayload = async ({
                   <div className="section-header section-header--preview">
                     <h2>3D Floor Plan</h2>
                     <div className="preview-toolbar">
-  <button
-    className="view-toolbar-btn"
-    onClick={handleUploadFloorPlanClick}
-    disabled={isFloorPlanUploading}
-  >
-    {isFloorPlanUploading ? "Uploading..." : "Upload Floor Plan"}
-  </button>
-  <button
-    className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
-    onClick={() => setActiveView("2d")}
-  >
-    2D
-  </button>
-  <button
-    className={`view-toolbar-btn ${activeView === "3d" ? "active" : ""}`}
-    onClick={() => setActiveView("3d")}
-  >
-    3D
-  </button>
-  <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>
-    Export SVG
-  </button>
-</div>
+                      <button
+                        className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
+                        onClick={() => setActiveView("2d")}
+                      >
+                        2D
+                      </button>
+                      <button
+                        className={`view-toolbar-btn ${activeView === "3d" ? "active" : ""}`}
+                        onClick={() => setActiveView("3d")}
+                      >
+                        3D
+                      </button>
+                      <button
+                        className="view-toolbar-btn view-toolbar-btn--dark"
+                        onClick={exportSVG}
+                      >
+                        Export SVG
+                      </button>
+                    </div>
+                  </div>
 
-                  <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
+                  <div
+                    className="three-wrap three-wrap--dominant"
+                    ref={threeContainerRef}
+                  >
                     <Canvas
                       shadows
                       gl={{ preserveDrawingBuffer: true }}
@@ -3386,9 +3455,15 @@ const buildGoogleSheetsPayload = async ({
                     className={`chatbot-message chatbot-message--${message.role}`}
                   >
                     <div className="chatbot-message-icon">
-                      {message.role === "assistant" ? <Bot size={14} /> : <span>You</span>}
+                      {message.role === "assistant" ? (
+                        <Bot size={14} />
+                      ) : (
+                        <span>You</span>
+                      )}
                     </div>
-                    <div className="chatbot-message-bubble">{message.content}</div>
+                    <div className="chatbot-message-bubble">
+                      {message.content}
+                    </div>
                   </div>
                 ))}
 
@@ -3397,7 +3472,9 @@ const buildGoogleSheetsPayload = async ({
                     <div className="chatbot-message-icon">
                       <Bot size={14} />
                     </div>
-                    <div className="chatbot-message-bubble">Working on your layout...</div>
+                    <div className="chatbot-message-bubble">
+                      Working on your layout...
+                    </div>
                   </div>
                 )}
               </div>
@@ -3418,14 +3495,19 @@ const buildGoogleSheetsPayload = async ({
                     <Mic size={16} />
                     {isListening ? "Listening..." : "Voice"}
                   </button>
-                  <button type="submit" className="primary-btn" disabled={isChatbotBusy}>
+                  <button
+                    type="submit"
+                    className="primary-btn"
+                    disabled={isChatbotBusy}
+                  >
                     <Send size={16} />
                     Apply
                   </button>
                 </div>
               </form>
             </aside>
-          </div>        </main>
+          </div>{" "}
+        </main>
 
         {/* collapsible room cards / accordion behavior */}
         <aside className="rooms-sidebar input-card">
@@ -3447,19 +3529,29 @@ const buildGoogleSheetsPayload = async ({
             {/* rooms panel scroll/overflow fix handled via CSS */}
             {rooms.map((room, index) => {
               const roomFurnitureSelection =
-                furnitureSelections[room.id] || getDefaultFurnitureSelection(selectedCategory);
+                furnitureSelections[room.id] ||
+                getDefaultFurnitureSelection(selectedCategory);
               const isExpanded = expandedRoomId === room.id;
 
               return (
-                <div className={`room-card accordion-room-card ${isExpanded ? "expanded" : "collapsed"}`} key={room.id}>
+                <div
+                  className={`room-card accordion-room-card ${isExpanded ? "expanded" : "collapsed"}`}
+                  key={room.id}
+                >
                   <button
                     type="button"
                     className="room-accordion-trigger"
-                    onClick={() => setExpandedRoomId(isExpanded ? null : room.id)}
+                    onClick={() =>
+                      setExpandedRoomId(isExpanded ? null : room.id)
+                    }
                   >
                     <div className="room-accordion-title-wrap">
-                      <span className="room-accordion-arrow">{isExpanded ? "▾" : "▸"}</span>
-                      <span className="room-accordion-title">{room.name || `Room ${index + 1}`}</span>
+                      <span className="room-accordion-arrow">
+                        {isExpanded ? "▾" : "▸"}
+                      </span>
+                      <span className="room-accordion-title">
+                        {room.name || `Room ${index + 1}`}
+                      </span>
                     </div>
                     <span className="room-accordion-meta">
                       {room.width} × {room.height}
@@ -3485,7 +3577,9 @@ const buildGoogleSheetsPayload = async ({
                           <label>Name</label>
                           <input
                             value={room.name}
-                            onChange={(e) => updateRoom(room.id, "name", e.target.value)}
+                            onChange={(e) =>
+                              updateRoom(room.id, "name", e.target.value)
+                            }
                           />
                         </div>
                       </div>
@@ -3496,7 +3590,13 @@ const buildGoogleSheetsPayload = async ({
                           <input
                             type="number"
                             value={room.width}
-                            onChange={(e) => updateRoom(room.id, "width", Number(e.target.value) || 0)}
+                            onChange={(e) =>
+                              updateRoom(
+                                room.id,
+                                "width",
+                                Number(e.target.value) || 0,
+                              )
+                            }
                           />
                         </div>
 
@@ -3505,7 +3605,13 @@ const buildGoogleSheetsPayload = async ({
                           <input
                             type="number"
                             value={room.height}
-                            onChange={(e) => updateRoom(room.id, "height", Number(e.target.value) || 0)}
+                            onChange={(e) =>
+                              updateRoom(
+                                room.id,
+                                "height",
+                                Number(e.target.value) || 0,
+                              )
+                            }
                           />
                         </div>
                       </div>
@@ -3516,7 +3622,13 @@ const buildGoogleSheetsPayload = async ({
                           <input
                             type="number"
                             value={room.x}
-                            onChange={(e) => updateRoom(room.id, "x", Number(e.target.value) || 0)}
+                            onChange={(e) =>
+                              updateRoom(
+                                room.id,
+                                "x",
+                                Number(e.target.value) || 0,
+                              )
+                            }
                           />
                         </div>
 
@@ -3525,7 +3637,13 @@ const buildGoogleSheetsPayload = async ({
                           <input
                             type="number"
                             value={room.y}
-                            onChange={(e) => updateRoom(room.id, "y", Number(e.target.value) || 0)}
+                            onChange={(e) =>
+                              updateRoom(
+                                room.id,
+                                "y",
+                                Number(e.target.value) || 0,
+                              )
+                            }
                           />
                         </div>
                       </div>
@@ -3533,7 +3651,11 @@ const buildGoogleSheetsPayload = async ({
                       <div className="section-header compact">
                         <h3>Doors</h3>
                         <div className="header-actions">
-                          <button type="button" className="secondary-btn" onClick={() => addDoorToRoom(room.id)}>
+                          <button
+                            type="button"
+                            className="secondary-btn"
+                            onClick={() => addDoorToRoom(room.id)}
+                          >
                             <Plus size={16} />
                             Add Door
                           </button>
@@ -3558,7 +3680,14 @@ const buildGoogleSheetsPayload = async ({
                               <label>Wall</label>
                               <select
                                 value={door.wall}
-                                onChange={(e) => updateDoor(room.id, doorIndex, "wall", e.target.value)}
+                                onChange={(e) =>
+                                  updateDoor(
+                                    room.id,
+                                    doorIndex,
+                                    "wall",
+                                    e.target.value,
+                                  )
+                                }
                               >
                                 {WALL_OPTIONS.map((wall) => (
                                   <option key={wall} value={wall}>
@@ -3573,7 +3702,14 @@ const buildGoogleSheetsPayload = async ({
                               <input
                                 type="number"
                                 value={door.offset}
-                                onChange={(e) => updateDoor(room.id, doorIndex, "offset", e.target.value)}
+                                onChange={(e) =>
+                                  updateDoor(
+                                    room.id,
+                                    doorIndex,
+                                    "offset",
+                                    e.target.value,
+                                  )
+                                }
                               />
                             </div>
 
@@ -3582,7 +3718,14 @@ const buildGoogleSheetsPayload = async ({
                               <input
                                 type="number"
                                 value={door.width}
-                                onChange={(e) => updateDoor(room.id, doorIndex, "width", e.target.value)}
+                                onChange={(e) =>
+                                  updateDoor(
+                                    room.id,
+                                    doorIndex,
+                                    "width",
+                                    e.target.value,
+                                  )
+                                }
                               />
                             </div>
 
@@ -3591,7 +3734,14 @@ const buildGoogleSheetsPayload = async ({
                               <input
                                 type="number"
                                 value={door.height}
-                                onChange={(e) => updateDoor(room.id, doorIndex, "height", e.target.value)}
+                                onChange={(e) =>
+                                  updateDoor(
+                                    room.id,
+                                    doorIndex,
+                                    "height",
+                                    e.target.value,
+                                  )
+                                }
                               />
                             </div>
                           </div>
@@ -3601,7 +3751,11 @@ const buildGoogleSheetsPayload = async ({
                       <div className="section-header compact">
                         <h3>Windows</h3>
                         <div className="header-actions">
-                          <button type="button" className="secondary-btn" onClick={() => addWindowToRoom(room.id)}>
+                          <button
+                            type="button"
+                            className="secondary-btn"
+                            onClick={() => addWindowToRoom(room.id)}
+                          >
                             <Plus size={16} />
                             Add Window
                           </button>
@@ -3609,7 +3763,10 @@ const buildGoogleSheetsPayload = async ({
                       </div>
 
                       {(room.windows || []).map((windowItem, windowIndex) => (
-                        <div className="opening-card" key={`window-${windowIndex}`}>
+                        <div
+                          className="opening-card"
+                          key={`window-${windowIndex}`}
+                        >
                           <div className="room-card-header">
                             <span>Window {windowIndex + 1}</span>
                             <button
@@ -3626,7 +3783,14 @@ const buildGoogleSheetsPayload = async ({
                               <label>Wall</label>
                               <select
                                 value={windowItem.wall}
-                                onChange={(e) => updateWindow(room.id, windowIndex, "wall", e.target.value)}
+                                onChange={(e) =>
+                                  updateWindow(
+                                    room.id,
+                                    windowIndex,
+                                    "wall",
+                                    e.target.value,
+                                  )
+                                }
                               >
                                 {WALL_OPTIONS.map((wall) => (
                                   <option key={wall} value={wall}>
@@ -3641,7 +3805,14 @@ const buildGoogleSheetsPayload = async ({
                               <input
                                 type="number"
                                 value={windowItem.offset}
-                                onChange={(e) => updateWindow(room.id, windowIndex, "offset", e.target.value)}
+                                onChange={(e) =>
+                                  updateWindow(
+                                    room.id,
+                                    windowIndex,
+                                    "offset",
+                                    e.target.value,
+                                  )
+                                }
                               />
                             </div>
 
@@ -3650,7 +3821,14 @@ const buildGoogleSheetsPayload = async ({
                               <input
                                 type="number"
                                 value={windowItem.width}
-                                onChange={(e) => updateWindow(room.id, windowIndex, "width", e.target.value)}
+                                onChange={(e) =>
+                                  updateWindow(
+                                    room.id,
+                                    windowIndex,
+                                    "width",
+                                    e.target.value,
+                                  )
+                                }
                               />
                             </div>
 
@@ -3659,7 +3837,14 @@ const buildGoogleSheetsPayload = async ({
                               <input
                                 type="number"
                                 value={windowItem.height}
-                                onChange={(e) => updateWindow(room.id, windowIndex, "height", e.target.value)}
+                                onChange={(e) =>
+                                  updateWindow(
+                                    room.id,
+                                    windowIndex,
+                                    "height",
+                                    e.target.value,
+                                  )
+                                }
                               />
                             </div>
 
@@ -3668,7 +3853,14 @@ const buildGoogleSheetsPayload = async ({
                               <input
                                 type="number"
                                 value={windowItem.sillHeight}
-                                onChange={(e) => updateWindow(room.id, windowIndex, "sillHeight", e.target.value)}
+                                onChange={(e) =>
+                                  updateWindow(
+                                    room.id,
+                                    windowIndex,
+                                    "sillHeight",
+                                    e.target.value,
+                                  )
+                                }
                               />
                             </div>
                           </div>
@@ -3681,7 +3873,11 @@ const buildGoogleSheetsPayload = async ({
                           Furniture
                         </h3>
                         <div className="header-actions">
-                          <button type="button" className="secondary-btn" onClick={() => addFurnitureToRoom(room.id)}>
+                          <button
+                            type="button"
+                            className="secondary-btn"
+                            onClick={() => addFurnitureToRoom(room.id)}
+                          >
                             <Plus size={16} />
                             Add Furniture
                           </button>
@@ -3727,7 +3923,9 @@ const buildGoogleSheetsPayload = async ({
                                 <button
                                   type="button"
                                   className="icon-btn"
-                                  onClick={() => removeFurniture(room.id, item.id)}
+                                  onClick={() =>
+                                    removeFurniture(room.id, item.id)
+                                  }
                                 >
                                   <Trash2 size={16} />
                                 </button>
@@ -3740,7 +3938,14 @@ const buildGoogleSheetsPayload = async ({
                                     <input
                                       type="number"
                                       value={item.x}
-                                      onChange={(e) => updateFurniture(room.id, item.id, "x", e.target.value)}
+                                      onChange={(e) =>
+                                        updateFurniture(
+                                          room.id,
+                                          item.id,
+                                          "x",
+                                          e.target.value,
+                                        )
+                                      }
                                     />
                                   </div>
 
@@ -3749,7 +3954,14 @@ const buildGoogleSheetsPayload = async ({
                                     <input
                                       type="number"
                                       value={item.y}
-                                      onChange={(e) => updateFurniture(room.id, item.id, "y", e.target.value)}
+                                      onChange={(e) =>
+                                        updateFurniture(
+                                          room.id,
+                                          item.id,
+                                          "y",
+                                          e.target.value,
+                                        )
+                                      }
                                     />
                                   </div>
                                 </div>
@@ -3759,7 +3971,14 @@ const buildGoogleSheetsPayload = async ({
                                     <label>Wall</label>
                                     <select
                                       value={item.attachedWall || "bottom"}
-                                      onChange={(e) => updateFurniture(room.id, item.id, "attachedWall", e.target.value)}
+                                      onChange={(e) =>
+                                        updateFurniture(
+                                          room.id,
+                                          item.id,
+                                          "attachedWall",
+                                          e.target.value,
+                                        )
+                                      }
                                     >
                                       {WALL_OPTIONS.map((wall) => (
                                         <option key={wall} value={wall}>
@@ -3774,7 +3993,14 @@ const buildGoogleSheetsPayload = async ({
                                     <input
                                       type="number"
                                       value={item.slabLength || item.width}
-                                      onChange={(e) => updateFurniture(room.id, item.id, "slabLength", e.target.value)}
+                                      onChange={(e) =>
+                                        updateFurniture(
+                                          room.id,
+                                          item.id,
+                                          "slabLength",
+                                          e.target.value,
+                                        )
+                                      }
                                     />
                                   </div>
 
@@ -3783,7 +4009,14 @@ const buildGoogleSheetsPayload = async ({
                                     <input
                                       type="number"
                                       value={item.offset || 0}
-                                      onChange={(e) => updateFurniture(room.id, item.id, "offset", e.target.value)}
+                                      onChange={(e) =>
+                                        updateFurniture(
+                                          room.id,
+                                          item.id,
+                                          "offset",
+                                          e.target.value,
+                                        )
+                                      }
                                     />
                                   </div>
                                 </div>
