@@ -12,6 +12,11 @@ import {
   FolderOpen,
   FilePlus2,
   X,
+  MessageSquare,
+  Mic,
+  Send,
+  Sparkles,
+  Bot,
 } from "lucide-react";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzZaB4kwA-KK7r6cqfzARoUM6CZ5Ubo6Mi1d3sxSRxjhXmsy1XLOm7sTulnbAmr18hiBQ/exec";
 const MAX_SYNC_ROOMS = 8;
@@ -50,6 +55,9 @@ const PRODUCT_CATEGORIES = [
 ];
 
 const PROJECTS_STORAGE_KEY = "floor-plan-generator-projects";
+const FLOOR_PLAN_GEMINI_KEY_STORAGE = "floor-plan-gemini-api-key";
+const GEMINI_MODEL = "gemini-2.0-flash";
+
 
 /**
  * Furniture preset map with realistic sizes (feet).
@@ -1270,6 +1278,596 @@ async function svgElementToPngDataUrl(svgEl, outputWidth = 1600) {
     URL.revokeObjectURL(url);
   }
 }
+
+function createChatMessage(role, content) {
+  return {
+    id:
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `chat-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    role,
+    content,
+  };
+}
+
+function getSavedGeminiApiKey() {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(FLOOR_PLAN_GEMINI_KEY_STORAGE) || "";
+  } catch (error) {
+    console.error("Failed to read Gemini API key:", error);
+    return "";
+  }
+}
+
+function persistGeminiApiKey(apiKey) {
+  if (typeof window === "undefined" || !apiKey) return;
+  try {
+    window.localStorage.setItem(FLOOR_PLAN_GEMINI_KEY_STORAGE, apiKey);
+  } catch (error) {
+    console.error("Failed to persist Gemini API key:", error);
+  }
+}
+
+function getFriendlyCategoryName(category) {
+  return String(category || "")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function extractPlanDimensions(prompt) {
+  const text = String(prompt || "");
+  const multiNumberMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?)/i);
+  if (multiNumberMatch) {
+    return {
+      totalWidth: Number(multiNumberMatch[1]) || 40,
+      totalHeight: Number(multiNumberMatch[2]) || 30,
+    };
+  }
+
+  const feetNumbers = [...text.matchAll(/(\d+(?:\.\d+)?)\s*(?:ft|feet)/gi)].map((match) =>
+    Number(match[1])
+  );
+
+  if (feetNumbers.length >= 2) {
+    return {
+      totalWidth: feetNumbers[0] || 40,
+      totalHeight: feetNumbers[1] || 30,
+    };
+  }
+
+  return null;
+}
+
+function makeDefaultDoorForRoom(room) {
+  const width = clamp(Math.max(2.5, Math.min((Number(room.width) || 8) * 0.28, 4)), 2.5, Math.max(2.5, Number(room.width) || 4));
+  return [
+    {
+      wall: "bottom",
+      offset: Math.max(0, ((Number(room.width) || width) - width) / 2),
+      width,
+      height: DEFAULT_DOOR_HEIGHT,
+    },
+  ];
+}
+
+function makeDefaultWindowForRoom(room) {
+  const useTopWall = (Number(room.width) || 0) >= (Number(room.height) || 0);
+  const wall = useTopWall ? "top" : "right";
+  const wallLength = useTopWall ? Number(room.width) || 6 : Number(room.height) || 6;
+  const width = clamp(Math.max(2.5, Math.min(wallLength * 0.32, 5)), 2.5, Math.max(2.5, wallLength));
+  return [
+    {
+      wall,
+      offset: Math.max(0, (wallLength - width) / 2),
+      width,
+      height: DEFAULT_WINDOW_HEIGHT,
+      sillHeight: DEFAULT_WINDOW_SILL_HEIGHT,
+    },
+  ];
+}
+
+function createFurnitureFromPreset(preset, category, overrides = {}) {
+  if (!preset) return null;
+
+  const baseId =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `furniture-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+  const isSlab = isKitchenSlab(preset) || isKitchenSlab({ type: preset.type });
+
+  if (isSlab) {
+    return {
+      id: baseId,
+      type: preset.type,
+      category,
+      width: preset.width,
+      depth: preset.depth,
+      height: preset.height,
+      slabLength: preset.width,
+      slabDepth: preset.depth,
+      attachedWall: "bottom",
+      offset: 0,
+      color: preset.color,
+      ...overrides,
+    };
+  }
+
+  return {
+    id: baseId,
+    type: preset.type,
+    category,
+    width: preset.width,
+    depth: preset.depth,
+    height: preset.height,
+    x: FURNITURE_WALL_CLEARANCE,
+    y: FURNITURE_WALL_CLEARANCE,
+    color: preset.color,
+    ...overrides,
+  };
+}
+
+function getDefaultFurnitureForRoomName(roomName, category) {
+  const options = getFurnitureOptionsForCategory(category);
+  const label = String(roomName || "").toLowerCase();
+
+  const matchByIncludes = (terms) =>
+    options.find((item) => terms.some((term) => String(item.type).toLowerCase().includes(term)));
+
+  const selected = (() => {
+    if (category === "house") {
+      if (label.includes("bed")) {
+        return [
+          matchByIncludes(["bed"]),
+          matchByIncludes(["wardrobe"]),
+        ].filter(Boolean);
+      }
+
+      if (label.includes("living")) {
+        return [
+          matchByIncludes(["sofa"]),
+          matchByIncludes(["center table"]),
+        ].filter(Boolean);
+      }
+
+      if (label.includes("kitchen")) {
+        return [
+          matchByIncludes(["kitchen slab"]),
+          matchByIncludes(["stove"]),
+          matchByIncludes(["sink"]),
+        ].filter(Boolean);
+      }
+
+      if (label.includes("dining")) {
+        return [matchByIncludes(["dining table"])].filter(Boolean);
+      }
+
+      if (label.includes("bath") || label.includes("toilet")) {
+        return [];
+      }
+    }
+
+    if (category === "office") {
+      if (label.includes("meeting") || label.includes("conference")) {
+        return [matchByIncludes(["conference table"])].filter(Boolean);
+      }
+      if (label.includes("reception")) {
+        return [matchByIncludes(["reception"])].filter(Boolean);
+      }
+      return [
+        matchByIncludes(["workstation"]),
+        matchByIncludes(["chair"]),
+      ].filter(Boolean);
+    }
+
+    if (category === "cafe") {
+      if (label.includes("counter")) {
+        return [matchByIncludes(["service counter"])].filter(Boolean);
+      }
+      return [
+        matchByIncludes(["4-seater table"]) || matchByIncludes(["2-seater table"]),
+        matchByIncludes(["chair"]),
+      ].filter(Boolean);
+    }
+
+    if (category === "storage") {
+      return [options[0], options[2]].filter(Boolean);
+    }
+
+    if (category === "security cabin") {
+      return [
+        matchByIncludes(["guard chair"]),
+        matchByIncludes(["small desk"]),
+      ].filter(Boolean);
+    }
+
+    if (category === "public toilet") {
+      return [
+        matchByIncludes(["toilet seat"]),
+        matchByIncludes(["wash basin"]),
+      ].filter(Boolean);
+    }
+
+    return [options[0]].filter(Boolean);
+  })();
+
+  return selected
+    .map((preset, index) =>
+      createFurnitureFromPreset(preset, category, {
+        x: FURNITURE_WALL_CLEARANCE + index * 0.8,
+        y: FURNITURE_WALL_CLEARANCE + index * 0.8,
+      })
+    )
+    .filter(Boolean);
+}
+
+function createTemplateRoom(index, name, width, height, category, overrides = {}) {
+  const room = {
+    id:
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `room-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+    name,
+    width,
+    height,
+    x: 0,
+    y: 0,
+    color: ROOM_COLORS[index % ROOM_COLORS.length],
+    doors: [],
+    windows: [],
+    furniture: [],
+    ...overrides,
+  };
+
+  return {
+    ...room,
+    doors: Array.isArray(room.doors) && room.doors.length ? room.doors : makeDefaultDoorForRoom(room),
+    windows:
+      Array.isArray(room.windows) && room.windows.length ? room.windows : makeDefaultWindowForRoom(room),
+    furniture:
+      Array.isArray(room.furniture) && room.furniture.length
+        ? room.furniture
+        : getDefaultFurnitureForRoomName(name, category),
+  };
+}
+
+function buildPresetTemplate(kind, totalWidth, totalHeight) {
+  const normalizedKind = String(kind || "").toLowerCase();
+
+  if (normalizedKind === "1bhk") {
+    return {
+      planName: "1BHK Floor Plan",
+      selectedCategory: "house",
+      totalWidth,
+      totalHeight,
+      rooms: [
+        createTemplateRoom(0, "Living Room", 14, 12, "house"),
+        createTemplateRoom(1, "Bedroom 1", 12, 12, "house"),
+        createTemplateRoom(2, "Kitchen", 10, 8, "house"),
+        createTemplateRoom(3, "Bathroom", 6, 8, "house", { furniture: [] }),
+      ],
+    };
+  }
+
+  if (normalizedKind === "2bhk") {
+    return {
+      planName: "2BHK Floor Plan",
+      selectedCategory: "house",
+      totalWidth,
+      totalHeight,
+      rooms: [
+        createTemplateRoom(0, "Living Room", 14, 12, "house"),
+        createTemplateRoom(1, "Bedroom 1", 12, 11, "house"),
+        createTemplateRoom(2, "Bedroom 2", 11, 10, "house"),
+        createTemplateRoom(3, "Kitchen", 10, 8, "house"),
+        createTemplateRoom(4, "Bathroom 1", 6, 7, "house", { furniture: [] }),
+        createTemplateRoom(5, "Bathroom 2", 6, 7, "house", { furniture: [] }),
+      ],
+    };
+  }
+
+  if (normalizedKind === "office") {
+    return {
+      planName: "Office Layout",
+      selectedCategory: "office",
+      totalWidth,
+      totalHeight,
+      rooms: [
+        createTemplateRoom(0, "Reception", 10, 10, "office"),
+        createTemplateRoom(1, "Workspace", 16, 14, "office"),
+        createTemplateRoom(2, "Meeting Room", 12, 10, "office"),
+      ],
+    };
+  }
+
+  if (normalizedKind === "cafe") {
+    return {
+      planName: "Cafe Layout",
+      selectedCategory: "cafe",
+      totalWidth,
+      totalHeight,
+      rooms: [
+        createTemplateRoom(0, "Seating Area", 16, 14, "cafe"),
+        createTemplateRoom(1, "Service Counter", 10, 8, "cafe"),
+        createTemplateRoom(2, "Kitchen / Prep", 10, 8, "cafe"),
+      ],
+    };
+  }
+
+  if (normalizedKind === "storage") {
+    return {
+      planName: "Storage Layout",
+      selectedCategory: "storage",
+      totalWidth,
+      totalHeight,
+      rooms: [createTemplateRoom(0, "Storage Area", Math.max(18, totalWidth - 4), Math.max(14, totalHeight - 4), "storage")],
+    };
+  }
+
+  if (normalizedKind === "security cabin") {
+    return {
+      planName: "Security Cabin Layout",
+      selectedCategory: "security cabin",
+      totalWidth,
+      totalHeight,
+      rooms: [createTemplateRoom(0, "Security Cabin", Math.max(8, totalWidth - 2), Math.max(8, totalHeight - 2), "security cabin")],
+    };
+  }
+
+  if (normalizedKind === "public toilet") {
+    return {
+      planName: "Public Toilet Layout",
+      selectedCategory: "public toilet",
+      totalWidth,
+      totalHeight,
+      rooms: [
+        createTemplateRoom(0, "Male Toilet", 10, 8, "public toilet"),
+        createTemplateRoom(1, "Female Toilet", 10, 8, "public toilet"),
+        createTemplateRoom(2, "Wash Area", 8, 6, "public toilet"),
+      ],
+    };
+  }
+
+  return null;
+}
+
+function normalizeGeneratedRooms(rooms, totalWidth, totalHeight, category) {
+  const nextRooms = Array.isArray(rooms) ? rooms : [];
+  const baseRooms = nextRooms.map((room, index) =>
+    createTemplateRoom(
+      index,
+      room.name || `Room ${index + 1}`,
+      Math.max(6, Number(room.width) || 10),
+      Math.max(6, Number(room.height) || 10),
+      category,
+      {
+        ...room,
+        furniture:
+          Array.isArray(room.furniture) && room.furniture.length
+            ? room.furniture.map((item, itemIndex) =>
+                createFurnitureFromPreset(
+                  {
+                    type: item.type || `Furniture ${itemIndex + 1}`,
+                    width: Number(item.width) || 3,
+                    depth: Number(item.depth) || 2,
+                    height: Number(item.height) || 3,
+                    color: item.color || "#d4dde8",
+                  },
+                  category,
+                  {
+                    x: Number(item.x) || FURNITURE_WALL_CLEARANCE,
+                    y: Number(item.y) || FURNITURE_WALL_CLEARANCE,
+                    attachedWall: item.attachedWall,
+                    slabLength: item.slabLength,
+                    slabDepth: item.slabDepth,
+                    offset: Number(item.offset) || 0,
+                  }
+                )
+              )
+            : getDefaultFurnitureForRoomName(room.name, category),
+        doors:
+          Array.isArray(room.doors) && room.doors.length
+            ? room.doors.map((door) => ({
+                wall: WALL_OPTIONS.includes(door.wall) ? door.wall : "bottom",
+                offset: Number(door.offset) || 0,
+                width: Number(door.width) || DEFAULT_DOOR_WIDTH,
+                height: Number(door.height) || DEFAULT_DOOR_HEIGHT,
+              }))
+            : makeDefaultDoorForRoom(room),
+        windows:
+          Array.isArray(room.windows) && room.windows.length
+            ? room.windows.map((windowItem) => ({
+                wall: WALL_OPTIONS.includes(windowItem.wall) ? windowItem.wall : "top",
+                offset: Number(windowItem.offset) || 0,
+                width: Number(windowItem.width) || DEFAULT_WINDOW_WIDTH,
+                height: Number(windowItem.height) || DEFAULT_WINDOW_HEIGHT,
+                sillHeight: Number(windowItem.sillHeight) || DEFAULT_WINDOW_SILL_HEIGHT,
+              }))
+            : makeDefaultWindowForRoom(room),
+      }
+    )
+  );
+
+  return fitRoomsInGrid(baseRooms, Number(totalWidth), Number(totalHeight));
+}
+
+function parseRuleBasedPlanCommand(prompt, currentState) {
+  const text = String(prompt || "").trim();
+  if (!text) return null;
+
+  const lower = text.toLowerCase();
+  const dimensions = extractPlanDimensions(text) || {};
+  const totalWidth = Number(dimensions.totalWidth) || Number(currentState.totalWidth) || 40;
+  const totalHeight = Number(dimensions.totalHeight) || Number(currentState.totalHeight) || 30;
+
+  const presetChecks = [
+    { terms: ["2bhk", "2 bhk", "two bedroom"], preset: "2bhk" },
+    { terms: ["1bhk", "1 bhk", "one bedroom"], preset: "1bhk" },
+    { terms: ["office"], preset: "office" },
+    { terms: ["cafe", "coffee shop"], preset: "cafe" },
+    { terms: ["storage", "warehouse"], preset: "storage" },
+    { terms: ["security cabin", "guard room"], preset: "security cabin" },
+    { terms: ["public toilet", "restroom", "washroom"], preset: "public toilet" },
+  ];
+
+  for (const presetCheck of presetChecks) {
+    if (presetCheck.terms.some((term) => lower.includes(term))) {
+      const preset = buildPresetTemplate(presetCheck.preset, totalWidth, totalHeight);
+      if (!preset) return null;
+
+      return {
+        ...preset,
+        totalWidth,
+        totalHeight,
+        rooms: normalizeGeneratedRooms(
+          preset.rooms,
+          totalWidth,
+          totalHeight,
+          preset.selectedCategory
+        ),
+        responseText:
+          `Created a ${preset.planName} with ${preset.rooms.length} rooms in ${totalWidth} ft × ${totalHeight} ft.`,
+      };
+    }
+  }
+
+  const addRoomsMatch = lower.match(/add\s+(\d+)\s+rooms?/);
+  if (addRoomsMatch) {
+    const category = PRODUCT_CATEGORIES.includes(currentState.selectedCategory)
+      ? currentState.selectedCategory
+      : "office";
+    const roomCount = Math.max(1, Number(addRoomsMatch[1]) || 1);
+    const generatedRooms = Array.from({ length: roomCount }, (_, index) =>
+      createTemplateRoom(index, `Room ${index + 1}`, 10, 10, category)
+    );
+
+    return {
+      planName: currentState.planName,
+      selectedCategory: category,
+      totalWidth,
+      totalHeight,
+      rooms: normalizeGeneratedRooms(generatedRooms, totalWidth, totalHeight, category),
+      responseText: `Added ${roomCount} rooms and arranged them inside the current plan.`,
+    };
+  }
+
+  return null;
+}
+
+function sanitizeGeminiPlanResponse(aiResponse, currentState) {
+  if (!aiResponse || typeof aiResponse !== "object") return null;
+
+  const category = PRODUCT_CATEGORIES.includes(aiResponse.selectedCategory)
+    ? aiResponse.selectedCategory
+    : currentState.selectedCategory;
+
+  const totalWidth = Number(aiResponse.totalWidth) || Number(currentState.totalWidth) || 40;
+  const totalHeight = Number(aiResponse.totalHeight) || Number(currentState.totalHeight) || 30;
+  const rooms = normalizeGeneratedRooms(
+    Array.isArray(aiResponse.rooms) ? aiResponse.rooms : [],
+    totalWidth,
+    totalHeight,
+    category
+  );
+
+  if (!rooms.length) return null;
+
+  return {
+    planName: aiResponse.planName || currentState.planName || "AI Floor Plan",
+    selectedCategory: category,
+    totalWidth,
+    totalHeight,
+    rooms,
+    responseText:
+      aiResponse.responseText ||
+      `Created a ${getFriendlyCategoryName(category)} layout with ${rooms.length} rooms.`,
+  };
+}
+
+async function generatePlanFromGemini(apiKey, userPrompt, currentState) {
+  const safeApiKey = String(apiKey || "").trim();
+  if (!safeApiKey) {
+    throw new Error("Gemini API key is missing.");
+  }
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(
+    safeApiKey
+  )}`;
+
+  const schemaInstructions = {
+    planName: "string",
+    selectedCategory: PRODUCT_CATEGORIES,
+    totalWidth: "number",
+    totalHeight: "number",
+    responseText: "string",
+    rooms: [
+      {
+        name: "string",
+        width: "number",
+        height: "number",
+      },
+    ],
+  };
+
+  const prompt = `
+You are an assistant for a React floor plan generator.
+Return ONLY valid JSON with no markdown fences.
+Use this schema: ${JSON.stringify(schemaInstructions)}
+Rules:
+- selectedCategory must be one of: ${PRODUCT_CATEGORIES.join(", ")}
+- Keep room dimensions practical and within the overall plan.
+- Use simple room names.
+- If the user asks for a house, map it to selectedCategory = "house".
+- Do not include any explanation outside JSON.
+Current plan context:
+${JSON.stringify(currentState, null, 2)}
+User request:
+${userPrompt}
+`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: "application/json",
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gemini request failed with status ${response.status}`);
+  }
+
+  const result = await response.json();
+  const rawText =
+    result?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
+
+  if (!rawText) {
+    throw new Error("Gemini returned an empty response.");
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch (error) {
+    const cleaned = rawText.replace(/```json|```/gi, "").trim();
+    parsed = JSON.parse(cleaned);
+  }
+
+  return sanitizeGeminiPlanResponse(parsed, currentState);
+}
+
+
 export default function App() {
   const [planName, setPlanName] = useState("My Floor Plan");
   const [totalWidth, setTotalWidth] = useState(40);
@@ -1287,7 +1885,18 @@ export default function App() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [projectStatusMessage, setProjectStatusMessage] = useState("");
   const [expandedRoomId, setExpandedRoomId] = useState(null);
+  const [chatMessages, setChatMessages] = useState(() => [
+    createChatMessage(
+      "assistant",
+      "Hi, I can help you navigate the app, create layouts like 1BHK / 2BHK / office / cafe, and apply voice commands."
+    ),
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const [isChatbotBusy, setIsChatbotBusy] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const threeContainerRef = useRef(null);
+  const chatScrollRef = useRef(null);
+  const speechRecognitionRef = useRef(null);
 const capture2DImage = async () => {
   const svgEl = document.getElementById("floor-plan-svg");
   if (!svgEl) return "";
@@ -1446,6 +2055,136 @@ const buildGoogleSheetsPayload = async ({
 
     return date.toLocaleString();
   };
+
+  const appendChatMessage = (role, content) => {
+    setChatMessages((prev) => [...prev, createChatMessage(role, content)]);
+  };
+
+  const applyGeneratedPlan = (nextPlan, sourceLabel = "assistant") => {
+    if (!nextPlan) return;
+
+    const mergedState = {
+      ...buildCurrentProjectData(),
+      ...nextPlan,
+      activeView,
+      wallThickness,
+      scale,
+      roomHeight,
+      furnitureSelections: {},
+    };
+
+    applyProjectState(mergedState);
+    setProjectStatusMessage(
+      `Applied ${sourceLabel} layout: ${nextPlan.planName || getFriendlyCategoryName(nextPlan.selectedCategory)}`
+    );
+  };
+
+  const handleStartVoiceInput = () => {
+    const SpeechRecognition =
+      typeof window !== "undefined"
+        ? window.SpeechRecognition || window.webkitSpeechRecognition
+        : null;
+
+    if (!SpeechRecognition) {
+      appendChatMessage(
+        "assistant",
+        "Voice input is not supported in this browser. Text commands will still work."
+      );
+      return;
+    }
+
+    if (isListening && speechRecognitionRef.current) {
+      speechRecognitionRef.current.stop();
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => {
+      setIsListening(false);
+      appendChatMessage("assistant", "I could not capture the voice command. Please try again.");
+    };
+    recognition.onresult = (event) => {
+      const transcript = event?.results?.[0]?.[0]?.transcript || "";
+      setChatInput(transcript);
+    };
+
+    speechRecognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  const handleChatSubmit = async (event) => {
+    event?.preventDefault?.();
+
+    const trimmedInput = String(chatInput || "").trim();
+    if (!trimmedInput || isChatbotBusy) return;
+
+    appendChatMessage("user", trimmedInput);
+    setChatInput("");
+    setIsChatbotBusy(true);
+
+    try {
+      const currentPlanState = buildCurrentProjectData();
+      const ruleBasedPlan = parseRuleBasedPlanCommand(trimmedInput, currentPlanState);
+
+      if (ruleBasedPlan) {
+        applyGeneratedPlan(ruleBasedPlan, "chatbot");
+        appendChatMessage("assistant", ruleBasedPlan.responseText);
+        return;
+      }
+
+      const geminiApiKey = getSavedGeminiApiKey();
+      if (!geminiApiKey) {
+        appendChatMessage(
+          "assistant",
+          "I can handle preset commands right now. For free-form AI planning, save your Gemini key in localStorage under floor-plan-gemini-api-key."
+        );
+        return;
+      }
+
+      persistGeminiApiKey(geminiApiKey);
+      const aiPlan = await generatePlanFromGemini(geminiApiKey, trimmedInput, currentPlanState);
+
+      if (!aiPlan) {
+        appendChatMessage(
+          "assistant",
+          "I understood the request only partially. Please try a more specific command like 'Create a 2BHK in 40 by 30 feet'."
+        );
+        return;
+      }
+
+      applyGeneratedPlan(aiPlan, "Gemini");
+      appendChatMessage("assistant", aiPlan.responseText);
+    } catch (error) {
+      console.error("Chatbot command failed:", error);
+      appendChatMessage(
+        "assistant",
+        "I could not apply that command. Please try a simpler instruction like 'Create a cafe layout 30 by 20'."
+      );
+    } finally {
+      setIsChatbotBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshSavedProjects();
+  }, []);
+
+  useEffect(() => {
+    if (!expandedRoomId && rooms.length) {
+      setExpandedRoomId(rooms[0].id);
+    }
+  }, [expandedRoomId, rooms]);
+
+  useEffect(() => {
+    if (!chatScrollRef.current) return;
+    chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+  }, [chatMessages, isChatbotBusy]);
 
   const updateRoom = (id, key, value) => {
     setRooms((prev) => prev.map((room) => (room.id === id ? { ...room, [key]: value } : room)));
@@ -2038,247 +2777,328 @@ const buildGoogleSheetsPayload = async ({
             </div>
           </section>
 
-          {activeView === "2d" && (
-            <section className="preview-card preview-card--dominant">
-              <div className="section-header section-header--preview">
-                <h2>2D Floor Plan</h2>
-                <div className="preview-toolbar">
-                  {/* view button spacing and sizing */}
-                  <button
-                    className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
-                    onClick={() => setActiveView("2d")}
-                  >
-                    2D
-                  </button>
-                  <button
-                    className={`view-toolbar-btn ${activeView === "3d" ? "active" : ""}`}
-                    onClick={() => setActiveView("3d")}
-                  >
-                    3D
-                  </button>
-                  <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>
-                    Export SVG
-                  </button>
-                </div>
-              </div>
 
-              <div className="svg-wrap svg-wrap--dominant">
-                <svg
-                  id="floor-plan-svg"
-                  viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-                  width="100%"
-                  height="100%"
-                >
-                  <defs>
-                    <pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse">
-                      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#dbe3ec" strokeWidth="1" />
-                    </pattern>
+          <div className="workspace-content-grid">
+            <div className="workspace-preview-column">
+              {activeView === "2d" && (
+                <section className="preview-card preview-card--dominant">
+                  <div className="section-header section-header--preview">
+                    <h2>2D Floor Plan</h2>
+                    <div className="preview-toolbar">
+                      <button
+                        className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
+                        onClick={() => setActiveView("2d")}
+                      >
+                        2D
+                      </button>
+                      <button
+                        className={`view-toolbar-btn ${activeView === "3d" ? "active" : ""}`}
+                        onClick={() => setActiveView("3d")}
+                      >
+                        3D
+                      </button>
+                      <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>
+                        Export SVG
+                      </button>
+                    </div>
+                  </div>
 
-                    <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-                      <rect width="50" height="50" fill="url(#smallGrid)" />
-                      <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#bdd0e8" strokeWidth="1" />
-                    </pattern>
-                  </defs>
+                  <div className="svg-wrap svg-wrap--dominant">
+                    <svg
+                      id="floor-plan-svg"
+                      viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                      width="100%"
+                      height="100%"
+                    >
+                      <defs>
+                        <pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse">
+                          <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#dbe3ec" strokeWidth="1" />
+                        </pattern>
 
-                  <rect width={svgWidth} height={svgHeight} fill="#ffffff" />
-                  <g transform="translate(60,60)">
-                    <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />
-                    <rect
-                      x={0}
-                      y={0}
-                      width={canvasWidth}
-                      height={canvasHeight}
-                      fill="none"
-                      stroke="#5f6f86"
-                      strokeWidth={Math.max(3, numericWallThickness * numericScale)}
-                    />
+                        <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                          <rect width="50" height="50" fill="url(#smallGrid)" />
+                          <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#bdd0e8" strokeWidth="1" />
+                        </pattern>
+                      </defs>
 
-                    {placedRooms.map((room) => {
-                      const x = room.x * numericScale;
-                      const y = room.y * numericScale;
-                      const w = room.width * numericScale;
-                      const h = room.height * numericScale;
+                      <rect width={svgWidth} height={svgHeight} fill="#ffffff" />
+                      <g transform="translate(60,60)">
+                        <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />
+                        <rect
+                          x={0}
+                          y={0}
+                          width={canvasWidth}
+                          height={canvasHeight}
+                          fill="none"
+                          stroke="#5f6f86"
+                          strokeWidth={Math.max(3, numericWallThickness * numericScale)}
+                        />
 
-                      return (
-                        <g key={room.id}>
-                          <rect
-                            x={x}
-                            y={y}
-                            width={w}
-                            height={h}
-                            fill={room.color || "#eef4ff"}
-                            stroke="#7e8da3"
-                            strokeWidth={Math.max(2, numericWallThickness * numericScale)}
-                          />
-                        </g>
-                      );
-                    })}
+                        {placedRooms.map((room) => {
+                          const x = room.x * numericScale;
+                          const y = room.y * numericScale;
+                          const w = room.width * numericScale;
+                          const h = room.height * numericScale;
 
-                    {placedRooms.map((room) => {
-                      const { doors, windows } = getRoomOpenings(room, Number(roomHeight));
+                          return (
+                            <g key={room.id}>
+                              <rect
+                                x={x}
+                                y={y}
+                                width={w}
+                                height={h}
+                                fill={room.color || "#eef4ff"}
+                                stroke="#7e8da3"
+                                strokeWidth={Math.max(2, numericWallThickness * numericScale)}
+                              />
+                            </g>
+                          );
+                        })}
 
-                      return (
-                        <g key={`openings-${room.id}`}>
-                          {doors.map((door, idx) => (
-                            <Opening2D
-                              key={`door-${room.id}-${idx}`}
-                              room={room}
-                              opening={door}
-                              scale={numericScale}
-                              wallThickness={numericWallThickness}
-                            />
-                          ))}
+                        {placedRooms.map((room) => {
+                          const { doors, windows } = getRoomOpenings(room, Number(roomHeight));
 
-                          {windows.map((windowItem, idx) => (
-                            <Opening2D
-                              key={`window-${room.id}-${idx}`}
-                              room={room}
-                              opening={windowItem}
-                              scale={numericScale}
-                              wallThickness={numericWallThickness}
-                            />
-                          ))}
-                        </g>
-                      );
-                    })}
+                          return (
+                            <g key={`openings-${room.id}`}>
+                              {doors.map((door, idx) => (
+                                <Opening2D
+                                  key={`door-${room.id}-${idx}`}
+                                  room={room}
+                                  opening={door}
+                                  scale={numericScale}
+                                  wallThickness={numericWallThickness}
+                                />
+                              ))}
 
-                    {placedRooms.map((room) => (
-                      <g key={`furniture-${room.id}`}>
-                        {(room.furniture || []).map((item) => (
-                          <Furniture2D key={item.id} room={room} furnitureItem={item} scale={numericScale} />
+                              {windows.map((windowItem, idx) => (
+                                <Opening2D
+                                  key={`window-${room.id}-${idx}`}
+                                  room={room}
+                                  opening={windowItem}
+                                  scale={numericScale}
+                                  wallThickness={numericWallThickness}
+                                />
+                              ))}
+                            </g>
+                          );
+                        })}
+
+                        {placedRooms.map((room) => (
+                          <g key={`furniture-${room.id}`}>
+                            {(room.furniture || []).map((item) => (
+                              <Furniture2D key={item.id} room={room} furnitureItem={item} scale={numericScale} />
+                            ))}
+                          </g>
                         ))}
+
+                        {placedRooms.map((room) => {
+                          const x = room.x * numericScale;
+                          const y = room.y * numericScale;
+                          const w = room.width * numericScale;
+                          const h = room.height * numericScale;
+
+                          const roomNameFontSize = Math.max(7, Math.min(10, Math.min(w, h) * 0.11));
+                          const roomDimFontSize = Math.max(5.5, Math.min(7.5, Math.min(w, h) * 0.085));
+
+                          return (
+                            <g key={`labels-${room.id}`}>
+                              <text
+                                x={x + w / 2}
+                                y={y + h / 2 - 12}
+                                textAnchor="middle"
+                                style={{
+                                  fontSize: roomNameFontSize,
+                                  fontWeight: 700,
+                                  fill: "#172033",
+                                  opacity: 0.68,
+                                  pointerEvents: "none",
+                                }}
+                              >
+                                {room.name}
+                              </text>
+
+                              <text
+                                x={x + w / 2}
+                                y={y + h / 2 + 12}
+                                textAnchor="middle"
+                                style={{
+                                  fontSize: roomDimFontSize,
+                                  fill: "#56637a",
+                                  opacity: 0.82,
+                                  pointerEvents: "none",
+                                }}
+                              >
+                                {room.width} ft × {room.height} ft
+                              </text>
+                            </g>
+                          );
+                        })}
+
+                        <text
+                          x={canvasWidth / 2}
+                          y={-18}
+                          textAnchor="middle"
+                          style={{
+                            fontSize: 7,
+                            fontWeight: 600,
+                            fill: "#324257",
+                            opacity: 0.88,
+                            letterSpacing: "0.2px",
+                          }}
+                        >
+                          Width: {totalWidth} ft
+                        </text>
+
+                        <text
+                          x={-18}
+                          y={canvasHeight / 2}
+                          textAnchor="middle"
+                          transform={`rotate(-90, -18, ${canvasHeight / 2})`}
+                          style={{
+                            fontSize: 7,
+                            fontWeight: 600,
+                            fill: "#324257",
+                            opacity: 0.88,
+                            letterSpacing: "0.2px",
+                          }}
+                        >
+                          Height: {totalHeight} ft
+                        </text>
                       </g>
-                    ))}
+                    </svg>
+                  </div>
+                </section>
+              )}
 
-                    {placedRooms.map((room) => {
-                      const x = room.x * numericScale;
-                      const y = room.y * numericScale;
-                      const w = room.width * numericScale;
-                      const h = room.height * numericScale;
+              {activeView === "3d" && (
+                <section className="preview-card preview-card--dominant">
+                  <div className="section-header section-header--preview">
+                    <h2>3D Floor Plan</h2>
+                    <div className="preview-toolbar">
+                      <button
+                        className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
+                        onClick={() => setActiveView("2d")}
+                      >
+                        2D
+                      </button>
+                      <button
+                        className={`view-toolbar-btn ${activeView === "3d" ? "active" : ""}`}
+                        onClick={() => setActiveView("3d")}
+                      >
+                        3D
+                      </button>
+                      <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>
+                        Export SVG
+                      </button>
+                    </div>
+                  </div>
 
-                      const roomNameFontSize = Math.max(7, Math.min(10, Math.min(w, h) * 0.11));
-                      const roomDimFontSize = Math.max(5.5, Math.min(7.5, Math.min(w, h) * 0.085));
-
-                      return (
-                        <g key={`labels-${room.id}`}>
-                          <text
-                            x={x + w / 2}
-                            y={y + h / 2 - 12}
-                            textAnchor="middle"
-                            style={{
-                              fontSize: roomNameFontSize,
-                              fontWeight: 700,
-                              fill: "#172033",
-                              opacity: 0.68,
-                              pointerEvents: "none",
-                            }}
-                          >
-                            {room.name}
-                          </text>
-
-                          <text
-                            x={x + w / 2}
-                            y={y + h / 2 + 12}
-                            textAnchor="middle"
-                            style={{
-                              fontSize: roomDimFontSize,
-                              fill: "#56637a",
-                              opacity: 0.82,
-                              pointerEvents: "none",
-                            }}
-                          >
-                            {room.width} ft × {room.height} ft
-                          </text>
-                        </g>
-                      );
-                    })}
-
-                    <text
-                      x={canvasWidth / 2}
-                      y={-18}
-                      textAnchor="middle"
-                      style={{
-                        fontSize: 7,
-                        fontWeight: 600,
-                        fill: "#324257",
-                        opacity: 0.88,
-                        letterSpacing: "0.2px",
+                  <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
+                    <Canvas
+                      shadows
+                      gl={{ preserveDrawingBuffer: true }}
+                      camera={{
+                        position: [
+                          Math.max(Number(totalWidth) * 0.85, 14),
+                          Math.max(Number(roomHeight) * 2.2, 16),
+                          Math.max(Number(totalHeight) * 1.0, 14),
+                        ],
+                        fov: 42,
                       }}
                     >
-                      Width: {totalWidth} ft
-                    </text>
+                      <Floor3DScene
+                        rooms={placedRooms}
+                        totalWidth={Number(totalWidth)}
+                        totalHeight={Number(totalHeight)}
+                        wallThickness={Number(wallThickness)}
+                        roomHeight={Number(roomHeight)}
+                        wallSegments={wallSegments}
+                      />
+                    </Canvas>
+                  </div>
+                </section>
+              )}
+            </div>
 
-                    <text
-                      x={-18}
-                      y={canvasHeight / 2}
-                      textAnchor="middle"
-                      transform={`rotate(-90, -18, ${canvasHeight / 2})`}
-                      style={{
-                        fontSize: 7,
-                        fontWeight: 600,
-                        fill: "#324257",
-                        opacity: 0.88,
-                        letterSpacing: "0.2px",
-                      }}
-                    >
-                      Height: {totalHeight} ft
-                    </text>
-                  </g>
-                </svg>
+            <aside className="chatbot-card input-card">
+              <div className="section-header chatbot-header">
+                <div className="chatbot-header-copy">
+                  <h2>
+                    <MessageSquare size={16} />
+                    Floor Plan Assistant
+                  </h2>
+                  <p>Ask for layouts, guidance, or use voice commands.</p>
+                </div>
+                <span className="chatbot-badge">
+                  <Sparkles size={14} />
+                  Phase 1 + 2
+                </span>
               </div>
-            </section>
-          )}
 
-          {activeView === "3d" && (
-            <section className="preview-card preview-card--dominant">
-              <div className="section-header section-header--preview">
-                <h2>3D Floor Plan</h2>
-                <div className="preview-toolbar">
-                  {/* view button spacing and sizing */}
+              <div className="chatbot-quick-actions">
+                {[
+                  "Create a 2BHK in 40 by 30 feet",
+                  "Create an office layout 32 by 24",
+                  "Create a cafe layout",
+                ].map((prompt) => (
                   <button
-                    className={`view-toolbar-btn ${activeView === "2d" ? "active" : ""}`}
-                    onClick={() => setActiveView("2d")}
+                    key={prompt}
+                    type="button"
+                    className="chatbot-chip"
+                    onClick={() => setChatInput(prompt)}
                   >
-                    2D
+                    {prompt}
                   </button>
+                ))}
+              </div>
+
+              <div className="chatbot-messages" ref={chatScrollRef}>
+                {chatMessages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`chatbot-message chatbot-message--${message.role}`}
+                  >
+                    <div className="chatbot-message-icon">
+                      {message.role === "assistant" ? <Bot size={14} /> : <span>You</span>}
+                    </div>
+                    <div className="chatbot-message-bubble">{message.content}</div>
+                  </div>
+                ))}
+
+                {isChatbotBusy && (
+                  <div className="chatbot-message chatbot-message--assistant">
+                    <div className="chatbot-message-icon">
+                      <Bot size={14} />
+                    </div>
+                    <div className="chatbot-message-bubble">Working on your layout...</div>
+                  </div>
+                )}
+              </div>
+
+              <form className="chatbot-form" onSubmit={handleChatSubmit}>
+                <textarea
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Try: Create a 2BHK, create an office layout, or ask how to use the app."
+                  rows={4}
+                />
+                <div className="chatbot-form-actions">
                   <button
-                    className={`view-toolbar-btn ${activeView === "3d" ? "active" : ""}`}
-                    onClick={() => setActiveView("3d")}
+                    type="button"
+                    className={`secondary-btn chatbot-voice-btn ${isListening ? "is-listening" : ""}`}
+                    onClick={handleStartVoiceInput}
                   >
-                    3D
+                    <Mic size={16} />
+                    {isListening ? "Listening..." : "Voice"}
                   </button>
-                  <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>
-                    Export SVG
+                  <button type="submit" className="primary-btn" disabled={isChatbotBusy}>
+                    <Send size={16} />
+                    Apply
                   </button>
                 </div>
-              </div>
-
-              <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
-                <Canvas
-                  shadows
-                  gl={{ preserveDrawingBuffer: true }}
-                  camera={{
-                    position: [
-                      Math.max(Number(totalWidth) * 0.85, 14),
-                      Math.max(Number(roomHeight) * 2.2, 16),
-                      Math.max(Number(totalHeight) * 1.0, 14),
-                    ],
-                    fov: 42,
-                  }}
-                >
-                  <Floor3DScene
-                    rooms={placedRooms}
-                    totalWidth={Number(totalWidth)}
-                    totalHeight={Number(totalHeight)}
-                    wallThickness={Number(wallThickness)}
-                    roomHeight={Number(roomHeight)}
-                    wallSegments={wallSegments}
-                  />
-                </Canvas>
-              </div>
-            </section>
-          )}
-        </main>
+              </form>
+            </aside>
+          </div>        </main>
 
         {/* collapsible room cards / accordion behavior */}
         <aside className="rooms-sidebar input-card">
