@@ -312,9 +312,7 @@ button {
   box-shadow: 0 14px 22px rgba(16, 40, 77, 0.2);
   background: linear-gradient(180deg, #1a3f71 0%, #14325d 100%);
 }
-.view-toolbar-btn--upload {
-  min-width: 148px;
-}
+
 .secondary-btn {
   display: inline-flex;
   align-items: center;
@@ -385,6 +383,10 @@ button {
   background: linear-gradient(180deg, #14345f 0%, #10284d 100%);
   color: #fff;
   border: 1px solid rgba(16, 40, 77, 0.2);
+}
+
+.upload-floor-plan-btn {
+  min-width: 148px;
 }
 
 .preview-toolbar,
