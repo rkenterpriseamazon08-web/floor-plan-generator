@@ -20,6 +20,8 @@ import {
   Image as ImageIcon,
   Loader2,
   ExternalLink,
+  Sun,
+  Moon,
 } from "lucide-react";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9CTljUpeTfyytXH6HDLYG_Qjah7anxSSaWlvFCX8j82szBuYLci_sVGms7MfbbAuV0A/exec";
 const MAX_SYNC_ROOMS = 8;
@@ -59,6 +61,7 @@ const PRODUCT_CATEGORIES = [
 
 const PROJECTS_STORAGE_KEY = "floor-plan-generator-projects";
 const FLOOR_PLAN_OPENAI_KEY_STORAGE = "floor-plan-openai-api-key";
+const THEME_STORAGE_KEY = "floor-plan-generator-theme";
 const OPENAI_MODEL = "gpt-4.1-mini";
 const OPENAI_IMAGE_MODEL = "gpt-image-1";
 
@@ -2482,6 +2485,11 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState("office");
   const [rooms, setRooms] = useState(() => getDefaultRooms(40, 30));
   const [furnitureSelections, setFurnitureSelections] = useState({});
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === "undefined") return "light";
+    const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return savedTheme === "dark" ? "dark" : "light";
+  });
 
   const [savedProjects, setSavedProjects] = useState([]);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -2528,6 +2536,11 @@ const capture2DImage = async () => {
       setGeneratedRenderImage("");
     }
   }, [currentProjectId, generatedRenderProjectId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
 
   const placedRooms = useMemo(() => {
@@ -3432,7 +3445,7 @@ const buildGoogleSheetsPayload = async ({
   const furnitureOptions = getFurnitureOptionsForCategory(selectedCategory);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
       <input
         ref={fileUploadInputRef}
         type="file"
@@ -3497,10 +3510,29 @@ const buildGoogleSheetsPayload = async ({
               <div className="top-input-brand">
                 <span className="pill">Floor Plan Builder</span>
                 <div className="top-input-brand-copy">
-                  <h1>
-                    <Home size={20} />
-                    Interactive Floor Plan App
-                  </h1>
+                  <div className="top-input-title-row">
+                    <h1>
+                      <Home size={20} />
+                      Interactive Floor Plan App
+                    </h1>
+
+                    <button
+                      type="button"
+                      className="theme-toggle"
+                      onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+                      title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                    >
+                      <span className={`theme-toggle-option ${theme === "light" ? "is-active" : ""}`}>
+                        <Sun size={14} />
+                        Light
+                      </span>
+                      <span className={`theme-toggle-option ${theme === "dark" ? "is-active" : ""}`}>
+                        <Moon size={14} />
+                        Dark
+                      </span>
+                    </button>
+                  </div>
                   <p>Configure plan inputs, then edit rooms from the side panel.</p>
                 </div>
               </div>
