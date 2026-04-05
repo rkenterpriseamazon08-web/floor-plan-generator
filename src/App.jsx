@@ -19,6 +19,7 @@ import {
   Bot,
   Image as ImageIcon,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9CTljUpeTfyytXH6HDLYG_Qjah7anxSSaWlvFCX8j82szBuYLci_sVGms7MfbbAuV0A/exec";
 const MAX_SYNC_ROOMS = 8;
@@ -60,6 +61,32 @@ const PROJECTS_STORAGE_KEY = "floor-plan-generator-projects";
 const FLOOR_PLAN_OPENAI_KEY_STORAGE = "floor-plan-openai-api-key";
 const OPENAI_MODEL = "gpt-4.1-mini";
 const OPENAI_IMAGE_MODEL = "gpt-image-1";
+
+const FURNITURE_PRODUCT_RECOMMENDATIONS = {
+  "bed (single / double)": [
+    {
+      id: "tree-mart-bed",
+      title: "TREE MART Wooden King Size Bed with Storage",
+      price: "₹25,999",
+      url: "https://www.amazon.in/TREE-MART-Sheesham-Recommended-Mattress/dp/B0F3P9LWTY",
+      image: "https://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B0F3P9LWTY&Format=_SL250_&ID=AsinImage&MarketPlace=IN&ServiceVersion=20070822&WS=1&tag=",
+    },
+    {
+      id: "designfit-bed",
+      title: "DesignFit Engineered Wood King Size Bed with Box Storage",
+      price: "₹19,497",
+      url: "https://www.amazon.in/DesignFit-Engineered-Storage-Furniture-Warranty/dp/B0DXF3G56S",
+      image: "https://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B0DXF3G56S&Format=_SL250_&ID=AsinImage&MarketPlace=IN&ServiceVersion=20070822&WS=1&tag=",
+    },
+    {
+      id: "royaloak-bed",
+      title: "Royaloak Luxe Queen Size Bed with Hydraulic Storage",
+      price: "₹38,999",
+      url: "https://www.amazon.in/dp/B0DSG85S7V",
+      image: "https://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B0DSG85S7V&Format=_SL250_&ID=AsinImage&MarketPlace=IN&ServiceVersion=20070822&WS=1&tag=",
+    },
+  ],
+};
 
 
 /**
@@ -648,7 +675,7 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
   }
 
   return (
-    <group>
+    <group onClick={handleSelect}>
       {bands.map((band, index) => {
         if (isVertical) {
           const centerZ = (band.start + band.end) / 2;
@@ -714,7 +741,7 @@ function FurnitureLabel({ x, y, z, text }) {
  * improved 3D shapes
  * Lightweight recognizable geometry only.
  */
-function Furniture3D({ room, furnitureItem }) {
+function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
   const roomX = Number(room.x) || 0;
   const roomY = Number(room.y) || 0;
 
@@ -728,12 +755,20 @@ function Furniture3D({ room, furnitureItem }) {
   const labelY = height + 0.35;
 
   const type = String(furnitureItem.type || "").toLowerCase();
+  const hasRecommendations = getFurnitureRecommendationItems(furnitureItem.type).length > 0;
+  const outlineColor = isSelected ? "#0f3b72" : "#8ea0b5";
+
+  const handleSelect = (event) => {
+    if (!hasRecommendations || typeof onSelect !== "function") return;
+    event?.stopPropagation?.();
+    onSelect(furnitureItem);
+  };
 
   const legWidth = Math.max(0.12, Math.min(width, depth) * 0.12);
 
   if (type.includes("sofa")) {
     return (
-      <group>
+      <group onClick={handleSelect}>
         <mesh castShadow receiveShadow position={[x, 0.55, z]}>
           <boxGeometry args={[width, 1.1, depth]} />
           <FurnitureMaterial color={color} />
@@ -750,6 +785,12 @@ function Furniture3D({ room, furnitureItem }) {
           <boxGeometry args={[Math.max(0.25, width * 0.12), 1, depth]} />
           <FurnitureMaterial color={color} />
         </mesh>
+        {hasRecommendations && (
+          <mesh position={[x, height + 0.03, z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[Math.max(Math.min(width, depth) * 0.24, 0.22), Math.max(Math.min(width, depth) * 0.3, 0.3), 32]} />
+            <meshBasicMaterial color={outlineColor} transparent opacity={0.95} />
+          </mesh>
+        )}
         <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
       </group>
     );
@@ -765,7 +806,7 @@ function Furniture3D({ room, furnitureItem }) {
     const legHeight = Math.max(0.35, height - topThickness);
 
     return (
-      <group>
+      <group onClick={handleSelect}>
         <mesh castShadow receiveShadow position={[x, legHeight + topThickness / 2, z]}>
           <boxGeometry args={[width, topThickness, depth]} />
           <FurnitureMaterial color={color} />
@@ -788,6 +829,12 @@ function Furniture3D({ room, furnitureItem }) {
           </mesh>
         ))}
 
+        {hasRecommendations && (
+          <mesh position={[x, height + 0.03, z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[Math.max(Math.min(width, depth) * 0.24, 0.22), Math.max(Math.min(width, depth) * 0.3, 0.3), 32]} />
+            <meshBasicMaterial color={outlineColor} transparent opacity={0.95} />
+          </mesh>
+        )}
         <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
       </group>
     );
@@ -795,7 +842,7 @@ function Furniture3D({ room, furnitureItem }) {
 
   if (type.includes("chair")) {
     return (
-      <group>
+      <group onClick={handleSelect}>
         <mesh castShadow receiveShadow position={[x, 1.1, z]}>
           <boxGeometry args={[width, 0.25, depth]} />
           <FurnitureMaterial color={color} />
@@ -820,6 +867,12 @@ function Furniture3D({ room, furnitureItem }) {
             <FurnitureMaterial color={color} />
           </mesh>
         ))}
+        {hasRecommendations && (
+          <mesh position={[x, height + 0.03, z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[Math.max(Math.min(width, depth) * 0.24, 0.22), Math.max(Math.min(width, depth) * 0.3, 0.3), 32]} />
+            <meshBasicMaterial color={outlineColor} transparent opacity={0.95} />
+          </mesh>
+        )}
         <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
       </group>
     );
@@ -827,7 +880,7 @@ function Furniture3D({ room, furnitureItem }) {
 
   if (type.includes("bed")) {
     return (
-      <group>
+      <group onClick={handleSelect}>
         <mesh castShadow receiveShadow position={[x, 0.35, z]}>
           <boxGeometry args={[width, 0.7, depth]} />
           <FurnitureMaterial color={color} />
@@ -840,6 +893,12 @@ function Furniture3D({ room, furnitureItem }) {
           <boxGeometry args={[width, 0.6, Math.max(0.25, depth * 0.12)]} />
           <FurnitureMaterial color={color} />
         </mesh>
+        {hasRecommendations && (
+          <mesh position={[x, height + 0.03, z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[Math.max(Math.min(width, depth) * 0.24, 0.22), Math.max(Math.min(width, depth) * 0.3, 0.3), 32]} />
+            <meshBasicMaterial color={outlineColor} transparent opacity={0.95} />
+          </mesh>
+        )}
         <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
       </group>
     );
@@ -853,7 +912,7 @@ function Furniture3D({ room, furnitureItem }) {
     type.includes("display unit")
   ) {
     return (
-      <group>
+      <group onClick={handleSelect}>
         <mesh castShadow receiveShadow position={[x, height / 2, z]}>
           <boxGeometry args={[width, height, depth]} />
           <FurnitureMaterial color={color} />
@@ -866,6 +925,12 @@ function Furniture3D({ room, furnitureItem }) {
           <boxGeometry args={[0.06, height * 0.72, 0.06]} />
           <meshStandardMaterial color="#7a8797" roughness={0.7} metalness={0.15} />
         </mesh>
+        {hasRecommendations && (
+          <mesh position={[x, height + 0.03, z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[Math.max(Math.min(width, depth) * 0.24, 0.22), Math.max(Math.min(width, depth) * 0.3, 0.3), 32]} />
+            <meshBasicMaterial color={outlineColor} transparent opacity={0.95} />
+          </mesh>
+        )}
         <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
       </group>
     );
@@ -882,17 +947,29 @@ function Furniture3D({ room, furnitureItem }) {
           <boxGeometry args={[width, 0.1, depth]} />
           <meshStandardMaterial color="#9aa6b4" roughness={0.55} metalness={0.12} />
         </mesh>
+        {hasRecommendations && (
+          <mesh position={[x, height + 0.03, z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[Math.max(Math.min(width, depth) * 0.24, 0.22), Math.max(Math.min(width, depth) * 0.3, 0.3), 32]} />
+            <meshBasicMaterial color={outlineColor} transparent opacity={0.95} />
+          </mesh>
+        )}
         <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
       </group>
     );
   }
 
   return (
-    <group>
+    <group onClick={handleSelect}>
       <mesh castShadow receiveShadow position={[x, height / 2, z]}>
         <boxGeometry args={[width, height, depth]} />
         <FurnitureMaterial color={color} />
       </mesh>
+      {hasRecommendations && (
+        <mesh position={[x, height + 0.03, z]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[Math.max(Math.min(width, depth) * 0.24, 0.22), Math.max(Math.min(width, depth) * 0.3, 0.3), 32]} />
+          <meshBasicMaterial color={outlineColor} transparent opacity={0.95} />
+        </mesh>
+      )}
       <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
     </group>
   );
@@ -905,6 +982,8 @@ function Floor3DScene({
   wallThickness,
   roomHeight,
   wallSegments,
+  selectedFurnitureKey,
+  onFurnitureSelect,
 }) {
   const centerX = totalWidth / 2;
   const centerZ = totalHeight / 2;
@@ -1025,7 +1104,13 @@ function Floor3DScene({
             })}
 
             {(room.furniture || []).map((item) => (
-              <Furniture3D key={item.id} room={room} furnitureItem={item} />
+              <Furniture3D
+                key={item.id}
+                room={room}
+                furnitureItem={item}
+                isSelected={selectedFurnitureKey === `${room.id}-${item.id}`}
+                onSelect={(selectedItem) => onFurnitureSelect?.(room, selectedItem)}
+              />
             ))}
           </group>
         );
@@ -1103,7 +1188,7 @@ function Opening2D({ room, opening, scale, wallThickness }) {
  * Furniture only: no rounded corners.
  * kitchen slab + wall attachment
  */
-function Furniture2D({ room, furnitureItem, scale }) {
+function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect }) {
   const roomX = Number(room.x) || 0;
   const roomY = Number(room.y) || 0;
 
@@ -1117,6 +1202,7 @@ function Furniture2D({ room, furnitureItem, scale }) {
   const w = width * scale;
   const h = depth * scale;
   const isSlab = isKitchenSlab(furnitureItem);
+  const hasRecommendations = getFurnitureRecommendationItems(furnitureItem.type).length > 0;
 
   const centerX = x + w / 2;
   const centerY = y + h / 2;
@@ -1127,8 +1213,17 @@ function Furniture2D({ room, furnitureItem, scale }) {
   const labelOffsetY = h >= 42 ? -3 : -1;
   const dimOffsetY = h >= 42 ? 10 : 8;
 
+  const handleSelect = (event) => {
+    if (!hasRecommendations || typeof onSelect !== "function") return;
+    event?.stopPropagation?.();
+    onSelect(furnitureItem);
+  };
+
   return (
-    <g>
+    <g
+      onClick={handleSelect}
+      style={hasRecommendations ? { cursor: "pointer" } : undefined}
+    >
       <rect
         x={x}
         y={y}
@@ -1136,8 +1231,8 @@ function Furniture2D({ room, furnitureItem, scale }) {
         height={h}
         rx="0"
         fill={furnitureItem.color || "#cfd8e3"}
-        stroke={isSlab ? "#4f5f74" : "#5b6a81"}
-        strokeWidth={isSlab ? "1.8" : "1.4"}
+        stroke={isSelected ? "#0f3b72" : isSlab ? "#4f5f74" : "#5b6a81"}
+        strokeWidth={isSelected ? "2.4" : isSlab ? "1.8" : "1.4"}
       />
       {isSlab && (
         <line
@@ -1197,6 +1292,11 @@ function getFurnitureOptionsForCategory(category) {
 
 function getDefaultFurnitureSelection(category) {
   return getFurnitureOptionsForCategory(category)[0]?.type || "";
+}
+
+function getFurnitureRecommendationItems(furnitureType) {
+  const normalizedType = String(furnitureType || "").trim().toLowerCase();
+  return FURNITURE_PRODUCT_RECOMMENDATIONS[normalizedType] || [];
 }
 
 
@@ -2401,6 +2501,7 @@ export default function App() {
   const [isRenderGenerating, setIsRenderGenerating] = useState(false);
   const [generatedRenderImage, setGeneratedRenderImage] = useState("");
   const [generatedRenderProjectId, setGeneratedRenderProjectId] = useState(null);
+  const [selectedFurnitureContext, setSelectedFurnitureContext] = useState(null);
   const threeContainerRef = useRef(null);
   const chatScrollRef = useRef(null);
   const speechRecognitionRef = useRef(null);
@@ -2428,6 +2529,7 @@ const capture2DImage = async () => {
     }
   }, [currentProjectId, generatedRenderProjectId]);
 
+
   const placedRooms = useMemo(() => {
     return rooms.map((room) =>
       normalizeRoom(room, Number(totalWidth), Number(totalHeight), Number(roomHeight))
@@ -2437,6 +2539,56 @@ const capture2DImage = async () => {
   const wallSegments = useMemo(() => {
     return buildWallSegments(placedRooms, Number(totalWidth), Number(totalHeight));
   }, [placedRooms, totalWidth, totalHeight]);
+
+  const selectedFurnitureDetails = useMemo(() => {
+    if (!selectedFurnitureContext?.roomId || !selectedFurnitureContext?.furnitureId) return null;
+
+    const room = placedRooms.find((item) => item.id === selectedFurnitureContext.roomId);
+    const furniture = room?.furniture?.find((item) => item.id === selectedFurnitureContext.furnitureId);
+
+    if (!room || !furniture) return null;
+
+    return {
+      room,
+      furniture,
+    };
+  }, [placedRooms, selectedFurnitureContext]);
+
+  const selectedFurnitureRecommendations = useMemo(() => {
+    if (!selectedFurnitureDetails?.furniture?.type) return [];
+    return getFurnitureRecommendationItems(selectedFurnitureDetails.furniture.type);
+  }, [selectedFurnitureDetails]);
+
+  const selectedFurnitureKey = selectedFurnitureContext
+    ? `${selectedFurnitureContext.roomId}-${selectedFurnitureContext.furnitureId}`
+    : null;
+
+  const handleFurnitureSelection = useCallback((room, furnitureItem) => {
+    if (!room?.id || !furnitureItem?.id) return;
+
+    const recommendationItems = getFurnitureRecommendationItems(furnitureItem.type);
+    if (!recommendationItems.length) {
+      setSelectedFurnitureContext(null);
+      return;
+    }
+
+    const nextKey = `${room.id}-${furnitureItem.id}`;
+
+    setSelectedFurnitureContext((prev) => {
+      const prevKey = prev ? `${prev.roomId}-${prev.furnitureId}` : null;
+      if (prevKey === nextKey) return null;
+
+      return {
+        roomId: room.id,
+        furnitureId: furnitureItem.id,
+      };
+    });
+  }, []);
+
+  const clearSelectedFurniture = useCallback(() => {
+    setSelectedFurnitureContext(null);
+  }, []);
+
 const buildGoogleSheetsPayload = async ({
   projectId,
   safeName,
@@ -2509,6 +2661,56 @@ const buildGoogleSheetsPayload = async ({
   );
   const totalPlanArea = Number(totalWidth) * Number(totalHeight);
   const utilization = totalPlanArea ? ((totalRoomArea / totalPlanArea) * 100).toFixed(1) : 0;
+
+  const renderFurnitureRecommendations = () => {
+    if (!selectedFurnitureDetails || !selectedFurnitureRecommendations.length) return null;
+
+    return (
+      <div className="furniture-recommendation-panel">
+        <div className="section-header compact furniture-recommendation-header">
+          <div>
+            <h3>Selected Furniture Recommendations</h3>
+            <p>Showing Amazon options for {selectedFurnitureDetails.furniture.type} in {selectedFurnitureDetails.room.name || "Room"}.</p>
+          </div>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={clearSelectedFurniture}
+            aria-label="Close product recommendations"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="furniture-recommendation-grid">
+          {selectedFurnitureRecommendations.map((product) => (
+            <a
+              key={product.id}
+              className="furniture-product-card"
+              href={product.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <div className="furniture-product-image-wrap">
+                <img
+                  src={product.image}
+                  alt={product.title}
+                  className="furniture-product-image"
+                  loading="lazy"
+                />
+              </div>
+              <div className="furniture-product-body">
+                <span className="furniture-product-label">Amazon Option</span>
+                <strong>{product.title}</strong>
+                <span className="furniture-product-price">{product.price}</span>
+                <span className="furniture-product-link">Open on Amazon <ExternalLink size={14} /></span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   const applyProjectState = (projectState) => {
     const defaults = getDefaultProjectState();
@@ -3453,7 +3655,7 @@ const buildGoogleSheetsPayload = async ({
                     </div>
                   </div>
 
-                  <div className="svg-wrap svg-wrap--dominant">
+                  <div className="svg-wrap svg-wrap--dominant" onClick={clearSelectedFurniture}>
                     <svg
                       id="floor-plan-svg"
                       viewBox={`0 0 ${svgWidth} ${svgHeight}`}
@@ -3536,7 +3738,14 @@ const buildGoogleSheetsPayload = async ({
                         {placedRooms.map((room) => (
                           <g key={`furniture-${room.id}`}>
                             {(room.furniture || []).map((item) => (
-                              <Furniture2D key={item.id} room={room} furnitureItem={item} scale={numericScale} />
+                              <Furniture2D
+                                key={item.id}
+                                room={room}
+                                furnitureItem={item}
+                                scale={numericScale}
+                                isSelected={selectedFurnitureKey === `${room.id}-${item.id}`}
+                                onSelect={(selectedItem) => handleFurnitureSelection(room, selectedItem)}
+                              />
                             ))}
                           </g>
                         ))}
@@ -3617,6 +3826,8 @@ const buildGoogleSheetsPayload = async ({
                       </g>
                     </svg>
                   </div>
+
+                  {renderFurnitureRecommendations()}
                 </section>
               )}
 
@@ -3671,6 +3882,7 @@ const buildGoogleSheetsPayload = async ({
                   <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
                     <Canvas
                       shadows
+                      onPointerMissed={clearSelectedFurniture}
                       gl={{ preserveDrawingBuffer: true }}
                       camera={{
                         position: [
@@ -3688,6 +3900,8 @@ const buildGoogleSheetsPayload = async ({
                         wallThickness={Number(wallThickness)}
                         roomHeight={Number(roomHeight)}
                         wallSegments={wallSegments}
+                        selectedFurnitureKey={selectedFurnitureKey}
+                        onFurnitureSelect={handleFurnitureSelection}
                       />
                     </Canvas>
 
@@ -3701,6 +3915,8 @@ const buildGoogleSheetsPayload = async ({
                       </div>
                     )}
                   </div>
+
+                  {renderFurnitureRecommendations()}
                  
                   {generatedRenderImage && generatedRenderProjectId === currentProjectId && (
                     <div className="ai-render-result-card">
