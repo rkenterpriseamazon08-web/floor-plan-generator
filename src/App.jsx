@@ -1424,12 +1424,6 @@ Return only valid JSON matching the schema.`,
     throw new Error(data?.error?.message || `OpenAI request failed with status ${response.status}`);
   }
 
-  const rawText = data?.output_text?.trim?.() || "";
-
-  if (!rawText) {
-    console.error("OpenAI empty payload:", data);
-    throw new Error("OpenAI returned no usable text. Check console for full payload.");
-  }
 const rawText = data?.output_text?.trim?.() || "";
 
 if (!rawText) {
