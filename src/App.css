@@ -407,6 +407,171 @@ button {
   gap: 6px;
 }
 
+.workspace-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 6px;
+  align-items: start;
+}
+
+.workspace-preview-column {
+  min-width: 0;
+}
+
+.chatbot-card {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 249, 255, 0.96) 100%);
+}
+
+.chatbot-header {
+  align-items: flex-start;
+  margin-bottom: 2px;
+}
+
+.chatbot-header-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.chatbot-header-copy h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chatbot-header-copy p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.chatbot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eef4ff;
+  border: 1px solid rgba(196, 214, 243, 0.9);
+  color: #36588f;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.chatbot-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chatbot-chip {
+  border: 1px solid rgba(207, 219, 237, 0.95);
+  background: rgba(255, 255, 255, 0.96);
+  color: #1f355b;
+  padding: 8px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chatbot-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(20, 32, 51, 0.08);
+}
+
+.chatbot-messages {
+  flex: 1 1 auto;
+  min-height: 300px;
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid rgba(214, 224, 238, 0.95);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(250, 252, 255, 0.98) 0%, rgba(245, 249, 255, 0.96) 100%);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chatbot-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.chatbot-message--user {
+  justify-content: flex-end;
+}
+
+.chatbot-message--user .chatbot-message-icon {
+  order: 2;
+  background: #10284d;
+  color: #fff;
+}
+
+.chatbot-message--user .chatbot-message-bubble {
+  background: linear-gradient(180deg, #14345f 0%, #10284d 100%);
+  color: #fff;
+  border-color: rgba(16, 40, 77, 0.95);
+}
+
+.chatbot-message-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef4ff;
+  color: #36588f;
+  font-size: 10px;
+  font-weight: 800;
+  flex: 0 0 30px;
+}
+
+.chatbot-message-bubble {
+  max-width: calc(100% - 38px);
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(214, 224, 238, 0.95);
+  color: #17263f;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.chatbot-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chatbot-form textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.chatbot-form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chatbot-voice-btn.is-listening {
+  background: linear-gradient(180deg, #f3f7ff 0%, #e5efff 100%);
+  border-color: rgba(127, 157, 255, 0.95);
+  color: #274a82;
+}
+
+
 .preview-stats-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -812,6 +977,14 @@ button {
   .workspace-grid {
     grid-template-columns: minmax(0, 1fr) 380px;
   }
+
+  .workspace-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chatbot-messages {
+    max-height: 300px;
+  }
 }
 
 @media (max-width: 1200px) {
@@ -829,7 +1002,8 @@ button {
 
 @media (max-width: 1180px) {
   .top-control-grid,
-  .workspace-grid {
+  .workspace-grid,
+  .workspace-content-grid {
     grid-template-columns: 1fr;
   }
 
@@ -871,7 +1045,8 @@ button {
 
 @media (max-width: 900px) {
   .preview-stats-row,
-  .plan-top-grid {
+  .plan-top-grid,
+  .workspace-content-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -900,7 +1075,8 @@ button {
   .preview-stats-row,
   .plan-top-grid,
   .uniform-view-buttons,
-  .form-grid.two-col {
+  .form-grid.two-col,
+  .workspace-content-grid {
     grid-template-columns: 1fr;
   }
 
