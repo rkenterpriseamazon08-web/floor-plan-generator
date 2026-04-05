@@ -568,10 +568,10 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
   const openings = getSegmentOpenings(segment, rooms, height).map((opening) => {
     if (opening.type === "door") {
       return {
-        ...opening,
-        bottom: 0,
-        top: clamp(Number(opening.height) || DEFAULT_DOOR_HEIGHT, 0.1, height),
-      };
+  ...opening,
+  bottom: 0,
+  top: clamp(Number(opening.height) || DEFAULT_DOOR_HEIGHT, 0.1, height),
+};
     }
 
     const sillHeight = clamp(
@@ -587,10 +587,10 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
     );
 
     return {
-      ...opening,
-      bottom: sillHeight,
-      top: Math.min(height, sillHeight + openingHeight),
-    };
+  ...opening,
+  bottom: sillHeight,
+  top: Math.min(height, sillHeight + openingHeight),
+};
   });
 
   const verticalBreaks = Array.from(
@@ -1091,7 +1091,6 @@ function Opening2D({ room, opening, scale, wallThickness }) {
  * Furniture only: no rounded corners.
  * kitchen slab + wall attachment
  */
-function Furniture2D({ room, furnitureItem, scale }) {
 function Furniture2D({ room, furnitureItem, scale }) {
   const roomX = Number(room.x) || 0;
   const roomY = Number(room.y) || 0;
