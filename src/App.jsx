@@ -19,6 +19,7 @@ import {
   Bot,
   Image as ImageIcon,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9CTljUpeTfyytXH6HDLYG_Qjah7anxSSaWlvFCX8j82szBuYLci_sVGms7MfbbAuV0A/exec";
 const MAX_SYNC_ROOMS = 8;
@@ -60,6 +61,37 @@ const PROJECTS_STORAGE_KEY = "floor-plan-generator-projects";
 const FLOOR_PLAN_OPENAI_KEY_STORAGE = "floor-plan-openai-api-key";
 const OPENAI_MODEL = "gpt-4.1-mini";
 const OPENAI_IMAGE_MODEL = "gpt-image-1";
+
+
+const FURNITURE_PRODUCT_RECOMMENDATIONS = {
+  "bed (single / double)": [
+    {
+      id: "tree-mart-bed",
+      title: "TREE MART Wooden King Size Bed with Storage",
+      price: "₹25,999",
+      url: "https://www.amazon.in/TREE-MART-Sheesham-Recommended-Mattress/dp/B0F3P9LWTY",
+      image: "/products/bed-wooden.jpg",
+    },
+    {
+      id: "designfit-bed",
+      title: "DesignFit Engineered Wood King Size Bed with Box Storage",
+      price: "₹19,497",
+      url: "https://www.amazon.in/DesignFit-Engineered-Storage-Furniture-Warranty/dp/B0DXF3G56S",
+      image: "/products/bed-black.jpg",
+    },
+    {
+      id: "royaloak-bed",
+      title: "Royaloak Luxe Queen Size Bed with Hydraulic Storage",
+      price: "₹38,999",
+      url: "https://www.amazon.in/dp/B0DSG85S7V",
+      image: "/products/bed-ash.jpg",
+    },
+  ],
+};
+
+function getFurnitureRecommendationItems(furnitureType) {
+  return FURNITURE_PRODUCT_RECOMMENDATIONS[String(furnitureType || "").toLowerCase().trim()] || [];
+}
 
 
 /**
@@ -714,7 +746,7 @@ function FurnitureLabel({ x, y, z, text }) {
  * improved 3D shapes
  * Lightweight recognizable geometry only.
  */
-function Furniture3D({ room, furnitureItem }) {
+function Furniture3D({ room, furnitureItem, onSelect, isSelected = false }) {
   const roomX = Number(room.x) || 0;
   const roomY = Number(room.y) || 0;
 
@@ -731,9 +763,30 @@ function Furniture3D({ room, furnitureItem }) {
 
   const legWidth = Math.max(0.12, Math.min(width, depth) * 0.12);
 
+  const handleSelect = (event) => {
+    event?.stopPropagation?.();
+    onSelect?.(room, furnitureItem);
+  };
+
+  const interactiveGroupProps = {
+    onClick: handleSelect,
+    onPointerOver: (event) => {
+      event?.stopPropagation?.();
+      if (event?.object?.parent) {
+        event.object.parent.cursor = "pointer";
+      }
+      if (document?.body) document.body.style.cursor = "pointer";
+    },
+    onPointerOut: () => {
+      if (document?.body) document.body.style.cursor = "";
+    },
+  };
+
+  const highlightMaterial = isSelected ? "#1d4ed8" : null;
+
   if (type.includes("sofa")) {
     return (
-      <group>
+      <group {...interactiveGroupProps}>
         <mesh castShadow receiveShadow position={[x, 0.55, z]}>
           <boxGeometry args={[width, 1.1, depth]} />
           <FurnitureMaterial color={color} />
@@ -750,6 +803,12 @@ function Furniture3D({ room, furnitureItem }) {
           <boxGeometry args={[Math.max(0.25, width * 0.12), 1, depth]} />
           <FurnitureMaterial color={color} />
         </mesh>
+        {isSelected && (
+          <mesh position={[x, 0.12, z]}>
+            <boxGeometry args={[width + 0.28, 0.04, depth + 0.28]} />
+            <meshStandardMaterial color={highlightMaterial || "#1d4ed8"} />
+          </mesh>
+        )}
         <FurnitureLabel x={x} y={labelY} z={z} text={furnitureItem.type} />
       </group>
     );
@@ -765,7 +824,7 @@ function Furniture3D({ room, furnitureItem }) {
     const legHeight = Math.max(0.35, height - topThickness);
 
     return (
-      <group>
+      <group {...interactiveGroupProps}>
         <mesh castShadow receiveShadow position={[x, legHeight + topThickness / 2, z]}>
           <boxGeometry args={[width, topThickness, depth]} />
           <FurnitureMaterial color={color} />
@@ -795,7 +854,7 @@ function Furniture3D({ room, furnitureItem }) {
 
   if (type.includes("chair")) {
     return (
-      <group>
+      <group {...interactiveGroupProps}>
         <mesh castShadow receiveShadow position={[x, 1.1, z]}>
           <boxGeometry args={[width, 0.25, depth]} />
           <FurnitureMaterial color={color} />
@@ -827,7 +886,7 @@ function Furniture3D({ room, furnitureItem }) {
 
   if (type.includes("bed")) {
     return (
-      <group>
+      <group {...interactiveGroupProps}>
         <mesh castShadow receiveShadow position={[x, 0.35, z]}>
           <boxGeometry args={[width, 0.7, depth]} />
           <FurnitureMaterial color={color} />
@@ -853,7 +912,7 @@ function Furniture3D({ room, furnitureItem }) {
     type.includes("display unit")
   ) {
     return (
-      <group>
+      <group {...interactiveGroupProps}>
         <mesh castShadow receiveShadow position={[x, height / 2, z]}>
           <boxGeometry args={[width, height, depth]} />
           <FurnitureMaterial color={color} />
@@ -873,7 +932,7 @@ function Furniture3D({ room, furnitureItem }) {
 
   if (type.includes("kitchen slab")) {
     return (
-      <group>
+      <group {...interactiveGroupProps}>
         <mesh castShadow receiveShadow position={[x, height / 2, z]}>
           <boxGeometry args={[width, height, depth]} />
           <FurnitureMaterial color={color} />
@@ -888,7 +947,7 @@ function Furniture3D({ room, furnitureItem }) {
   }
 
   return (
-    <group>
+    <group {...interactiveGroupProps}>
       <mesh castShadow receiveShadow position={[x, height / 2, z]}>
         <boxGeometry args={[width, height, depth]} />
         <FurnitureMaterial color={color} />
@@ -905,6 +964,8 @@ function Floor3DScene({
   wallThickness,
   roomHeight,
   wallSegments,
+  selectedFurnitureKey = null,
+  onFurnitureSelect,
 }) {
   const centerX = totalWidth / 2;
   const centerZ = totalHeight / 2;
@@ -1025,7 +1086,13 @@ function Floor3DScene({
             })}
 
             {(room.furniture || []).map((item) => (
-              <Furniture3D key={item.id} room={room} furnitureItem={item} />
+              <Furniture3D
+                key={item.id}
+                room={room}
+                furnitureItem={item}
+                onSelect={onFurnitureSelect}
+                isSelected={selectedFurnitureKey === `${room.id}-${item.id}`}
+              />
             ))}
           </group>
         );
@@ -1103,7 +1170,7 @@ function Opening2D({ room, opening, scale, wallThickness }) {
  * Furniture only: no rounded corners.
  * kitchen slab + wall attachment
  */
-function Furniture2D({ room, furnitureItem, scale }) {
+function Furniture2D({ room, furnitureItem, scale, onSelect, isSelected = false }) {
   const roomX = Number(room.x) || 0;
   const roomY = Number(room.y) || 0;
 
@@ -1127,8 +1194,13 @@ function Furniture2D({ room, furnitureItem, scale }) {
   const labelOffsetY = h >= 42 ? -3 : -1;
   const dimOffsetY = h >= 42 ? 10 : 8;
 
+  const handleSelect = (event) => {
+    event?.stopPropagation?.();
+    onSelect?.(room, furnitureItem);
+  };
+
   return (
-    <g>
+    <g onClick={handleSelect} style={{ cursor: "pointer" }}>
       <rect
         x={x}
         y={y}
@@ -1136,8 +1208,8 @@ function Furniture2D({ room, furnitureItem, scale }) {
         height={h}
         rx="0"
         fill={furnitureItem.color || "#cfd8e3"}
-        stroke={isSlab ? "#4f5f74" : "#5b6a81"}
-        strokeWidth={isSlab ? "1.8" : "1.4"}
+        stroke={isSelected ? "#1d4ed8" : isSlab ? "#4f5f74" : "#5b6a81"}
+        strokeWidth={isSelected ? "2.2" : isSlab ? "1.8" : "1.4"}
       />
       {isSlab && (
         <line
@@ -2401,6 +2473,7 @@ export default function App() {
   const [isRenderGenerating, setIsRenderGenerating] = useState(false);
   const [generatedRenderImage, setGeneratedRenderImage] = useState("");
   const [generatedRenderProjectId, setGeneratedRenderProjectId] = useState(null);
+  const [selectedFurnitureContext, setSelectedFurnitureContext] = useState(null);
   const threeContainerRef = useRef(null);
   const chatScrollRef = useRef(null);
   const speechRecognitionRef = useRef(null);
@@ -2428,6 +2501,14 @@ const capture2DImage = async () => {
     }
   }, [currentProjectId, generatedRenderProjectId]);
 
+  useEffect(() => {
+    if (!selectedFurnitureContext) return;
+    const roomExists = placedRooms.some((room) => room.id === selectedFurnitureContext.roomId);
+    if (!roomExists) {
+      setSelectedFurnitureContext(null);
+    }
+  }, [placedRooms, selectedFurnitureContext]);
+
   const placedRooms = useMemo(() => {
     return rooms.map((room) =>
       normalizeRoom(room, Number(totalWidth), Number(totalHeight), Number(roomHeight))
@@ -2437,6 +2518,57 @@ const capture2DImage = async () => {
   const wallSegments = useMemo(() => {
     return buildWallSegments(placedRooms, Number(totalWidth), Number(totalHeight));
   }, [placedRooms, totalWidth, totalHeight]);
+
+  const selectedFurnitureDetails = useMemo(() => {
+    if (!selectedFurnitureContext?.roomId || !selectedFurnitureContext?.furnitureId) {
+      return null;
+    }
+
+    for (const room of placedRooms) {
+      if (room.id !== selectedFurnitureContext.roomId) continue;
+      const furniture = (room.furniture || []).find(
+        (item) => item.id === selectedFurnitureContext.furnitureId
+      );
+      if (!furniture) return null;
+      return { room, furniture };
+    }
+
+    return null;
+  }, [placedRooms, selectedFurnitureContext]);
+
+  const selectedFurnitureRecommendations = useMemo(() => {
+    if (!selectedFurnitureDetails?.furniture?.type) return [];
+    return getFurnitureRecommendationItems(selectedFurnitureDetails.furniture.type);
+  }, [selectedFurnitureDetails]);
+
+  const selectedFurnitureKey = selectedFurnitureContext
+    ? `${selectedFurnitureContext.roomId}-${selectedFurnitureContext.furnitureId}`
+    : null;
+
+  const handleFurnitureSelection = useCallback((room, furnitureItem) => {
+    if (!room?.id || !furnitureItem?.id) return;
+
+    const recommendationItems = getFurnitureRecommendationItems(furnitureItem.type);
+    if (!recommendationItems.length) {
+      setSelectedFurnitureContext(null);
+      return;
+    }
+
+    const nextKey = `${room.id}-${furnitureItem.id}`;
+    setSelectedFurnitureContext((prev) => {
+      const prevKey = prev ? `${prev.roomId}-${prev.furnitureId}` : null;
+      if (prevKey === nextKey) return null;
+
+      return {
+        roomId: room.id,
+        furnitureId: furnitureItem.id,
+      };
+    });
+  }, []);
+
+  const clearSelectedFurniture = useCallback(() => {
+    setSelectedFurnitureContext(null);
+  }, []);
 const buildGoogleSheetsPayload = async ({
   projectId,
   safeName,
@@ -3456,6 +3588,7 @@ const buildGoogleSheetsPayload = async ({
                   <div className="svg-wrap svg-wrap--dominant">
                     <svg
                       id="floor-plan-svg"
+                      onClick={clearSelectedFurniture}
                       viewBox={`0 0 ${svgWidth} ${svgHeight}`}
                       width="100%"
                       height="100%"
@@ -3536,7 +3669,14 @@ const buildGoogleSheetsPayload = async ({
                         {placedRooms.map((room) => (
                           <g key={`furniture-${room.id}`}>
                             {(room.furniture || []).map((item) => (
-                              <Furniture2D key={item.id} room={room} furnitureItem={item} scale={numericScale} />
+                              <Furniture2D
+                                key={item.id}
+                                room={room}
+                                furnitureItem={item}
+                                scale={numericScale}
+                                onSelect={handleFurnitureSelection}
+                                isSelected={selectedFurnitureKey === `${room.id}-${item.id}`}
+                              />
                             ))}
                           </g>
                         ))}
@@ -3671,6 +3811,7 @@ const buildGoogleSheetsPayload = async ({
                   <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
                     <Canvas
                       shadows
+                      onPointerMissed={clearSelectedFurniture}
                       gl={{ preserveDrawingBuffer: true }}
                       camera={{
                         position: [
@@ -3688,6 +3829,8 @@ const buildGoogleSheetsPayload = async ({
                         wallThickness={Number(wallThickness)}
                         roomHeight={Number(roomHeight)}
                         wallSegments={wallSegments}
+                        selectedFurnitureKey={selectedFurnitureKey}
+                        onFurnitureSelect={handleFurnitureSelection}
                       />
                     </Canvas>
 
