@@ -1320,7 +1320,126 @@ function fileToBase64(file) {
     reader.readAsDataURL(file);
   });
 }
+async function analyzeFloorPlanWithOpenAI(file) {
+  const apiKey = localStorage.getItem("floor-plan-openai-api-key");
+  if (!apiKey) {
+    throw new Error("OpenAI API key not found in localStorage.");
+  }
 
+  const base64 = await fileToBase64(file);
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-5.4-mini",
+      input: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: `Analyze this floor plan image and extract rooms, doors, windows, totalWidth, and totalHeight.
+Return only valid JSON matching the schema.`,
+            },
+            {
+              type: "input_image",
+              image_url: `data:${file.type};base64,${base64}`,
+            },
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "floor_plan_extraction",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              planName: { type: "string" },
+              totalWidth: { type: "number" },
+              totalHeight: { type: "number" },
+              rooms: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    name: { type: "string" },
+                    x: { type: "number" },
+                    y: { type: "number" },
+                    width: { type: "number" },
+                    height: { type: "number" }
+                  },
+                  required: ["name", "x", "y", "width", "height"]
+                }
+              },
+              doors: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    room: { type: "string" },
+                    wall: { type: "string" },
+                    position: { type: "number" },
+                    width: { type: "number" },
+                    height: { type: "number" }
+                  },
+                  required: ["room", "wall", "position"]
+                }
+              },
+              windows: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    room: { type: "string" },
+                    wall: { type: "string" },
+                    position: { type: "number" },
+                    width: { type: "number" },
+                    height: { type: "number" },
+                    sillHeight: { type: "number" }
+                  },
+                  required: ["room", "wall", "position"]
+                }
+              }
+            },
+            required: ["planName", "totalWidth", "totalHeight", "rooms", "doors", "windows"]
+          }
+        }
+      }
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error("OpenAI error payload:", data);
+    throw new Error(data?.error?.message || `OpenAI request failed with status ${response.status}`);
+  }
+
+  const rawText = data?.output_text?.trim?.() || "";
+
+  if (!rawText) {
+    console.error("OpenAI empty payload:", data);
+    throw new Error("OpenAI returned no usable text. Check console for full payload.");
+  }
+const rawText = data?.output_text?.trim?.() || "";
+
+if (!rawText) {
+  console.error("Full OpenAI response:", data);
+  throw new Error(
+    "OpenAI returned an empty response. Open console and inspect the full payload."
+  );
+}
+  return JSON.parse(rawText);
+}
 function normalizeVisionWallName(wall) {
   const value = String(wall || "").toLowerCase().trim();
   if (value === "north" || value === "top") return "top";
