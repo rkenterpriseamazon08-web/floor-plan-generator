@@ -3701,27 +3701,7 @@ const buildGoogleSheetsPayload = async ({
                       </div>
                     )}
                   </div>
-                  <div className="ai-render-pane">
-  <div className="section-header compact">
-    <h3>
-      <ImageIcon size={16} />
-      AI Render
-    </h3>
-  </div>
-
-  <div className="ai-render-pane-body">
-    {generatedRenderImage && generatedRenderProjectId === currentProjectId ? (
-      <img
-        src={generatedRenderImage}
-        alt={`${planName} AI render`}
-        className="ai-render-pane-image"
-      />
-    ) : (
-      <div className="ai-render-pane-empty" />
-    )}
-  </div>
-</div>
-
+                 
                   {generatedRenderImage && generatedRenderProjectId === currentProjectId && (
                     <div className="ai-render-result-card">
                       <div className="section-header compact">
