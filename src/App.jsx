@@ -20,7 +20,7 @@ import {
   Image as ImageIcon,
   Loader2,
 } from "lucide-react";
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzZaB4kwA-KK7r6cqfzARoUM6CZ5Ubo6Mi1d3sxSRxjhXmsy1XLOm7sTulnbAmr18hiBQ/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9CTljUpeTfyytXH6HDLYG_Qjah7anxSSaWlvFCX8j82szBuYLci_sVGms7MfbbAuV0A/exec";
 const MAX_SYNC_ROOMS = 8;
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 10;
@@ -2464,6 +2464,7 @@ const buildGoogleSheetsPayload = async ({
     quotationNotes: "",
     image2D,
     image3D,
+    ai_render_image_base64: generatedRenderImage || "",
     rooms: syncedRooms.map((room) => ({
       id: room.id || "",
       name: room.name || "",
@@ -2543,6 +2544,7 @@ const buildGoogleSheetsPayload = async ({
 
   const buildCurrentProjectData = () => ({
     planName,
+    ai_render_image_base64: generatedRenderImage || "",
     totalWidth,
     totalHeight,
     wallThickness,
@@ -3115,18 +3117,18 @@ const buildGoogleSheetsPayload = async ({
     setProjectStatusMessage("");
   };
 
-  const handleOpenSavedProject = (projectId) => {
-    const projects = readProjectsFromStorage();
-    const selectedProject = projects.find((project) => project.id === projectId);
-    if (!selectedProject?.data) return;
+ const handleOpenSavedProject = (projectId) => {
+  const projects = readProjectsFromStorage();
+  const selectedProject = projects.find((project) => project.id === projectId);
+  if (!selectedProject?.data) return;
 
-    applyProjectState(selectedProject.data);
-    setCurrentProjectId(selectedProject.id);
-    setGeneratedRenderImage("");
-    setGeneratedRenderProjectId(selectedProject.id);
-    setIsProjectModalOpen(false);
-    setProjectStatusMessage(`Opened "${selectedProject.name}"`);
-  };
+  applyProjectState(selectedProject.data);
+  setCurrentProjectId(selectedProject.id);
+  setGeneratedRenderImage(selectedProject.data.ai_render_image_base64 || "");
+  setGeneratedRenderProjectId(selectedProject.id);
+  setIsProjectModalOpen(false);
+  setProjectStatusMessage(`Opened "${selectedProject.name}"`);
+};
 
   const handleNewProject = () => {
     const shouldContinue = window.confirm(
@@ -3699,6 +3701,26 @@ const buildGoogleSheetsPayload = async ({
                       </div>
                     )}
                   </div>
+                  <div className="ai-render-pane">
+  <div className="section-header compact">
+    <h3>
+      <ImageIcon size={16} />
+      AI Render
+    </h3>
+  </div>
+
+  <div className="ai-render-pane-body">
+    {generatedRenderImage && generatedRenderProjectId === currentProjectId ? (
+      <img
+        src={generatedRenderImage}
+        alt={`${planName} AI render`}
+        className="ai-render-pane-image"
+      />
+    ) : (
+      <div className="ai-render-pane-empty" />
+    )}
+  </div>
+</div>
 
                   {generatedRenderImage && generatedRenderProjectId === currentProjectId && (
                     <div className="ai-render-result-card">
