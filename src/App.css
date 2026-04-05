@@ -1,4 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap");
+from pathlib import Path
+
+css = r'''@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap");
 
 :root {
   --glass-bg: rgba(255, 255, 255, 0.78);
@@ -59,14 +61,16 @@ button {
 }
 
 .app-shell {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
   padding: 12px;
-  background:
-  background: linear-gradient(135deg, #ffffff, #eaf3ff, #f2f7ff);
-  background-size: cover;
-  background-position: center;
+  background: linear-gradient(135deg, #ffffff 0%, #eef5ff 35%, #f5f9ff 65%, #eaf2ff 100%);
+  background-size: 180% 180%;
+  background-position: 0% 50%;
   background-repeat: no-repeat;
   background-attachment: fixed;
+  animation: premiumGradientShift 22s ease-in-out infinite;
 }
 
 .hero-card,
@@ -576,7 +580,6 @@ button {
   color: #274a82;
 }
 
-
 .preview-stats-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -610,6 +613,7 @@ button {
   letter-spacing: -0.03em;
   color: #12233c;
 }
+
 .ai-render-btn {
   min-width: 132px;
 }
@@ -622,8 +626,23 @@ button {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes premiumGradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
   }
 }
 
@@ -671,11 +690,7 @@ button {
   padding: 10px;
   border-radius: var(--radius-xl);
   border: 1px solid rgba(214, 224, 238, 0.95);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.98) 0%,
-    rgba(246, 250, 255, 0.96) 100%
-  );
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 250, 255, 0.96) 100%);
   box-shadow: var(--glass-shadow-soft);
 }
 
@@ -723,12 +738,14 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
+
 .furniture-recommendation-image {
   width: 100%;
   height: 220px;
   object-fit: cover;
   display: block;
 }
+
 .furniture-product-card {
   display: flex;
   flex-direction: column;
@@ -801,6 +818,7 @@ button {
   font-weight: 700;
   color: #36588f;
 }
+
 .preview-card--dominant {
   padding: 8px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 250, 255, 0.94) 100%);
@@ -1392,517 +1410,33 @@ button {
 .theme-toggle-option.is-active {
   background: linear-gradient(180deg, #14345f 0%, #10284d 100%);
   color: #ffffff;
-  box-shadow: 0 8px 14px rgba(16, 40, 77, 0.18);
-}
+  box-shadow: 0 8px 14px rgba(16, 40, 77, 0.18
 
-/* dark theme */
-.app-shell.dark-theme {
-  color: #e8eef8;
-  background:
-  background: linear-gradient(135deg, #03060d, #081426, #122b4a);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-}
-
-.app-shell.dark-theme,
-.app-shell.dark-theme .field input,
-.app-shell.dark-theme .field select,
-.app-shell.dark-theme .field textarea,
-.app-shell.dark-theme button,
-.app-shell.dark-theme .chatbot-message-bubble,
-.app-shell.dark-theme .project-item,
-.app-shell.dark-theme .opening-card,
-.app-shell.dark-theme .furniture-card,
-.app-shell.dark-theme .project-empty-state,
-.app-shell.dark-theme .product-card,
-.app-shell.dark-theme .selected-furniture-panel,
-.app-shell.dark-theme .summary-box,
-.app-shell.dark-theme .preview-card,
-.app-shell.dark-theme .input-card,
-.app-shell.dark-theme .hero-card,
-.app-shell.dark-theme .chatbot-card,
-.app-shell.dark-theme .rooms-sidebar,
-.app-shell.dark-theme .project-actions-card,
-.app-shell.dark-theme .project-modal,
-.app-shell.dark-theme .project-status-banner,
-.app-shell.dark-theme .project-status-banner--inline {
-  color: #e8eef8;
-}
-
-.app-shell.dark-theme .hero-card,
-.app-shell.dark-theme .input-card,
-.app-shell.dark-theme .preview-card,
-.app-shell.dark-theme .summary-box,
-.app-shell.dark-theme .top-input-card,
-.app-shell.dark-theme .chatbot-card,
-.app-shell.dark-theme .rooms-sidebar,
-.app-shell.dark-theme .project-actions-card,
-.app-shell.dark-theme .project-modal,
-.app-shell.dark-theme .opening-card,
-.app-shell.dark-theme .furniture-card,
-.app-shell.dark-theme .project-item,
-.app-shell.dark-theme .selected-furniture-panel,
-.app-shell.dark-theme .product-card,
-.app-shell.dark-theme .project-empty-state {
-  background: linear-gradient(180deg, rgba(15, 24, 39, 0.9) 0%, rgba(18, 30, 48, 0.94) 100%);
-  border-color: rgba(71, 93, 131, 0.55);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.32);
-  -webkit-backdrop-filter: blur(18px) saturate(130%);
-  backdrop-filter: blur(18px) saturate(130%);
-}
-
-.app-shell.dark-theme .top-input-card {
-  background: linear-gradient(180deg, rgba(13, 22, 36, 0.96) 0%, rgba(17, 29, 46, 0.96) 100%);
-}
-
-.app-shell.dark-theme .top-input-brand-copy h1,
-.app-shell.dark-theme h1,
-.app-shell.dark-theme h2,
-.app-shell.dark-theme h3,
-.app-shell.dark-theme h4,
-.app-shell.dark-theme .project-item-title,
-.app-shell.dark-theme .room-accordion-trigger,
-.app-shell.dark-theme .room-card-header strong,
-.app-shell.dark-theme .furniture-meta strong {
-  color: #f4f8ff;
-}
-
-.app-shell.dark-theme .top-input-brand-copy p,
-.app-shell.dark-theme .chatbot-header-copy p,
-.app-shell.dark-theme .project-item-subtext,
-.app-shell.dark-theme .furniture-meta span,
-.app-shell.dark-theme .room-card-header span,
-.app-shell.dark-theme .summary-box span,
-.app-shell.dark-theme .project-empty-state,
-.app-shell.dark-theme .chatbot-message-bubble p,
-.app-shell.dark-theme .field label,
-.app-shell.dark-theme .selected-furniture-subtitle,
-.app-shell.dark-theme .selected-furniture-header p {
-  color: #9fb0c8;
-}
-
-.app-shell.dark-theme .summary-box strong {
-  color: #f5f9ff;
-}
-
-.app-shell.dark-theme .pill,
-.app-shell.dark-theme .chatbot-badge,
-.app-shell.dark-theme .amazon-option-badge {
-  background: rgba(70, 96, 140, 0.22);
-  border-color: rgba(104, 132, 183, 0.4);
-  color: #c8d7ef;
-}
-
-.app-shell.dark-theme .field input,
-.app-shell.dark-theme .field select,
-.app-shell.dark-theme .field textarea,
-.app-shell.dark-theme .chatbot-messages,
-.app-shell.dark-theme .chatbot-chip,
-.app-shell.dark-theme .chatbot-message-bubble,
-.app-shell.dark-theme .project-status-banner,
-.app-shell.dark-theme .project-status-banner--inline,
-.app-shell.dark-theme .view-toolbar-btn,
-.app-shell.dark-theme .secondary-btn,
-.app-shell.dark-theme .ghost-btn,
-.app-shell.dark-theme .icon-btn,
-.app-shell.dark-theme .project-item-open {
-  background: rgba(16, 27, 43, 0.95);
-  border-color: rgba(79, 101, 140, 0.55);
-  color: #e6edf8;
-  box-shadow: none;
-}
-
-.app-shell.dark-theme .field input::placeholder,
-.app-shell.dark-theme .field textarea::placeholder,
-.app-shell.dark-theme .chatbot-form textarea::placeholder {
-  color: #7f91ac;
-}
-
-.app-shell.dark-theme .field input:focus,
-.app-shell.dark-theme .field select:focus,
-.app-shell.dark-theme .field textarea:focus {
-  border-color: rgba(112, 154, 255, 0.95);
-  box-shadow: 0 0 0 4px rgba(71, 109, 190, 0.22);
-}
-
-.app-shell.dark-theme .secondary-btn:hover,
-.app-shell.dark-theme .ghost-btn:hover,
-.app-shell.dark-theme .icon-btn:hover,
-.app-shell.dark-theme .view-toolbar-btn:hover,
-.app-shell.dark-theme .chatbot-chip:hover {
-  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.26);
-}
-
-.app-shell.dark-theme .primary-btn,
-.app-shell.dark-theme .view-toolbar-btn.active,
-.app-shell.dark-theme .view-toolbar-btn--dark,
-.app-shell.dark-theme .theme-toggle-option.is-active,
-.app-shell.dark-theme .chatbot-message--user .chatbot-message-bubble,
-.app-shell.dark-theme .chatbot-message--user .chatbot-message-icon {
-  background: linear-gradient(180deg, #2f6df6 0%, #1e4fc7 100%);
-  border-color: rgba(55, 114, 255, 0.45);
-  color: #ffffff;
-}
-
-.app-shell.dark-theme .theme-toggle {
-  background: rgba(15, 24, 39, 0.96);
-  border-color: rgba(79, 101, 140, 0.55);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.24);
-}
-
-.app-shell.dark-theme .theme-toggle-option {
-  color: #9fb0c8;
-}
-
-.app-shell.dark-theme .theme-toggle-option.is-active {
-  color: #ffffff;
-}
-
-.app-shell.dark-theme .rooms-sidebar {
-  background: linear-gradient(180deg, rgba(12, 21, 34, 0.96) 0%, rgba(16, 28, 45, 0.96) 100%);
-}
-
-.app-shell.dark-theme .room-card {
-  background: rgba(14, 24, 39, 0.98);
-  border-color: rgba(67, 88, 124, 0.62);
-}
-
-.app-shell.dark-theme .accordion-room-card.expanded {
-  background: linear-gradient(180deg, rgba(17, 29, 47, 0.98) 0%, rgba(21, 35, 56, 0.98) 100%);
-  border-color: rgba(89, 118, 168, 0.72);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
-}
-
-.app-shell.dark-theme .room-accordion-trigger {
-  background: linear-gradient(180deg, rgba(17, 29, 47, 0.98) 0%, rgba(13, 23, 37, 0.96) 100%);
-  border-bottom: 1px solid rgba(56, 76, 110, 0.42);
-}
-
-.app-shell.dark-theme .room-accordion-arrow,
-.app-shell.dark-theme .room-accordion-title {
-  color: #f4f8ff;
-}
-
-.app-shell.dark-theme .room-accordion-meta {
-  color: #c7d6ee;
-}
-
-.app-shell.dark-theme .room-accordion-content {
-  background: rgba(10, 18, 30, 0.9);
-  border-top-color: rgba(56, 76, 110, 0.56);
-}
-
-.app-shell.dark-theme .opening-card,
-.app-shell.dark-theme .furniture-card,
-.app-shell.dark-theme .furniture-panel {
-  background: linear-gradient(180deg, rgba(17, 28, 44, 0.96) 0%, rgba(14, 24, 39, 0.96) 100%);
-  border-color: rgba(67, 88, 124, 0.58);
-}
-
-.app-shell.dark-theme .icon-btn:disabled {
-  opacity: 0.5;
-  background: rgba(13, 22, 36, 0.78);
-}
-
-.app-shell.dark-theme .chatbot-message-icon {
-  background: rgba(47, 68, 104, 0.6);
-  color: #d5e2f5;
-}
-
-.app-shell.dark-theme .chatbot-messages {
-  background: linear-gradient(180deg, rgba(10, 18, 30, 0.98) 0%, rgba(13, 22, 36, 0.98) 100%);
-}
-
-.app-shell.dark-theme .room-group,
-.app-shell.dark-theme .rooms-sidebar-content,
-.app-shell.dark-theme .project-list,
-.app-shell.dark-theme .chatbot-messages {
-  scrollbar-color: rgba(96, 121, 165, 0.75) rgba(8, 14, 24, 0.4);
-}
-
-.app-shell.dark-theme .svg-wrap,
-.app-shell.dark-theme .three-wrap,
-.app-shell.dark-theme .render-image-frame,
-.app-shell.dark-theme .render-output-wrap,
-.app-shell.dark-theme .preview-surface {
-  background: rgba(9, 17, 29, 0.92);
-  border-color: rgba(71, 93, 131, 0.55);
-}
-
-.app-shell.dark-theme .svg-wrap svg {
-  background: #0f1827;
-}
-
-.app-shell.dark-theme .selected-furniture-panel {
-  background: linear-gradient(180deg, rgba(15, 24, 39, 0.96) 0%, rgba(18, 30, 48, 0.96) 100%);
-}
-
-.app-shell.dark-theme .selected-furniture-close,
-.app-shell.dark-theme .project-modal-header .icon-btn {
-  background: rgba(16, 27, 43, 0.95);
-  border-color: rgba(79, 101, 140, 0.55);
-  color: #e6edf8;
-}
-
-.app-shell.dark-theme .project-modal-overlay {
-  background: rgba(2, 6, 12, 0.72);
-}
-
-.app-shell.dark-theme .chatbot-voice-btn.is-listening {
-  background: rgba(35, 63, 122, 0.45);
-  border-color: rgba(102, 142, 235, 0.6);
-  color: #dfe9ff;
-}
-
-.app-shell.dark-theme .product-card-title,
-.app-shell.dark-theme .product-card-price,
-.app-shell.dark-theme .product-card-link,
-.app-shell.dark-theme a {
-  color: #e8eef8;
-}
-
-.app-shell.dark-theme .product-card-link {
-  color: #8fb5ff;
-}
-
-.app-shell.dark-theme .project-item-open,
-.app-shell.dark-theme .chatbot-chip,
-.app-shell.dark-theme .secondary-btn,
-.app-shell.dark-theme .ghost-btn,
-.app-shell.dark-theme .view-toolbar-btn {
-  color: #dbe6f8;
-}
-
-.app-shell.dark-theme .summary-box,
-.app-shell.dark-theme .project-status-banner,
-.app-shell.dark-theme .project-status-banner--inline {
-  background: linear-gradient(180deg, rgba(13, 22, 36, 0.94) 0%, rgba(16, 27, 43, 0.94) 100%);
-}
-
-.app-shell.dark-theme .opening-card select option,
-.app-shell.dark-theme .field select option {
-  background: #0f1827;
-  color: #e8eef8;
-}
-
-/* responsive improvements */
-@media (max-width: 1180px) {
-  .top-control-grid,
-  .workspace-grid,
-  .workspace-content-grid {
-    grid-template-columns: 1fr;
+@keyframes premiumAmbientFloat {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.9;
   }
 
-  .project-actions-card {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: stretch;
-    justify-content: stretch;
+  50% {
+    transform: translate3d(0, -10px, 0) scale(1.03);
+    opacity: 1;
   }
 
-  .project-stack-btn {
-    flex: 1 1 180px;
-  }
-
-  .workspace-grid,
-  .workspace-content-grid {
-    gap: 12px;
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.9;
   }
 }
 
-@media (max-width: 900px) {
-  .top-input-meta-row {
-    flex-direction: column;
-    align-items: stretch;
+@media (prefers-reduced-motion: reduce) {
+  .app-shell,
+  .app-shell::before,
+  .app-shell.dark-theme {
+    animation: none !important;
   }
 
-  .top-input-brand {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .top-input-title-controls {
-    margin-left: 0;
-  }
-
-  .top-input-title-row {
-    width: 100%;
-    align-items: flex-start;
-  }
-
-  .project-status-banner--inline {
-    width: 100%;
-    margin-left: 0;
-    white-space: normal;
-  }
-
-  .preview-toolbar,
-  .uniform-view-buttons {
-    width: 100%;
-  }
-
-  .uniform-view-buttons {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .upload-floor-plan-btn,
-  .view-toolbar-btn,
-  .secondary-btn,
-  .primary-btn,
-  .ghost-btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .rooms-sidebar {
-    position: static;
-  }
-}
-
-@media (max-width: 640px) {
-  .app-shell {
-    padding: 8px;
-  }
-
-  .hero-card,
-  .input-card,
-  .preview-card,
-  .summary-box,
-  .top-input-card,
-  .chatbot-card,
-  .rooms-sidebar,
-  .project-actions-card {
-    border-radius: 10px;
-  }
-
-  .top-input-card,
-  .preview-card,
-  .chatbot-card,
-  .rooms-sidebar {
-    padding: 10px;
-  }
-
-  .top-input-brand-copy h1 {
-    font-size: 18px;
-    line-height: 1.25;
-  }
-
-  .top-input-brand-copy p,
-  .chatbot-header-copy p,
-  .field label,
-  .theme-toggle-option {
-    font-size: 11px;
-  }
-
-  .theme-toggle {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .theme-toggle-option {
-    flex: 1 1 50%;
-    justify-content: center;
-    min-height: 36px;
-  }
-
-  .plan-top-grid,
-  .preview-stats-row,
-  .form-grid.two-col,
-  .workspace-content-grid,
-  .uniform-view-buttons {
-    grid-template-columns: 1fr !important;
-  }
-
-  .top-input-brand,
-  .top-input-title-row,
-  .chatbot-form-actions,
-  .rooms-sidebar-header,
-  .selected-furniture-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .rooms-sidebar-header .secondary-btn,
-  .rooms-sidebar-header .primary-btn,
-  .chatbot-form-actions .secondary-btn,
-  .chatbot-form-actions .primary-btn,
-  .chatbot-form-actions .ghost-btn {
-    width: 100%;
-  }
-
-  .project-actions-card {
-    padding: 6px;
-    gap: 8px;
-  }
-
-  .project-stack-btn {
-    min-height: 40px;
-  }
-
-  .three-wrap {
-    height: 320px;
-    min-height: 320px;
-  }
-
-  .chatbot-messages {
-    min-height: 240px;
-    max-height: 320px;
-  }
-
-  .selected-furniture-grid,
-  .product-recommendation-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .product-card-image-wrap {
-    height: 200px;
-  }
-
-  .project-modal-overlay {
-    padding: 10px;
-  }
-
-  .project-modal {
-    width: min(100%, 100vw - 20px);
-  }
-}
-
-@media (max-width: 480px) {
-  .top-input-card,
-  .preview-card,
-  .chatbot-card,
-  .rooms-sidebar,
-  .project-actions-card {
-    padding: 9px;
-  }
-
-  .top-input-brand-copy h1,
-  .hero-card h1 {
-    font-size: 17px;
-  }
-
-  .pill {
-    align-self: flex-start;
-  }
-
-  .icon-btn {
-    width: 38px;
-    height: 38px;
-  }
-
-  .field input,
-  .field select,
-  .field textarea,
-  .view-toolbar-btn,
-  .secondary-btn,
-  .primary-btn,
-  .ghost-btn {
-    min-height: 42px;
-  }
-
-  .render-image-frame {
-    min-height: 220px;
+  .spin-icon {
+    animation: none !important;
   }
 }
