@@ -30,6 +30,11 @@
   --line-soft: rgba(221, 229, 240, 0.9);
   --panel-tint: rgba(244, 248, 255, 0.85);
   --panel-tint-strong: rgba(239, 245, 255, 0.96);
+
+  /* NEW: rotation accent */
+  --rotation-accent: #3b82f6;
+  --rotation-accent-bg: rgba(59, 130, 246, 0.06);
+  --rotation-accent-border: rgba(59, 130, 246, 0.15);
 }
 
 * {
@@ -344,6 +349,19 @@ button {
   border: 1px solid rgba(214, 224, 238, 0.95);
 }
 
+/* ── NEW: ghost-btn active state (used for rotation preset buttons) ── */
+.ghost-btn.active {
+  background: linear-gradient(180deg, #eef4ff 0%, #e3edff 100%);
+  color: #1e4fc7;
+  border-color: rgba(59, 130, 246, 0.38);
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.1);
+}
+
+.ghost-btn.active:hover {
+  background: linear-gradient(180deg, #e3edff 0%, #d8e8ff 100%);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
 .icon-btn {
   width: 36px;
   height: 36px;
@@ -575,7 +593,6 @@ button {
   color: #274a82;
 }
 
-
 .preview-stats-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -609,6 +626,7 @@ button {
   letter-spacing: -0.03em;
   color: #12233c;
 }
+
 .ai-render-btn {
   min-width: 132px;
 }
@@ -618,12 +636,8 @@ button {
 }
 
 @keyframes aiSpin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 .ai-render-overlay {
@@ -670,11 +684,7 @@ button {
   padding: 10px;
   border-radius: var(--radius-xl);
   border: 1px solid rgba(214, 224, 238, 0.95);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.98) 0%,
-    rgba(246, 250, 255, 0.96) 100%
-  );
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 250, 255, 0.96) 100%);
   box-shadow: var(--glass-shadow-soft);
 }
 
@@ -692,6 +702,7 @@ button {
   height: auto;
 }
 
+/* ── Furniture recommendation panel ── */
 .furniture-recommendation-panel {
   margin-top: 10px;
   padding: 12px;
@@ -722,12 +733,14 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
+
 .furniture-recommendation-image {
   width: 100%;
   height: 220px;
   object-fit: cover;
   display: block;
 }
+
 .furniture-product-card {
   display: flex;
   flex-direction: column;
@@ -800,6 +813,7 @@ button {
   font-weight: 700;
   color: #36588f;
 }
+
 .preview-card--dominant {
   padding: 8px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 250, 255, 0.94) 100%);
@@ -868,6 +882,7 @@ button {
   height: 100% !important;
 }
 
+/* ── Rooms sidebar ── */
 .rooms-sidebar {
   min-height: 100%;
   position: sticky;
@@ -1029,6 +1044,90 @@ button {
   font-weight: 600;
 }
 
+/* ── NEW: Rotation control panel ── */
+.rotation-control-panel {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--rotation-accent-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--rotation-accent-border);
+}
+
+.rotation-control-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.rotation-control-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #40516a;
+  margin: 0;
+}
+
+.rotation-control-reset {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.rotation-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6, #93c5fd);
+  outline: none;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.rotation-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.35);
+  transition: box-shadow 0.2s ease;
+}
+
+.rotation-slider::-webkit-slider-thumb:hover {
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.55);
+}
+
+.rotation-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.35);
+}
+
+.rotation-preset-row {
+  display: flex;
+  gap: 4px;
+}
+
+.rotation-preset-btn {
+  flex: 1;
+  font-size: 11px;
+  padding: 3px 0;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* ── Project modal ── */
 .project-modal-overlay {
   position: fixed;
   inset: 0;
@@ -1148,186 +1247,188 @@ button {
   font-weight: 600;
 }
 
-@media (max-width: 1500px) {
-  .top-control-grid {
-    grid-template-columns: minmax(0, 1fr) 180px;
-  }
-
-  .plan-top-grid {
-    grid-template-columns: 1.2fr repeat(6, minmax(96px, 1fr));
-  }
-
-  .project-actions-card {
-    flex-direction: column;
-    padding: 6px;
-  }
-
-  .project-stack-btn {
-    min-height: 34px;
-  }
+/* ── NEW: Furniture Manager page ── */
+.furniture-manager-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 24px;
+  margin-bottom: 16px;
 }
 
-@media (max-width: 1380px) {
-  .workspace-grid {
-    grid-template-columns: minmax(0, 1fr) 380px;
-  }
-
-  .workspace-content-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .chatbot-messages {
-    max-height: 300px;
-  }
+.furniture-manager-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  margin-left: 6px;
+  border-radius: 10px;
+  background: var(--rotation-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
 }
 
-@media (max-width: 1200px) {
-  .rooms-sidebar {
-    height: auto;
-    max-height: none;
-    position: static;
-    overflow: visible;
-  }
-
-  .room-list {
-    max-height: none;
-  }
+.furniture-manager-body {
+  padding: 12px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-@media (max-width: 1180px) {
-  .top-control-grid,
-  .workspace-grid,
-  .workspace-content-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .top-input-meta-row {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .project-status-banner--inline {
-    margin-left: 0;
-    white-space: normal;
-  }
-
-  .plan-top-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .field--span-2 {
-    grid-column: span 2;
-  }
-
-  .project-actions-card {
-    flex-direction: row;
-    align-items: stretch;
-  }
-
-  .project-stack-btn {
-    flex: 1;
-  }
-
-  .rooms-sidebar {
-    position: static;
-  }
-
-  .room-list {
-    max-height: none;
-  }
+.furniture-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
 
-@media (max-width: 900px) {
-  .preview-stats-row,
-  .plan-top-grid,
-  .workspace-content-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .uniform-view-buttons {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .field--span-2 {
-    grid-column: span 2;
-  }
-
-  .rooms-sidebar-header,
-  .project-actions-card,
-  .project-item {
-    flex-direction: column;
-    align-items: stretch;
-  }
+.furniture-preset-card {
+  padding: 16px;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(221, 229, 240, 0.95);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 255, 0.96) 100%);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-@media (max-width: 720px) {
-  .app-shell {
-    padding: 10px;
-  }
-
-  .preview-stats-row,
-  .plan-top-grid,
-  .uniform-view-buttons,
-  .form-grid.two-col,
-  .workspace-content-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .field--span-2 {
-    grid-column: span 1;
-  }
-
-  .hero-top-row,
-  .room-accordion-trigger,
-  .project-item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .hero-card h1,
-  .top-input-brand-copy h1 {
-    font-size: 22px;
-  }
-
-  .top-input-header {
-    min-height: 120px;
-  }
-
-  .three-wrap {
-    height: 430px;
-    min-height: 430px;
-  }
-
-  .project-modal-overlay {
-    padding: 14px;
-  }
-
-  .project-modal {
-    max-height: 88vh;
-  }
-
-  .project-modal-header,
-  .project-modal-body {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  .project-item-open {
-    min-width: 0;
-  }
-
-  .preview-toolbar,
-  .uniform-view-buttons {
-    width: 100%;
-  }
-
-  .view-toolbar-btn {
-    flex: 1 1 auto;
-  }
+.furniture-preset-card:hover {
+  border-color: rgba(186, 204, 228, 0.98);
+  box-shadow: 0 10px 24px rgba(20, 32, 51, 0.05);
 }
 
-/* 2D SVG text readability tuning */
+.furniture-preset-card.is-modified {
+  border-color: rgba(59, 130, 246, 0.38);
+  background: linear-gradient(180deg, rgba(240, 246, 255, 0.96) 0%, rgba(234, 243, 255, 0.96) 100%);
+}
+
+.furniture-preset-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.furniture-preset-color-chip {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(176, 184, 196, 0.9);
+  flex-shrink: 0;
+}
+
+.furniture-preset-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e2b42;
+  min-width: 0;
+}
+
+.furniture-preset-placed-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: #e8f0fe;
+  color: #3b5fc0;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.furniture-preset-modified-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: #fff3cd;
+  color: #856404;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.furniture-preset-reset-btn {
+  margin-top: 8px;
+  font-size: 11px;
+  padding: 3px 8px;
+  color: #5f7296;
+}
+
+.furniture-placed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.furniture-placed-card {
+  padding: 14px;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(221, 229, 240, 0.95);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 255, 0.96) 100%);
+  transition: border-color 0.2s ease;
+}
+
+.furniture-placed-card:hover {
+  border-color: rgba(186, 204, 228, 0.98);
+}
+
+.furniture-placed-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.furniture-placed-card-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(176, 184, 196, 0.9);
+  flex-shrink: 0;
+}
+
+.furniture-placed-card-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e2b42;
+  min-width: 0;
+}
+
+.furniture-placed-card-room {
+  font-size: 11px;
+  color: #617089;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.furniture-placed-rotation-presets {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.furniture-placed-rotation-preset-btn {
+  flex: 1;
+  font-size: 11px;
+  padding: 4px 0;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.furniture-manager-empty-state {
+  text-align: center;
+  padding: 32px 0;
+  color: #8899b0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ── 2D SVG text readability ── */
 .svg-wrap svg text {
   font-family: "Montserrat", sans-serif;
   text-rendering: geometricPrecision;
@@ -1338,7 +1439,7 @@ button {
   overflow: visible;
 }
 
-/* theme toggle */
+/* ── Theme toggle ── */
 .top-input-title-row {
   display: flex;
   align-items: center;
@@ -1394,7 +1495,7 @@ button {
   box-shadow: 0 8px 14px rgba(16, 40, 77, 0.18);
 }
 
-/* dark theme */
+/* ── Dark theme ── */
 .app-shell.dark-theme {
   color: #e8eef8;
   background:
@@ -1425,7 +1526,9 @@ button {
 .app-shell.dark-theme .project-actions-card,
 .app-shell.dark-theme .project-modal,
 .app-shell.dark-theme .project-status-banner,
-.app-shell.dark-theme .project-status-banner--inline {
+.app-shell.dark-theme .project-status-banner--inline,
+.app-shell.dark-theme .furniture-preset-card,
+.app-shell.dark-theme .furniture-placed-card {
   color: #e8eef8;
 }
 
@@ -1443,12 +1546,19 @@ button {
 .app-shell.dark-theme .project-item,
 .app-shell.dark-theme .selected-furniture-panel,
 .app-shell.dark-theme .product-card,
-.app-shell.dark-theme .project-empty-state {
+.app-shell.dark-theme .project-empty-state,
+.app-shell.dark-theme .furniture-preset-card,
+.app-shell.dark-theme .furniture-placed-card {
   background: linear-gradient(180deg, rgba(15, 24, 39, 0.9) 0%, rgba(18, 30, 48, 0.94) 100%);
   border-color: rgba(71, 93, 131, 0.55);
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.32);
   -webkit-backdrop-filter: blur(18px) saturate(130%);
   backdrop-filter: blur(18px) saturate(130%);
+}
+
+.app-shell.dark-theme .furniture-preset-card.is-modified {
+  background: linear-gradient(180deg, rgba(20, 34, 56, 0.96) 0%, rgba(24, 40, 64, 0.96) 100%);
+  border-color: rgba(59, 130, 246, 0.35);
 }
 
 .app-shell.dark-theme .top-input-card {
@@ -1463,7 +1573,9 @@ button {
 .app-shell.dark-theme .project-item-title,
 .app-shell.dark-theme .room-accordion-trigger,
 .app-shell.dark-theme .room-card-header strong,
-.app-shell.dark-theme .furniture-meta strong {
+.app-shell.dark-theme .furniture-meta strong,
+.app-shell.dark-theme .furniture-preset-name,
+.app-shell.dark-theme .furniture-placed-card-name {
   color: #f4f8ff;
 }
 
@@ -1477,7 +1589,9 @@ button {
 .app-shell.dark-theme .chatbot-message-bubble p,
 .app-shell.dark-theme .field label,
 .app-shell.dark-theme .selected-furniture-subtitle,
-.app-shell.dark-theme .selected-furniture-header p {
+.app-shell.dark-theme .selected-furniture-header p,
+.app-shell.dark-theme .furniture-placed-card-room,
+.app-shell.dark-theme .furniture-manager-empty-state {
   color: #9fb0c8;
 }
 
@@ -1510,6 +1624,19 @@ button {
   border-color: rgba(79, 101, 140, 0.55);
   color: #e6edf8;
   box-shadow: none;
+}
+
+/* NEW: dark ghost-btn.active */
+.app-shell.dark-theme .ghost-btn.active {
+  background: rgba(37, 73, 147, 0.35);
+  border-color: rgba(82, 130, 235, 0.5);
+  color: #a8c4f8;
+  box-shadow: none;
+}
+
+.app-shell.dark-theme .ghost-btn.active:hover {
+  background: rgba(37, 73, 147, 0.45);
+  border-color: rgba(82, 130, 235, 0.65);
 }
 
 .app-shell.dark-theme .field input::placeholder,
@@ -1599,6 +1726,41 @@ button {
   border-color: rgba(67, 88, 124, 0.58);
 }
 
+/* NEW: dark rotation control panel */
+.app-shell.dark-theme .rotation-control-panel {
+  background: rgba(30, 52, 92, 0.18);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.app-shell.dark-theme .rotation-control-label {
+  color: #9fb0c8;
+}
+
+.app-shell.dark-theme .rotation-slider {
+  background: linear-gradient(90deg, #2f6df6, #60a5fa);
+}
+
+.app-shell.dark-theme .rotation-slider::-webkit-slider-thumb {
+  background: #3b82f6;
+  border-color: rgba(14, 24, 39, 0.9);
+}
+
+.app-shell.dark-theme .rotation-slider::-moz-range-thumb {
+  background: #3b82f6;
+  border-color: rgba(14, 24, 39, 0.9);
+}
+
+/* NEW: dark furniture manager badge */
+.app-shell.dark-theme .furniture-preset-placed-badge {
+  background: rgba(37, 73, 147, 0.3);
+  color: #a8c4f8;
+}
+
+.app-shell.dark-theme .furniture-preset-modified-badge {
+  background: rgba(80, 64, 20, 0.5);
+  color: #f0c060;
+}
+
 .app-shell.dark-theme .icon-btn:disabled {
   opacity: 0.5;
   background: rgba(13, 22, 36, 0.78);
@@ -1685,7 +1847,87 @@ button {
   color: #e8eef8;
 }
 
-/* responsive improvements */
+.app-shell.dark-theme .furniture-recommendation-panel,
+.app-shell.dark-theme .ai-render-result-card {
+  background: linear-gradient(180deg, rgba(15, 24, 39, 0.96) 0%, rgba(18, 30, 48, 0.96) 100%);
+  border-color: rgba(71, 93, 131, 0.55);
+}
+
+.app-shell.dark-theme .furniture-product-card {
+  background: rgba(14, 24, 39, 0.98);
+  border-color: rgba(67, 88, 124, 0.62);
+}
+
+.app-shell.dark-theme .furniture-product-body strong {
+  color: #dce8f8;
+}
+
+.app-shell.dark-theme .furniture-product-price {
+  color: #7eb5f8;
+}
+
+.app-shell.dark-theme .furniture-product-link {
+  color: #8fb5ff;
+}
+
+.app-shell.dark-theme .furniture-product-label {
+  background: rgba(40, 70, 130, 0.3);
+  border-color: rgba(82, 120, 190, 0.4);
+  color: #a8c4f8;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1500px) {
+  .top-control-grid {
+    grid-template-columns: minmax(0, 1fr) 180px;
+  }
+
+  .plan-top-grid {
+    grid-template-columns: 1.2fr repeat(6, minmax(96px, 1fr));
+  }
+
+  .project-actions-card {
+    flex-direction: column;
+    padding: 6px;
+  }
+
+  .project-stack-btn {
+    min-height: 34px;
+  }
+}
+
+@media (max-width: 1380px) {
+  .workspace-grid {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+
+  .workspace-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chatbot-messages {
+    max-height: 300px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .rooms-sidebar {
+    height: auto;
+    max-height: none;
+    position: static;
+    overflow: visible;
+  }
+
+  .room-list {
+    max-height: none;
+  }
+
+  .furniture-preset-grid,
+  .furniture-placed-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
 @media (max-width: 1180px) {
   .top-control-grid,
   .workspace-grid,
@@ -1693,52 +1935,47 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .project-actions-card {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: stretch;
-    justify-content: stretch;
-  }
-
-  .project-stack-btn {
-    flex: 1 1 180px;
-  }
-
-  .workspace-grid,
-  .workspace-content-grid {
-    gap: 12px;
-  }
-}
-
-@media (max-width: 900px) {
   .top-input-meta-row {
     flex-direction: column;
-    align-items: stretch;
-  }
-
-  .top-input-brand {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .top-input-title-controls {
-    margin-left: 0;
-  }
-
-  .top-input-title-row {
-    width: 100%;
     align-items: flex-start;
   }
 
   .project-status-banner--inline {
-    width: 100%;
     margin-left: 0;
     white-space: normal;
   }
 
-  .preview-toolbar,
-  .uniform-view-buttons {
-    width: 100%;
+  .plan-top-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .field--span-2 {
+    grid-column: span 2;
+  }
+
+  .project-actions-card {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .project-stack-btn {
+    flex: 1;
+  }
+
+  .rooms-sidebar {
+    position: static;
+  }
+
+  .room-list {
+    max-height: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .preview-stats-row,
+  .plan-top-grid,
+  .workspace-content-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .uniform-view-buttons {
@@ -1746,17 +1983,102 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .upload-floor-plan-btn,
-  .view-toolbar-btn,
-  .secondary-btn,
-  .primary-btn,
-  .ghost-btn {
-    width: 100%;
-    justify-content: center;
+  .field--span-2 {
+    grid-column: span 2;
   }
 
-  .rooms-sidebar {
-    position: static;
+  .rooms-sidebar-header,
+  .project-actions-card,
+  .project-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .furniture-preset-grid,
+  .furniture-placed-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .furniture-recommendation-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding: 10px;
+  }
+
+  .preview-stats-row,
+  .plan-top-grid,
+  .uniform-view-buttons,
+  .form-grid.two-col,
+  .workspace-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field--span-2 {
+    grid-column: span 1;
+  }
+
+  .hero-top-row,
+  .room-accordion-trigger,
+  .project-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hero-card h1,
+  .top-input-brand-copy h1 {
+    font-size: 22px;
+  }
+
+  .top-input-header {
+    min-height: 120px;
+  }
+
+  .three-wrap {
+    height: 430px;
+    min-height: 430px;
+  }
+
+  .project-modal-overlay {
+    padding: 14px;
+  }
+
+  .project-modal {
+    max-height: 88vh;
+  }
+
+  .project-modal-header,
+  .project-modal-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .project-item-open {
+    min-width: 0;
+  }
+
+  .preview-toolbar,
+  .uniform-view-buttons {
+    width: 100%;
+  }
+
+  .view-toolbar-btn {
+    flex: 1 1 auto;
+  }
+
+  .furniture-recommendation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rotation-preset-row {
+    flex-wrap: wrap;
+  }
+
+  .rotation-preset-btn {
+    flex: 1 1 calc(50% - 4px);
   }
 }
 
@@ -1866,6 +2188,14 @@ button {
   .project-modal {
     width: min(100%, 100vw - 20px);
   }
+
+  .furniture-manager-body {
+    padding: 10px 12px 24px;
+  }
+
+  .furniture-manager-tabs {
+    padding: 0 12px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1903,5 +2233,14 @@ button {
 
   .render-image-frame {
     min-height: 220px;
+  }
+
+  .rotation-preset-row {
+    gap: 3px;
+  }
+
+  .rotation-preset-btn {
+    flex: 1 1 calc(50% - 3px);
+    font-size: 10px;
   }
 }
