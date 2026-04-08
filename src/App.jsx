@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Grid, Text as DreiText, useTexture } from "@react-three/drei";
+import { OrbitControls, Grid, Text as DreiText } from "@react-three/drei";
 import * as THREE from "three";
 import {
   Home,
@@ -85,11 +85,21 @@ const DEFAULT_SUN_SETTINGS = {
   ambientIntensity: 0.5,
 };
 
+const ASSET_BASE = (import.meta?.env?.BASE_URL || "/").replace(/\/?$/, "/");
+
+function resolveAssetPath(path) {
+  const raw = String(path || "").trim();
+  if (!raw) return "";
+  if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
+  const cleaned = raw.replace(/^\/+/, "");
+  return `${ASSET_BASE}${cleaned}`;
+}
+
 const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "white-marble",
     name: "White Marble",
-    image: "/textures/white-marble.png",
+    image: "textures/white-marble.png",
     tileWidth: 2,
     tileHeight: 2,
     category: "marble",
@@ -97,7 +107,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "beige-marble",
     name: "Beige Marble",
-    image: "/textures/beige-marble.png",
+    image: "textures/beige-marble.png",
     tileWidth: 2,
     tileHeight: 2,
     category: "marble",
@@ -105,7 +115,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "grey-concrete",
     name: "Grey Concrete Tile",
-    image: "/textures/grey-concrete-tile.png",
+    image: "textures/grey-concrete-tile.png",
     tileWidth: 2,
     tileHeight: 2,
     category: "concrete",
@@ -113,7 +123,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "wood-floor",
     name: "Wood Floor",
-    image: "/textures/wood-floor.png",
+    image: "textures/wood-floor.png",
     tileWidth: 0.6,
     tileHeight: 3,
     category: "wood",
@@ -121,7 +131,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "patterned-tile",
     name: "Patterned Tile",
-    image: "/textures/patterned-tile.png",
+    image: "textures/patterned-tile.png",
     tileWidth: 1,
     tileHeight: 1,
     category: "decorative",
@@ -129,7 +139,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "glossy-cream",
     name: "Glossy Cream Tile",
-    image: "/textures/glossy-cream-tile.png",
+    image: "textures/glossy-cream-tile.png",
     tileWidth: 2,
     tileHeight: 2,
     category: "ceramic",
@@ -667,11 +677,42 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
 
 function RoomFloor3D({ room }) {
   const textureMeta = getFloorTextureById(room.floorTextureId);
-  const texture = useTexture(textureMeta.image);
+  const resolvedTexturePath = useMemo(() => resolveAssetPath(textureMeta.image), [textureMeta.image]);
+  const [textureLoadFailed, setTextureLoadFailed] = useState(false);
+  const [baseTexture, setBaseTexture] = useState(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+    setTextureLoadFailed(false);
+    setBaseTexture(null);
+
+    if (!resolvedTexturePath) {
+      setTextureLoadFailed(true);
+      return undefined;
+    }
+
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      resolvedTexturePath,
+      (loadedTexture) => {
+        if (isCancelled) return;
+        setBaseTexture(loadedTexture);
+      },
+      undefined,
+      () => {
+        if (isCancelled) return;
+        setTextureLoadFailed(true);
+      }
+    );
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [resolvedTexturePath]);
 
   const preparedTexture = useMemo(() => {
-    if (!texture) return null;
-    const next = texture.clone();
+    if (!baseTexture || textureLoadFailed) return null;
+    const next = baseTexture.clone();
     next.wrapS = THREE.RepeatWrapping;
     next.wrapT = THREE.RepeatWrapping;
     next.repeat.set(
@@ -681,7 +722,11 @@ function RoomFloor3D({ room }) {
     next.anisotropy = 8;
     next.needsUpdate = true;
     return next;
-  }, [texture, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight]);
+  }, [baseTexture, textureLoadFailed, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight]);
+
+  useEffect(() => () => {
+    preparedTexture?.dispose?.();
+  }, [preparedTexture]);
 
   return (
     <mesh
@@ -690,7 +735,12 @@ function RoomFloor3D({ room }) {
       receiveShadow
     >
       <planeGeometry args={[Math.max(Number(room.width) - 0.12, 0.2), Math.max(Number(room.height) - 0.12, 0.2)]} />
-      <meshStandardMaterial map={preparedTexture} color={room.color || "#ffffff"} roughness={0.82} metalness={0.04} />
+      <meshStandardMaterial
+        map={preparedTexture || null}
+        color={preparedTexture ? "#ffffff" : (room.color || "#ffffff")}
+        roughness={0.82}
+        metalness={0.04}
+      />
     </mesh>
   );
 }
@@ -2657,7 +2707,7 @@ export default function App() {
           {selectedFurnitureRecommendations.map((product) => (
             <a key={product.id} className="furniture-product-card" href={product.url} target="_blank" rel="noreferrer">
               <div className="furniture-product-image-wrap">
-                <img src={product.image} alt={product.title} className="furniture-recommendation-image" loading="lazy" onError={(e) => { e.currentTarget.src = "/products/bed-wooden.jpg"; }} />
+                <img src={resolveAssetPath(product.image)} alt={product.title} className="furniture-recommendation-image" loading="lazy" onError={(e) => { e.currentTarget.src = resolveAssetPath("products/bed-wooden.jpg"); }} />
               </div>
               <div className="furniture-product-body">
                 <span className="furniture-product-label">Amazon Option</span>
@@ -3142,7 +3192,7 @@ export default function App() {
                                   height: 64,
                                   borderRadius: 8,
                                   marginBottom: 8,
-                                  backgroundImage: `url(${floor.image})`,
+                                  backgroundImage: `url(${resolveAssetPath(floor.image)})`,
                                   backgroundSize: "cover",
                                   backgroundPosition: "center",
                                   border: "1px solid rgba(148,163,184,0.18)",
