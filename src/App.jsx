@@ -79,10 +79,21 @@ const SUN_SETTINGS_SESSION_KEY = "floor-plan-sun-settings";
 const DEFAULT_SUN_SETTINGS = {
   azimuth: 132,
   elevation: 46,
-  intensity: 1.2,
+  intensity: 1.5,
   color: "#fff3e0",
-  ambientIntensity: 0.5,
+  ambientIntensity: 0.55,
 };
+
+// ─── Landing page prompts ─────────────────────────────────────────────────────
+
+const EXAMPLE_PROMPTS = [
+  "Design a 2BHK home in 40 by 30 feet",
+  "Create a modern office layout for 20 people",
+  "Plan a cozy cafe with seating for 30",
+  "Build a 1BHK apartment in 28 by 22 feet",
+  "Design a storage warehouse 50 by 40 feet",
+  "Create a public toilet block 20 by 15 feet",
+];
 
 const ASSET_BASE = (import.meta?.env?.BASE_URL || "/").replace(/\/?$/, "/");
 
@@ -171,6 +182,13 @@ const FURNITURE_PRODUCT_RECOMMENDATIONS = {
   ],
 };
 
+// Shared extra items appended to every category
+const EXTRA_FURNITURE = [
+  { type: "Steel Staircase", width: 4, depth: 8, height: 10, color: "#8a9ab5", allowOutsideBuilding: true },
+  { type: "Plant (Indoor)", width: 1.5, depth: 1.5, height: 4, color: "#2d7a3a" },
+  { type: "Plant (Outdoor)", width: 2, depth: 2, height: 5, color: "#257234", allowOutsideBuilding: true },
+];
+
 const FURNITURE_PRESETS = {
   storage: [
     { type: "Storage Rack", width: 6, depth: 2, height: 7, color: "#c9d4e5" },
@@ -178,6 +196,7 @@ const FURNITURE_PRESETS = {
     { type: "Small Shelf Unit", width: 3, depth: 1.5, height: 5, color: "#cfd8c8" },
     { type: "Heavy Duty Shelf", width: 8, depth: 2.5, height: 8, color: "#b8c4d7" },
     { type: "Utility Table", width: 5, depth: 2.5, height: 3, color: "#ddd4c8" },
+    ...EXTRA_FURNITURE,
   ],
   office: [
     { type: "Workstation Desk", width: 5, depth: 2.5, height: 2.5, color: "#d4dde8" },
@@ -185,6 +204,7 @@ const FURNITURE_PRESETS = {
     { type: "Conference Table", width: 8, depth: 4, height: 2.5, color: "#d8d1c5" },
     { type: "Storage Cabinet", width: 4, depth: 1.5, height: 6, color: "#c7d0c0" },
     { type: "Reception Desk", width: 7, depth: 3, height: 3.5, color: "#d7c8bf" },
+    ...EXTRA_FURNITURE,
   ],
   cafe: [
     { type: "2-Seater Table", width: 2.5, depth: 2.5, height: 2.5, color: "#dfd2c2" },
@@ -192,6 +212,7 @@ const FURNITURE_PRESETS = {
     { type: "Chair", width: 1.8, depth: 1.8, height: 3, color: "#c7b9ab" },
     { type: "Service Counter / Cash Desk", width: 6, depth: 2.5, height: 3.5, color: "#d8c3b8" },
     { type: "Display Unit", width: 4, depth: 2, height: 5, color: "#d3ddd5" },
+    ...EXTRA_FURNITURE,
   ],
   house: [
     { type: "Bed (Single / Double)", width: 6.5, depth: 7, height: 2, color: "#d5dce8" },
@@ -203,6 +224,7 @@ const FURNITURE_PRESETS = {
     { type: "Stove / Cooktop", width: 2.5, depth: 2, height: 2.8, color: "#c9c9cf" },
     { type: "Sink", width: 2.5, depth: 2, height: 3, color: "#c5dbe5" },
     { type: "Dining Table", width: 6, depth: 3.5, height: 2.5, color: "#d8ccb9" },
+    ...EXTRA_FURNITURE,
   ],
   "public toilet": [
     { type: "Toilet Seat (WC)", width: 2.5, depth: 4, height: 3, color: "#dbe7f2" },
@@ -210,6 +232,7 @@ const FURNITURE_PRESETS = {
     { type: "Wash Basin", width: 2, depth: 1.5, height: 3, color: "#d9eef5" },
     { type: "Mirror Panel", width: 3, depth: 0.3, height: 4, color: "#d3e7f8" },
     { type: "Partition Wall", width: 3, depth: 0.3, height: 6.5, color: "#cfd4dd" },
+    ...EXTRA_FURNITURE,
   ],
   "security cabin": [
     { type: "Guard Chair", width: 2, depth: 2, height: 3, color: "#bfc9d7" },
@@ -217,6 +240,7 @@ const FURNITURE_PRESETS = {
     { type: "Storage Shelf", width: 3, depth: 1.5, height: 6, color: "#c8d1c2" },
     { type: "CCTV Monitor Unit", width: 3, depth: 1.5, height: 4, color: "#c9d3e4" },
     { type: "Barrier Control Panel", width: 2.5, depth: 1.5, height: 3.5, color: "#d2c9be" },
+    ...EXTRA_FURNITURE,
   ],
 };
 
@@ -226,6 +250,9 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function normalizeHexColor(value, fallback = DEFAULT_WALL_COLOR) {
   const text = String(value || "").trim();
@@ -244,7 +271,6 @@ function ensureRoomVisualDefaults(room, index = 0) {
   return {
     ...room,
     color: room?.color || ROOM_COLORS[index % ROOM_COLORS.length],
-    wallColor: normalizeHexColor(room?.wallColor, DEFAULT_WALL_COLOR),
     floorTextureId: room?.floorTextureId || getDefaultFloorTextureId(),
   };
 }
@@ -262,28 +288,6 @@ function getSunPosition(azimuth, elevation, distance = 90, centerX = 0, centerZ 
 
 function rangesOverlapInclusive(a1, a2, b1, b2) {
   return Math.max(a1, b1) <= Math.min(a2, b2);
-}
-
-function getWallColorForSegment(segment, rooms) {
-  const isVertical = segment.x1 === segment.x2;
-  const fixed = isVertical ? segment.x1 : segment.y1;
-  const start = isVertical ? Math.min(segment.y1, segment.y2) : Math.min(segment.x1, segment.x2);
-  const end = isVertical ? Math.max(segment.y1, segment.y2) : Math.max(segment.x1, segment.x2);
-
-  const matches = rooms.filter((room) => {
-    const rx = Number(room.x) || 0;
-    const ry = Number(room.y) || 0;
-    const rw = Number(room.width) || 0;
-    const rh = Number(room.height) || 0;
-    if (isVertical) {
-      const touches = Math.abs(fixed - rx) < 0.001 || Math.abs(fixed - (rx + rw)) < 0.001;
-      return touches && rangesOverlapInclusive(start, end, ry, ry + rh);
-    }
-    const touches = Math.abs(fixed - ry) < 0.001 || Math.abs(fixed - (ry + rh)) < 0.001;
-    return touches && rangesOverlapInclusive(start, end, rx, rx + rw);
-  });
-
-  return matches[0]?.wallColor || DEFAULT_WALL_COLOR;
 }
 
 function getWallLength(room, wall) {
@@ -349,7 +353,6 @@ function getKitchenSlabGeometry(furnitureItem, room) {
   );
   const maxOffset = Math.max(0, wallLength - length - FURNITURE_WALL_CLEARANCE * 2);
   const offset = clamp(Number(furnitureItem?.offset) || 0, 0, maxOffset);
-  // Preserve rotation
   const rotation = Number(furnitureItem?.rotation) || 0;
 
   if (wall === "top") {
@@ -396,6 +399,17 @@ function normalizeFurniture(furnitureItem, room) {
   const depth = Math.max(Number(furnitureItem?.depth) || 0.5, 0.3);
   const height = Math.max(Number(furnitureItem?.height) || 0.5, 0.3);
   const rotation = Number(furnitureItem?.rotation) || 0;
+
+  // allowOutsideBuilding: skip clamping to room bounds
+  if (furnitureItem?.allowOutsideBuilding) {
+    return {
+      ...furnitureItem,
+      width, depth, height, rotation,
+      x: furnitureItem?.x != null ? Number(furnitureItem.x) : FURNITURE_WALL_CLEARANCE,
+      y: furnitureItem?.y != null ? Number(furnitureItem.y) : FURNITURE_WALL_CLEARANCE,
+    };
+  }
+
   const roomWidth = Number(room.width) || 0;
   const roomHeight = Number(room.height) || 0;
   const minX = FURNITURE_WALL_CLEARANCE;
@@ -497,7 +511,6 @@ const createRoom = (index) => ({
   x: 0,
   y: 0,
   color: ROOM_COLORS[index % ROOM_COLORS.length],
-  wallColor: DEFAULT_WALL_COLOR,
   floorTextureId: getDefaultFloorTextureId(),
   doors: [],
   windows: [],
@@ -516,7 +529,6 @@ function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_
   });
   return {
     ...baseRoom,
-    wallColor: normalizeHexColor(baseRoom.wallColor, DEFAULT_WALL_COLOR),
     floorTextureId: baseRoom.floorTextureId || getDefaultFloorTextureId(),
     doors:    Array.isArray(baseRoom.doors)    ? baseRoom.doors.map((d)  => normalizeDoor(d, baseRoom))                  : [],
     windows:  Array.isArray(baseRoom.windows)  ? baseRoom.windows.map((w) => normalizeWindow(w, baseRoom, wallHeight))   : [],
@@ -596,7 +608,7 @@ function buildWallSegments(rooms, totalWidth, totalHeight) {
 
 // ─── 3D Wall ─────────────────────────────────────────────────────────────────
 
-function WallMesh({ segment, wallThickness, height, rooms }) {
+function WallMesh({ segment, wallThickness, height, rooms, globalWallColor }) {
   const { x1, y1, x2, y2 } = segment;
   const isVertical = x1 === x2;
   const length = isVertical ? Math.abs(y2 - y1) : Math.abs(x2 - x1);
@@ -640,7 +652,7 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
     });
   }
 
-  const wallColor = getWallColorForSegment(segment, rooms);
+  const wallColor = globalWallColor || DEFAULT_WALL_COLOR;
 
   return (
     <group>
@@ -722,7 +734,7 @@ function RoomFloor3D({ room }) {
     next.anisotropy = 8;
     next.needsUpdate = true;
     return next;
-  }, [baseTexture, textureLoadFailed, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight]);
+  }, [baseTexture, textureLoadFailed, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight, room.floorTileScale]);
 
   useEffect(() => () => {
     preparedTexture?.dispose?.();
@@ -761,9 +773,20 @@ function Door3D({ room, door, wallThickness }) {
 
   return (
     <group position={[centerX, 0, centerZ]} rotation={[0, rotateY, 0]}>
-      {/* Static door frame */}
-      <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
-        <boxGeometry args={[width + frameThickness * 2, height + frameThickness, depth]} />
+      {/* Hollow U-frame: left bar, right bar, top bar */}
+      {/* Left bar */}
+      <mesh castShadow receiveShadow position={[-(width / 2 + frameThickness / 2), height / 2, 0]}>
+        <boxGeometry args={[frameThickness, height + frameThickness, depth]} />
+        <meshStandardMaterial color="#7f5d44" roughness={0.84} />
+      </mesh>
+      {/* Right bar */}
+      <mesh castShadow receiveShadow position={[width / 2 + frameThickness / 2, height / 2, 0]}>
+        <boxGeometry args={[frameThickness, height + frameThickness, depth]} />
+        <meshStandardMaterial color="#7f5d44" roughness={0.84} />
+      </mesh>
+      {/* Top bar */}
+      <mesh castShadow receiveShadow position={[0, height + frameThickness / 2, 0]}>
+        <boxGeometry args={[width + frameThickness * 2, frameThickness, depth]} />
         <meshStandardMaterial color="#7f5d44" roughness={0.84} />
       </mesh>
 
@@ -811,15 +834,15 @@ function Window3D({ room, windowItem, wallThickness }) {
         <boxGeometry args={[width + frame * 2, height + frame * 2, depth]} />
         <meshStandardMaterial color="#eef2f7" roughness={0.62} metalness={0.08} />
       </mesh>
-      {/* Left glass pane */}
+      {/* Left glass pane — more realistic, very transparent */}
       <mesh receiveShadow position={[-width / 4, 0, 0.02]}>
         <boxGeometry args={[width / 2 - frame * 0.5, height, Math.max(0.02, depth * 0.22)]} />
-        <meshStandardMaterial color="#bfe3ff" transparent opacity={0.38} roughness={0.08} metalness={0.18} />
+        <meshStandardMaterial color="#c8e8ff" transparent opacity={0.12} roughness={0.02} metalness={0.4} />
       </mesh>
       {/* Right glass pane */}
       <mesh receiveShadow position={[width / 4, 0, 0.02]}>
         <boxGeometry args={[width / 2 - frame * 0.5, height, Math.max(0.02, depth * 0.22)]} />
-        <meshStandardMaterial color="#bfe3ff" transparent opacity={0.38} roughness={0.08} metalness={0.18} />
+        <meshStandardMaterial color="#c8e8ff" transparent opacity={0.12} roughness={0.02} metalness={0.4} />
       </mesh>
 
       {dividerCount >= 1 && (
@@ -849,7 +872,6 @@ function Window3D({ room, windowItem, wallThickness }) {
 }
 
 // ─── Furniture helpers ────────────────────────────────────────────────────────
-// ─── Furniture helpers ────────────────────────────────────────────────────────
 
 function FurnitureMaterial({ color }) {
   return <meshStandardMaterial color={color || "#cfd8e3"} roughness={0.72} metalness={0.08} />;
@@ -875,24 +897,83 @@ function getFurnitureRecommendationItems(furnitureType) {
   return FURNITURE_PRODUCT_RECOMMENDATIONS[String(furnitureType || "").trim().toLowerCase()] || [];
 }
 
-// ─── 3D Furniture (REFACTORED: group-based positioning for rotation support) ──
+// ─── Staircase3D ─────────────────────────────────────────────────────────────
 
-/**
- * All meshes now use LOCAL coordinates relative to the group's origin.
- * The group is positioned at the world center of the furniture piece,
- * and rotated around the Y-axis (floor-plan Z) to implement rotation.
- */
+function Staircase3D({ worldX, worldZ, width, depth, height, color, rotRad }) {
+  const stepCount = clamp(Math.round(height), 4, 16);
+  const stepH = height / stepCount;
+  const stepD = depth / stepCount;
+
+  return (
+    <group position={[worldX, 0, worldZ - depth / 2]} rotation={[0, rotRad, 0]}>
+      {Array.from({ length: stepCount }, (_, i) => (
+        <mesh key={i} castShadow receiveShadow
+          position={[0, stepH * i + stepH / 2, stepD * i + stepD / 2]}>
+          <boxGeometry args={[width, stepH, stepD]} />
+          <meshStandardMaterial color={color || "#8a9ab5"} roughness={0.6} metalness={0.35} />
+        </mesh>
+      ))}
+      {/* Left handrail post */}
+      <mesh castShadow position={[-width / 2 + 0.12, height / 2 + 0.5, depth / 2]}>
+        <boxGeometry args={[0.12, height + 1, 0.12]} />
+        <meshStandardMaterial color="#6b7a8d" metalness={0.55} roughness={0.4} />
+      </mesh>
+      {/* Right handrail post */}
+      <mesh castShadow position={[width / 2 - 0.12, height / 2 + 0.5, depth / 2]}>
+        <boxGeometry args={[0.12, height + 1, 0.12]} />
+        <meshStandardMaterial color="#6b7a8d" metalness={0.55} roughness={0.4} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Plant3D ──────────────────────────────────────────────────────────────────
+
+function Plant3D({ worldX, worldZ, width, depth, height, color, rotRad }) {
+  const potH = Math.max(0.6, height * 0.22);
+  const potR = Math.max(0.3, Math.min(width, depth) * 0.38);
+  const foliageR = Math.max(0.5, Math.min(width, depth) * 0.52);
+
+  return (
+    <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]}>
+      {/* Pot */}
+      <mesh castShadow receiveShadow position={[0, potH / 2, 0]}>
+        <cylinderGeometry args={[potR * 0.9, potR * 0.72, potH, 16]} />
+        <meshStandardMaterial color="#9b7e5c" roughness={0.8} />
+      </mesh>
+      {/* Soil disc */}
+      <mesh receiveShadow position={[0, potH - 0.05, 0]}>
+        <cylinderGeometry args={[potR * 0.88, potR * 0.88, 0.1, 16]} />
+        <meshStandardMaterial color="#5a3e28" roughness={0.95} />
+      </mesh>
+      {/* Foliage spheres */}
+      <mesh castShadow position={[0, potH + foliageR * 0.85, 0]}>
+        <sphereGeometry args={[foliageR, 14, 14]} />
+        <meshStandardMaterial color={color || "#2d7a3a"} roughness={0.88} />
+      </mesh>
+      <mesh castShadow position={[foliageR * 0.4, potH + foliageR * 0.55, foliageR * 0.3]}>
+        <sphereGeometry args={[foliageR * 0.72, 12, 12]} />
+        <meshStandardMaterial color={color || "#2d7a3a"} roughness={0.88} />
+      </mesh>
+      <mesh castShadow position={[-foliageR * 0.38, potH + foliageR * 0.5, -foliageR * 0.25]}>
+        <sphereGeometry args={[foliageR * 0.68, 12, 12]} />
+        <meshStandardMaterial color={color || "#2d7a3a"} roughness={0.88} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── 3D Furniture (group-based positioning for rotation support) ──────────────
+
 function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
   const roomX = Number(room.x) || 0;
   const roomY = Number(room.y) || 0;
   const width  = Number(furnitureItem.width)  || 1;
   const depth  = Number(furnitureItem.depth)  || 1;
   const height = Number(furnitureItem.height) || 1;
-  // rotation in degrees → radians around Y-axis (vertical axis = floor rotation)
   const rotationDeg = Number(furnitureItem.rotation) || 0;
   const rotRad = (rotationDeg * Math.PI) / 180;
 
-  // World center of the furniture piece
   const worldX = roomX + (Number(furnitureItem.x) || 0) + width / 2;
   const worldZ = roomY + (Number(furnitureItem.y) || 0) + depth / 2;
 
@@ -911,7 +992,6 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
     onSelect(furnitureItem);
   };
 
-  // Shared ring indicator (shown when product recommendations exist)
   const RecommendationRing = () =>
     hasRec ? (
       <mesh position={[0, height + 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -919,6 +999,16 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
         <meshBasicMaterial color={outlineColor} transparent opacity={0.95} />
       </mesh>
     ) : null;
+
+  // ── Staircase ──
+  if (type.includes("staircase")) {
+    return <Staircase3D worldX={worldX} worldZ={worldZ} width={width} depth={depth} height={height} color={color} rotRad={rotRad} />;
+  }
+
+  // ── Plant ──
+  if (type.includes("plant")) {
+    return <Plant3D worldX={worldX} worldZ={worldZ} width={width} depth={depth} height={height} color={color} rotRad={rotRad} />;
+  }
 
   // ── Sofa ──
   if (type.includes("sofa")) {
@@ -1102,6 +1192,7 @@ function Floor3DScene({
   selectedFurnitureKey,
   onFurnitureSelect,
   sunSettings,
+  globalWallColor,
 }) {
   const centerX = totalWidth / 2;
   const centerZ = totalHeight / 2;
@@ -1109,6 +1200,7 @@ function Floor3DScene({
   const h = Math.max(8, Number(roomHeight) || DEFAULT_ROOM_HEIGHT);
   const safeSun = { ...DEFAULT_SUN_SETTINGS, ...(sunSettings || {}) };
   const sunPos = getSunPosition(safeSun.azimuth, safeSun.elevation, Math.max(totalWidth, totalHeight) * 1.8, centerX, centerZ);
+  const shadowCamExtent = Math.max(totalWidth, totalHeight) * 2;
 
   return (
     <>
@@ -1119,9 +1211,15 @@ function Floor3DScene({
         intensity={safeSun.intensity}
         color={safeSun.color}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-bias={-0.0005}
+        shadow-mapSize-width={4096}
+        shadow-mapSize-height={4096}
+        shadow-bias={-0.0003}
+        shadow-camera-near={0.5}
+        shadow-camera-far={400}
+        shadow-camera-left={-shadowCamExtent}
+        shadow-camera-right={shadowCamExtent}
+        shadow-camera-top={shadowCamExtent}
+        shadow-camera-bottom={-shadowCamExtent}
       />
       <Grid
         args={[Math.max(totalWidth + 20, 80), Math.max(totalHeight + 20, 80)]}
@@ -1181,7 +1279,7 @@ function Floor3DScene({
       })}
 
       {(wallSegments || []).map((segment, index) => (
-        <WallMesh key={index} segment={segment} wallThickness={wt} height={h} rooms={rooms} />
+        <WallMesh key={index} segment={segment} wallThickness={wt} height={h} rooms={rooms} globalWallColor={globalWallColor} />
       ))}
 
       {rooms.map((room) => {
@@ -1220,7 +1318,6 @@ function Floor3DScene({
 }
 
 // ─── 2D Opening ───────────────────────────────────────────────────────────────
-// ─── 2D Opening ───────────────────────────────────────────────────────────────
 
 function Opening2D({ room, opening, scale, wallThickness }) {
   const line = getOpeningLineSegment(room, opening);
@@ -1239,7 +1336,7 @@ function Opening2D({ room, opening, scale, wallThickness }) {
   );
 }
 
-// ─── 2D Furniture (UPDATED: SVG rotate transform around center) ───────────────
+// ─── 2D Furniture ─────────────────────────────────────────────────────────────
 
 function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect, labelDy = 0 }) {
   const roomX  = Number(room.x) || 0;
@@ -1254,7 +1351,6 @@ function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect,
   const w = width * scale;
   const h = depth * scale;
 
-  // Rotation center = SVG center of furniture bounding box
   const cx = x + w / 2;
   const cy = y + h / 2;
   const rotation = Number(furnitureItem.rotation) || 0;
@@ -1301,7 +1397,6 @@ function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect,
         style={{ fontSize: dimFontSize, fontWeight: 500, fill: "#5b677c", pointerEvents: "none" }}>
         {`${width} ft × ${depth} ft`}
       </text>
-      {/* Rotation badge when non-zero */}
       {rotation !== 0 && (
         <text x={cx} y={cy + dimOffsetY + 9 + labelDy} textAnchor="middle" dominantBaseline="middle"
           style={{ fontSize: 4.5, fill: "#8899b0", pointerEvents: "none" }}>
@@ -1312,7 +1407,7 @@ function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect,
   );
 }
 
-// ─── Fix 1: 2D label collision helper ────────────────────────────────────────
+// ─── 2D label collision helper ────────────────────────────────────────────────
 
 function computeFurnitureLabelOffsets(furnitureItems, room, scale) {
   if (!furnitureItems || furnitureItems.length < 2) return {};
@@ -1338,6 +1433,244 @@ function computeFurnitureLabelOffsets(furnitureItems, room, scale) {
   return Object.fromEntries(positions.map((p) => [p.id, p.dy]));
 }
 
+// ─── MiniFloorPlan SVG preview ────────────────────────────────────────────────
+
+function MiniFloorPlan({ variant, size = 160 }) {
+  if (!variant) return null;
+  const rooms = Array.isArray(variant.rooms) ? variant.rooms : [];
+  const tw = Number(variant.totalWidth) || 40;
+  const th = Number(variant.totalHeight) || 30;
+  const pad = 8;
+  const scaleX = (size - pad * 2) / tw;
+  const scaleY = (size - pad * 2) / th;
+  const sc = Math.min(scaleX, scaleY);
+
+  return (
+    <svg width={size} height={size} style={{ display: "block", borderRadius: 8, background: "#f8fafc", border: "1px solid rgba(148,163,184,0.18)" }}>
+      <rect width={size} height={size} fill="#f0f4f8" />
+      <g transform={`translate(${pad}, ${pad})`}>
+        <rect x={0} y={0} width={tw * sc} height={th * sc} fill="none" stroke="#94a3b8" strokeWidth={1.5} />
+        {rooms.map((room, i) => {
+          const rx = (Number(room.x) || 0) * sc;
+          const ry = (Number(room.y) || 0) * sc;
+          const rw = Math.max(2, (Number(room.width) || 8) * sc);
+          const rh = Math.max(2, (Number(room.height) || 8) * sc);
+          return (
+            <g key={i}>
+              <rect x={rx} y={ry} width={rw} height={rh}
+                fill={ROOM_COLORS[i % ROOM_COLORS.length]}
+                stroke="#7e8da3" strokeWidth={0.8} fillOpacity={0.85} />
+              {rw > 18 && rh > 10 && (
+                <text x={rx + rw / 2} y={ry + rh / 2} textAnchor="middle" dominantBaseline="middle"
+                  style={{ fontSize: Math.min(7, rw / 4), fill: "#1e293b", fontWeight: 600, pointerEvents: "none" }}>
+                  {String(room.name || "").slice(0, 8)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </g>
+    </svg>
+  );
+}
+
+// ─── Variant Selection Page ───────────────────────────────────────────────────
+
+function VariantSelectionPage({ variants, theme, onSelect, onBack }) {
+  return (
+    <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
+      <section className="top-control-card">
+        <div className="top-control-grid">
+          <div className="input-card top-input-card">
+            <div className="top-input-meta-row">
+              <div className="top-input-brand">
+                <span className="pill">AI Layout Options</span>
+                <div className="top-input-brand-copy">
+                  <div className="top-input-title-row">
+                    <h1><Sparkles size={20} />Choose Your Layout</h1>
+                  </div>
+                  <p>We created 3 versions of your floor plan. Pick the one that feels right — you can edit everything after.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <aside className="project-actions-card input-card">
+            <button className="primary-btn project-stack-btn" onClick={onBack}>
+              <ArrowLeft size={16} />
+              Back
+            </button>
+          </aside>
+        </div>
+      </section>
+
+      <div style={{ padding: "24px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
+        {variants.map((variant) => {
+          const rooms = Array.isArray(variant.rooms) ? variant.rooms : [];
+          const totalArea = rooms.reduce((s, r) => s + (Number(r.width) || 0) * (Number(r.height) || 0), 0);
+          return (
+            <div key={variant.id} className="input-card" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                <span className="pill" style={{ fontSize: 12 }}>{variant.label}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <MiniFloorPlan variant={variant} size={200} />
+              </div>
+              <p style={{ fontSize: 13, opacity: 0.75, margin: 0 }}>{variant.rationale}</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {rooms.slice(0, 6).map((room, i) => (
+                  <span key={i} className="chatbot-chip" style={{ fontSize: 11, padding: "3px 10px", cursor: "default" }}>
+                    {room.name || `Room ${i + 1}`}
+                  </span>
+                ))}
+                {rooms.length > 6 && <span className="chatbot-chip" style={{ fontSize: 11, padding: "3px 10px", cursor: "default" }}>+{rooms.length - 6} more</span>}
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.6 }}>
+                {variant.totalWidth} ft × {variant.totalHeight} ft &nbsp;·&nbsp; {totalArea.toFixed(0)} sq ft total area
+              </div>
+              <button className="primary-btn" style={{ marginTop: "auto" }} onClick={() => onSelect(variant)}>
+                Use This Layout
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Landing Page ─────────────────────────────────────────────────────────────
+
+function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, generationStep }) {
+  const [promptText, setPromptText] = useState("");
+  const [voiceState, setVoiceState] = useState("idle"); // "idle" | "listening" | "processing"
+  const srAvailable = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  const recognitionRef = useRef(null);
+
+  const handleVoice = () => {
+    if (!srAvailable) return;
+    if (voiceState === "listening") {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SR();
+    rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
+    rec.onstart = () => setVoiceState("listening");
+    rec.onend   = () => setVoiceState("idle");
+    rec.onerror = () => setVoiceState("idle");
+    rec.onresult = (e) => {
+      setVoiceState("processing");
+      setPromptText(e?.results?.[0]?.[0]?.transcript || "");
+      setTimeout(() => setVoiceState("idle"), 400);
+    };
+    recognitionRef.current = rec;
+    rec.start();
+  };
+
+  const handleSubmit = (e) => {
+    e?.preventDefault?.();
+    if (!promptText.trim() || isGenerating) return;
+    onGenerate(promptText.trim());
+  };
+
+  return (
+    <div className={`app-shell landing-page ${theme === "dark" ? "dark-theme" : "light-theme"}`}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "40px 24px" }}>
+
+      {isGenerating ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center" }}>
+          <Loader2 size={48} className="spin-icon" style={{ color: "#3b82f6" }} />
+          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Creating your floor plan...</h2>
+          <p style={{ fontSize: 15, opacity: 0.65, margin: 0 }}>{generationStep || "Working on it..."}</p>
+        </div>
+      ) : (
+        <div style={{ width: "100%", maxWidth: 640, display: "flex", flexDirection: "column", gap: 28, alignItems: "center" }}>
+          {/* Brand pill */}
+          <span className="pill" style={{ fontSize: 13 }}>AI Floor Plan Builder</span>
+
+          {/* Heading */}
+          <div style={{ textAlign: "center" }}>
+            <h1 style={{ fontSize: "clamp(28px, 5vw, 44px)", fontWeight: 800, lineHeight: 1.15, margin: "0 0 12px" }}>
+              Design your space<br />with one command
+            </h1>
+            <p style={{ fontSize: 17, opacity: 0.65, margin: 0 }}>
+              Type what you want to build and we will generate a full floor plan with rooms, furniture and layouts — instantly.
+            </p>
+          </div>
+
+          {/* Prompt form */}
+          <form onSubmit={handleSubmit} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ position: "relative" }}>
+              <textarea
+                value={promptText}
+                onChange={(e) => setPromptText(e.target.value)}
+                placeholder="Try: Design a 2BHK home with a living room, 2 bedrooms, kitchen and 2 bathrooms in 40 by 30 feet..."
+                rows={4}
+                style={{
+                  width: "100%", boxSizing: "border-box",
+                  padding: "14px 52px 14px 16px",
+                  fontSize: 15, borderRadius: 14, resize: "vertical",
+                  border: "1.5px solid rgba(148,163,184,0.3)",
+                  background: "transparent",
+                  lineHeight: 1.55,
+                  outline: "none",
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSubmit(e); }}
+              />
+              {srAvailable && (
+                <button
+                  type="button"
+                  onClick={handleVoice}
+                  aria-label={voiceState === "listening" ? "Stop recording" : "Start voice input"}
+                  style={{
+                    position: "absolute", top: 12, right: 12,
+                    width: 36, height: 36, borderRadius: "50%",
+                    border: "none", cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: voiceState === "listening" ? "#ef4444" : "rgba(59,130,246,0.12)",
+                    color: voiceState === "listening" ? "#fff" : "#3b82f6",
+                    animation: voiceState === "listening" ? "pulse 1s infinite" : "none",
+                  }}
+                >
+                  <Mic size={16} />
+                </button>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="primary-btn"
+              disabled={!promptText.trim()}
+              style={{ fontSize: 16, padding: "14px 28px", borderRadius: 12 }}
+            >
+              <Sparkles size={18} />
+              Generate Layout
+            </button>
+          </form>
+
+          {/* Example chips */}
+          <div style={{ width: "100%", display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+            {EXAMPLE_PROMPTS.map((p) => (
+              <button key={p} type="button" className="chatbot-chip" onClick={() => setPromptText(p)} style={{ fontSize: 12 }}>
+                {p}
+              </button>
+            ))}
+          </div>
+
+          {/* Continue without AI */}
+          <button
+            type="button"
+            onClick={onContinueWithout}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: 0.55, padding: "4px 8px", textDecoration: "underline" }}
+          >
+            Continue without AI →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Furniture Manager Page ───────────────────────────────────────────────────
 
 function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCustomPreset, onUpdatePlacedFurniture, onApplyPresetToPlaced, onBack }) {
@@ -1345,7 +1678,6 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
 
   const presets = FURNITURE_PRESETS[activeCategory] || [];
 
-  // Count how many of each preset type are placed in rooms
   const placedCountByType = useMemo(() => {
     const counts = {};
     rooms.forEach((room) => {
@@ -1356,7 +1688,6 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
     return counts;
   }, [rooms]);
 
-  // Placed furniture items for the active category
   const placedItems = useMemo(() => {
     return rooms.flatMap((room) =>
       (room.furniture || [])
@@ -1370,7 +1701,6 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
 
   return (
     <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
-      {/* ── Header ── */}
       <section className="top-control-card">
         <div className="top-control-grid">
           <div className="input-card top-input-card">
@@ -1398,7 +1728,6 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
         </div>
       </section>
 
-      {/* ── Category Tabs ── */}
       <div style={{ padding: "0 24px 0", display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 0 }}>
         {PRODUCT_CATEGORIES.map((cat) => (
           <button
@@ -1408,7 +1737,6 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
             onClick={() => setActiveCategory(cat)}
           >
             {cat}
-            {/* badge: count of placed items in this category */}
             {(() => {
               const cnt = rooms.flatMap((r) => r.furniture || []).filter((f) =>
                 (FURNITURE_PRESETS[cat] || []).some((p) => p.type === f.type)
@@ -1425,7 +1753,6 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
 
       <div style={{ padding: "12px 24px 32px", display: "flex", flexDirection: "column", gap: 24 }}>
 
-        {/* ── Preset Catalog Section ── */}
         <section className="input-card" style={{ padding: 20 }}>
           <div className="section-header compact" style={{ marginBottom: 16 }}>
             <div>
@@ -1451,7 +1778,6 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
                   className="input-card"
                   style={{ padding: 16, border: isModified ? "1.5px solid #3b82f6" : undefined, position: "relative" }}
                 >
-                  {/* Color chip + name */}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                     <div style={{ width: 16, height: 16, borderRadius: 4, background: preset.color, border: "1px solid #b0b8c4", flexShrink: 0 }} />
                     <strong style={{ fontSize: 13, flex: 1 }}>{preset.type}</strong>
@@ -1512,7 +1838,6 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
                     </div>
                   </div>
 
-                  {/* Reset to original */}
                   {isModified && (
                     <button
                       type="button"
@@ -1529,7 +1854,6 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
           </div>
         </section>
 
-        {/* ── Placed Furniture Section ── */}
         <section className="input-card" style={{ padding: 20 }}>
           <div className="section-header compact" style={{ marginBottom: 16 }}>
             <div>
@@ -1621,7 +1945,7 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
   );
 }
 
-// ─── Template / preset helpers (unchanged) ────────────────────────────────────
+// ─── Template / preset helpers ────────────────────────────────────────────────
 
 function createProjectId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -1643,6 +1967,7 @@ function getDefaultProjectState() {
     customPresetDimensions: {},
     assistantCollapsed: false,
     sunSettings: DEFAULT_SUN_SETTINGS,
+    globalWallColor: DEFAULT_WALL_COLOR,
   };
 }
 
@@ -1772,7 +2097,6 @@ function sanitizeVisionFloorPlanResponse(aiResponse, currentState) {
     x: Math.max(0, Number(room?.x) || 0), y: Math.max(0, Number(room?.y) || 0),
     width: Math.max(4, Number(room?.width) || 10), height: Math.max(4, Number(room?.height) || 10),
     color: ROOM_COLORS[index % ROOM_COLORS.length],
-    wallColor: DEFAULT_WALL_COLOR,
     floorTextureId: getDefaultFloorTextureId(),
     doors: [], windows: [], furniture: [],
   }));
@@ -1853,7 +2177,9 @@ function createFurnitureFromPreset(preset, category, overrides = {}) {
     width: preset.width, depth: preset.depth, height: preset.height,
     x: FURNITURE_WALL_CLEARANCE, y: FURNITURE_WALL_CLEARANCE,
     rotation: 0,
-    color: preset.color, ...overrides,
+    color: preset.color,
+    ...(preset.allowOutsideBuilding ? { allowOutsideBuilding: true } : {}),
+    ...overrides,
   };
 }
 
@@ -1896,7 +2222,6 @@ function createTemplateRoom(index, name, width, height, category, overrides = {}
       ? crypto.randomUUID() : `room-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
     name, width, height, x: 0, y: 0,
     color: ROOM_COLORS[index % ROOM_COLORS.length],
-    wallColor: DEFAULT_WALL_COLOR,
     floorTextureId: getDefaultFloorTextureId(),
     doors: [], windows: [], furniture: [], ...overrides,
   };
@@ -2116,9 +2441,55 @@ async function generatePlanRendersWithOpenAI(apiKey, payload) {
   return `data:image/png;base64,${b64}`;
 }
 
+// ─── generateLayoutVariants ───────────────────────────────────────────────────
+
+function generateLayoutVariants(basePlan) {
+  const configs = [
+    { id: "compact",  scale: 0.82, label: "Option A — Compact",  rationale: "A tighter layout that uses space efficiently. Great for smaller plots or when you want shorter walking distances between rooms." },
+    { id: "standard", scale: 1.00, label: "Option B — Standard", rationale: "Balanced room sizes based on your description. This is the default recommended layout for most homes and offices." },
+    { id: "spacious", scale: 1.18, label: "Option C — Spacious", rationale: "Larger rooms with more breathing room. Ideal if you want open, airy spaces and have the area to spare." },
+  ];
+
+  return configs.map((cfg) => {
+    const tw = Math.round((Number(basePlan.totalWidth)  || 40) * cfg.scale);
+    const th = Math.round((Number(basePlan.totalHeight) || 30) * cfg.scale);
+    const scaledRooms = (Array.isArray(basePlan.rooms) ? basePlan.rooms : []).map((room) => ({
+      ...room,
+      id: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `room-${Date.now()}-${Math.random()}`,
+      width:  Math.max(4, Math.round((Number(room.width)  || 8) * cfg.scale)),
+      height: Math.max(4, Math.round((Number(room.height) || 8) * cfg.scale)),
+      doors:   Array.isArray(room.doors)   ? room.doors.map((d)  => ({ ...d }))  : [],
+      windows: Array.isArray(room.windows) ? room.windows.map((w) => ({ ...w })) : [],
+      furniture: Array.isArray(room.furniture) ? room.furniture.map((f) => ({ ...f,
+        id: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `f-${Date.now()}-${Math.random()}`,
+        width: Math.max(0.3, (Number(f.width)  || 1) * cfg.scale),
+        depth: Math.max(0.3, (Number(f.depth)  || 1) * cfg.scale),
+      })) : [],
+    }));
+
+    const gridRooms = fitRoomsInGrid(scaledRooms, tw, th);
+    const normalizedRooms = gridRooms.map((r, i) => ensureRoomVisualDefaults(r, i));
+
+    return {
+      ...basePlan,
+      id: cfg.id,
+      label: cfg.label,
+      rationale: cfg.rationale,
+      totalWidth: tw,
+      totalHeight: th,
+      rooms: normalizedRooms,
+    };
+  });
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
+  // ── App mode ──
+  const [appMode, setAppMode] = useState("landing"); // "landing" | "generating" | "variant-selection" | "editor"
+  const [generationStep, setGenerationStep] = useState("");
+  const [layoutVariants, setLayoutVariants] = useState([]);
+
   // ── Core plan state ──
   const [planName,          setPlanName]          = useState("My Floor Plan");
   const [totalWidth,        setTotalWidth]        = useState(40);
@@ -2130,10 +2501,11 @@ export default function App() {
   const [selectedCategory,  setSelectedCategory]  = useState("office");
   const [rooms,             setRooms]             = useState(() => getDefaultRooms(40, 30));
   const [furnitureSelections, setFurnitureSelections] = useState({});
+  const [globalWallColor,   setGlobalWallColor]   = useState(DEFAULT_WALL_COLOR);
 
-  // ── NEW: page navigation + custom preset dimensions ──
+  // ── Page navigation + custom preset dimensions ──
   const [activePage, setActivePage] = useState("planner"); // "planner" | "furniture-manager"
-  const [customPresetDimensions, setCustomPresetDimensions] = useState({}); // { "Sofa": { width, depth, height }, ... }
+  const [customPresetDimensions, setCustomPresetDimensions] = useState({});
 
   // ── Theme ──
   const [theme, setTheme] = useState(() => {
@@ -2257,9 +2629,9 @@ export default function App() {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  const waitForViewRender = useCallback(async (view, delay = 250) => {
+  const waitForViewRender = useCallback(async (view, delayMs = 250) => {
     setActiveView(view);
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(resolve, delay))));
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(resolve, delayMs))));
   }, []);
 
   const capture2DImage = async () => {
@@ -2283,6 +2655,7 @@ export default function App() {
     customPresetDimensions,
     assistantCollapsed,
     sunSettings,
+    globalWallColor,
   });
 
   const applyProjectState = (projectState) => {
@@ -2300,7 +2673,6 @@ export default function App() {
     setRooms(nextRooms);
     setExpandedRoomId(nextRooms[0]?.id || null);
     setFurnitureSelections(nextState.furnitureSelections && typeof nextState.furnitureSelections === "object" ? nextState.furnitureSelections : {});
-    // NEW: restore custom preset dimensions (safe fallback for older saved projects)
     setCustomPresetDimensions(
       nextState.customPresetDimensions && typeof nextState.customPresetDimensions === "object"
         ? nextState.customPresetDimensions : {}
@@ -2310,6 +2682,7 @@ export default function App() {
       ...DEFAULT_SUN_SETTINGS,
       ...(nextState.sunSettings && typeof nextState.sunSettings === "object" ? nextState.sunSettings : {}),
     });
+    setGlobalWallColor(normalizeHexColor(nextState.globalWallColor, DEFAULT_WALL_COLOR));
   };
 
   const refreshSavedProjects = () => {
@@ -2332,7 +2705,85 @@ export default function App() {
     setProjectStatusMessage(`Applied ${sourceLabel} layout: ${nextPlan.planName || getFriendlyCategoryName(nextPlan.selectedCategory)}`);
   };
 
-  // ─── NEW: Custom preset dimension handlers ───────────────────────────────────
+  // ─── Landing page: generate layout with variants ──────────────────────────
+
+  const handleGenerateLayout = async (prompt) => {
+    setAppMode("generating");
+    try {
+      setGenerationStep("Understanding your request...");
+      await delay(420);
+
+      setGenerationStep("Planning rooms...");
+      await delay(320);
+
+      const currentPlanState = buildCurrentProjectData();
+      let basePlan = parseRuleBasedPlanCommand(prompt, currentPlanState);
+
+      if (!basePlan) {
+        const apiKey = getSavedOpenAIApiKey();
+        if (apiKey) {
+          try {
+            setGenerationStep("Asking AI for the best layout...");
+            basePlan = await generatePlanFromOpenAI(apiKey, prompt, currentPlanState);
+          } catch (err) {
+            console.warn("OpenAI failed, falling back to heuristics:", err);
+          }
+        }
+      }
+
+      if (!basePlan) {
+        setGenerationStep("Using built-in templates...");
+        await delay(200);
+        const lower = String(prompt || "").toLowerCase();
+        let kind = "office";
+        if (lower.includes("home") || lower.includes("flat") || lower.includes("apartment") || lower.includes("bhk")) kind = "2bhk";
+        else if (lower.includes("cafe") || lower.includes("coffee")) kind = "cafe";
+        else if (lower.includes("storage") || lower.includes("warehouse")) kind = "storage";
+        else if (lower.includes("toilet") || lower.includes("restroom")) kind = "public toilet";
+        else if (lower.includes("office") || lower.includes("workspace")) kind = "office";
+        const dims = extractPlanDimensions(prompt) || {};
+        const tw = Number(dims.totalWidth) || 40;
+        const th = Number(dims.totalHeight) || 30;
+        basePlan = buildPresetTemplate(kind, tw, th);
+        if (basePlan) {
+          basePlan = {
+            ...basePlan,
+            rooms: normalizeGeneratedRooms(basePlan.rooms, tw, th, basePlan.selectedCategory),
+            responseText: `Created a ${basePlan.planName} from your description.`,
+          };
+        }
+      }
+
+      if (!basePlan) {
+        basePlan = {
+          planName: "My Floor Plan",
+          selectedCategory: "office",
+          totalWidth: 40,
+          totalHeight: 30,
+          rooms: getDefaultRooms(40, 30),
+          responseText: "Here is a default layout. You can customize it in the editor.",
+        };
+      }
+
+      setGenerationStep("Creating multiple options...");
+      await delay(300);
+
+      const variants = generateLayoutVariants(basePlan);
+      setLayoutVariants(variants);
+
+      setGenerationStep("Done!");
+      await delay(200);
+
+      setAppMode("variant-selection");
+    } catch (err) {
+      console.error("Layout generation failed:", err);
+      setGenerationStep("Something went wrong, switching to editor...");
+      await delay(800);
+      setAppMode("editor");
+    }
+  };
+
+  // ─── Custom preset dimension handlers ────────────────────────────────────────
 
   const handleUpdateCustomPreset = useCallback((furnitureType, key, value) => {
     if (key === "__reset__") {
@@ -2444,7 +2895,7 @@ export default function App() {
   const removeDoor   = (roomId, index) => setRooms((prev) => prev.map((r) => r.id === roomId ? { ...r, doors:   (r.doors   || []).filter((_, i) => i !== index) } : r));
   const removeWindow = (roomId, index) => setRooms((prev) => prev.map((r) => r.id === roomId ? { ...r, windows: (r.windows || []).filter((_, i) => i !== index) } : r));
 
-  // ─── Furniture operations (UPDATED: width/depth/height/rotation support) ─────
+  // ─── Furniture operations ─────────────────────────────────────────────────────
 
   const updateFurniture = (roomId, furnitureId, key, value) => {
     setRooms((prev) =>
@@ -2453,16 +2904,17 @@ export default function App() {
         const nextFurniture = (room.furniture || []).map((item) => {
           if (item.id !== furnitureId) return item;
 
-          // ── NEW: dimension updates (from sidebar or furniture manager) ──
           if (key === "width") {
             const newWidth = Math.max(0.3, Number(value) || 0.3);
             if (isKitchenSlab(item)) return { ...item, width: newWidth, slabLength: newWidth };
+            if (item.allowOutsideBuilding) return { ...item, width: newWidth };
             const maxX = Math.max(FURNITURE_WALL_CLEARANCE, Number(room.width) - newWidth - FURNITURE_WALL_CLEARANCE);
             return { ...item, width: newWidth, x: clamp(Number(item.x) || FURNITURE_WALL_CLEARANCE, FURNITURE_WALL_CLEARANCE, maxX) };
           }
           if (key === "depth") {
             const newDepth = Math.max(0.3, Number(value) || 0.3);
             if (isKitchenSlab(item)) return { ...item, depth: newDepth, slabDepth: newDepth };
+            if (item.allowOutsideBuilding) return { ...item, depth: newDepth };
             const maxY = Math.max(FURNITURE_WALL_CLEARANCE, Number(room.height) - newDepth - FURNITURE_WALL_CLEARANCE);
             return { ...item, depth: newDepth, y: clamp(Number(item.y) || FURNITURE_WALL_CLEARANCE, FURNITURE_WALL_CLEARANCE, maxY) };
           }
@@ -2470,12 +2922,10 @@ export default function App() {
             return { ...item, height: Math.max(0.3, Number(value) || 0.3) };
           }
 
-          // ── NEW: rotation ──
           if (key === "rotation") {
             return { ...item, rotation: ((Number(value) || 0) % 360 + 360) % 360 };
           }
 
-          // ── EXISTING: kitchen slab wall / offset / slabLength ──
           if (isKitchenSlab(item)) {
             if (key === "attachedWall") return { ...item, attachedWall: value };
             if (key === "slabLength") {
@@ -2492,9 +2942,12 @@ export default function App() {
             return item;
           }
 
-          // ── EXISTING: x/y position ──
           if (key === "x" || key === "y") {
             const numericValue = Number(value) || 0;
+            // Skip clamping for items that are allowed outside the building
+            if (item.allowOutsideBuilding) {
+              return { ...item, [key]: numericValue };
+            }
             const minX = FURNITURE_WALL_CLEARANCE, minY = FURNITURE_WALL_CLEARANCE;
             const maxX = Math.max(minX, Number(room.width)  - Number(item.width) - FURNITURE_WALL_CLEARANCE);
             const maxY = Math.max(minY, Number(room.height) - Number(item.depth) - FURNITURE_WALL_CLEARANCE);
@@ -2516,7 +2969,6 @@ export default function App() {
     const selectedType = furnitureSelections[roomId] || getDefaultFurnitureSelection(selectedCategory);
     const preset = categoryOptions.find((item) => item.type === selectedType) || categoryOptions[0];
 
-    // Apply custom preset dimensions if available
     const customDim = customPresetDimensions[preset.type] || {};
     const effectivePreset = {
       ...preset,
@@ -2535,7 +2987,12 @@ export default function App() {
                 ...(item.furniture || []),
                 isSlab
                   ? { id: crypto.randomUUID(), type: effectivePreset.type, category: selectedCategory, width: effectivePreset.width, depth: effectivePreset.depth, height: effectivePreset.height, slabLength: effectivePreset.width, slabDepth: effectivePreset.depth, attachedWall: "bottom", offset: 0, rotation: 0, color: effectivePreset.color }
-                  : { id: crypto.randomUUID(), type: effectivePreset.type, category: selectedCategory, width: effectivePreset.width, depth: effectivePreset.depth, height: effectivePreset.height, x: FURNITURE_WALL_CLEARANCE, y: FURNITURE_WALL_CLEARANCE, rotation: 0, color: effectivePreset.color },
+                  : {
+                      id: crypto.randomUUID(), type: effectivePreset.type, category: selectedCategory,
+                      width: effectivePreset.width, depth: effectivePreset.depth, height: effectivePreset.height,
+                      x: FURNITURE_WALL_CLEARANCE, y: FURNITURE_WALL_CLEARANCE, rotation: 0, color: effectivePreset.color,
+                      ...(effectivePreset.allowOutsideBuilding ? { allowOutsideBuilding: true } : {}),
+                    },
               ],
             }
           : item
@@ -2560,7 +3017,7 @@ export default function App() {
       totalRoomArea: Number(totalRoomArea.toFixed(2)), spaceUtilization: utilization,
       currentProjectId: currentProjectId || projectId, quotationValue: "", quotationNotes: "",
       image2D, image3D, ai_render_image_base64: generatedRenderImage || "",
-      rooms: syncedRooms.map((room) => ({ id: room.id || "", name: room.name || "", x: Number(room.x) || 0, y: Number(room.y) || 0, width: Number(room.width) || 0, height: Number(room.height) || 0, color: room.color || "", wallColor: room.wallColor || DEFAULT_WALL_COLOR, floorTextureId: room.floorTextureId || getDefaultFloorTextureId(), doors: Array.isArray(room.doors) ? room.doors : [], windows: Array.isArray(room.windows) ? room.windows : [], furniture: Array.isArray(room.furniture) ? room.furniture : [] })),
+      rooms: syncedRooms.map((room) => ({ id: room.id || "", name: room.name || "", x: Number(room.x) || 0, y: Number(room.y) || 0, width: Number(room.width) || 0, height: Number(room.height) || 0, color: room.color || "", floorTextureId: room.floorTextureId || getDefaultFloorTextureId(), doors: Array.isArray(room.doors) ? room.doors : [], windows: Array.isArray(room.windows) ? room.windows : [], furniture: Array.isArray(room.furniture) ? room.furniture : [] })),
     };
   };
 
@@ -2760,6 +3217,36 @@ export default function App() {
 
   const furnitureOptions = getFurnitureOptionsForCategory(selectedCategory);
 
+  // ─── Mode routing ─────────────────────────────────────────────────────────────
+
+  // Landing page
+  if (appMode === "landing" || appMode === "generating") {
+    return (
+      <LandingPage
+        theme={theme}
+        isGenerating={appMode === "generating"}
+        generationStep={generationStep}
+        onGenerate={handleGenerateLayout}
+        onContinueWithout={() => setAppMode("editor")}
+      />
+    );
+  }
+
+  // Variant selection
+  if (appMode === "variant-selection") {
+    return (
+      <VariantSelectionPage
+        variants={layoutVariants}
+        theme={theme}
+        onBack={() => setAppMode("landing")}
+        onSelect={(variant) => {
+          applyGeneratedPlan(variant, "AI");
+          setAppMode("editor");
+        }}
+      />
+    );
+  }
+
   // ─── Furniture Manager Page render ───────────────────────────────────────────
 
   if (activePage === "furniture-manager") {
@@ -2849,6 +3336,16 @@ export default function App() {
                   {PRODUCT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
+              {/* Global wall color picker */}
+              <div className="field">
+                <label><PaintBucket size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Wall Color</label>
+                <input
+                  type="color"
+                  value={globalWallColor}
+                  onChange={(e) => setGlobalWallColor(e.target.value)}
+                  style={{ width: "100%", minHeight: 38, padding: 4, borderRadius: 10 }}
+                />
+              </div>
             </div>
           </div>
 
@@ -2857,10 +3354,13 @@ export default function App() {
             <button className="ghost-btn project-stack-btn" onClick={handleNewProject}><FilePlus2 size={16} />New Project</button>
             <button className="secondary-btn project-stack-btn" onClick={handleOpenProjectClick}><FolderOpen size={16} />Open Project</button>
             <button className="primary-btn project-stack-btn" onClick={handleSaveProject}><Save size={16} />Save Project</button>
-            {/* NEW: Furniture Manager button */}
             <button className="secondary-btn project-stack-btn" onClick={() => setActivePage("furniture-manager")}>
               <Sliders size={16} />
               Furniture Manager
+            </button>
+            <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")}>
+              <Sparkles size={16} />
+              AI Landing
             </button>
           </aside>
         </div>
@@ -2916,7 +3416,7 @@ export default function App() {
                           const w = room.width * numericScale, h = room.height * numericScale;
                           return (
                             <g key={room.id}>
-                              <rect x={x} y={y} width={w} height={h} fill={room.color || "#eef4ff"} stroke={room.wallColor || DEFAULT_WALL_COLOR} strokeWidth={Math.max(2, numericWallThickness * numericScale)} />
+                              <rect x={x} y={y} width={w} height={h} fill={room.color || "#eef4ff"} stroke={globalWallColor} strokeWidth={Math.max(2, numericWallThickness * numericScale)} />
                             </g>
                           );
                         })}
@@ -2993,7 +3493,6 @@ export default function App() {
 
                   <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
                     {sunControlsCollapsed ? (
-                      /* Collapsed: small floating button */
                       <button
                         type="button"
                         title="Sun / Light Controls"
@@ -3012,7 +3511,6 @@ export default function App() {
                         <Sun size={17} style={{ opacity: 0.75 }} />
                       </button>
                     ) : (
-                      /* Expanded: full panel */
                       <div
                         style={{
                           position: "absolute", top: 14, right: 14, zIndex: 4,
@@ -3039,7 +3537,7 @@ export default function App() {
                         {[
                           { key: "azimuth", label: `Azimuth — ${Math.round(sunSettings.azimuth)}°`, min: 0, max: 360, step: 1 },
                           { key: "elevation", label: `Elevation — ${Math.round(sunSettings.elevation)}°`, min: 5, max: 85, step: 1 },
-                          { key: "intensity", label: `Intensity — ${Number(sunSettings.intensity).toFixed(1)}`, min: 0.2, max: 2.5, step: 0.1 },
+                          { key: "intensity", label: `Intensity — ${Number(sunSettings.intensity).toFixed(1)}`, min: 0.2, max: 4.0, step: 0.1 },
                           { key: "ambientIntensity", label: `Ambient Fill — ${Number(sunSettings.ambientIntensity).toFixed(1)}`, min: 0.1, max: 1.2, step: 0.1 },
                         ].map((control) => (
                           <div key={control.key} style={{ marginBottom: 10 }}>
@@ -3076,7 +3574,8 @@ export default function App() {
                       camera={{ position: [Math.max(Number(totalWidth) * 0.85, 14), Math.max(Number(roomHeight) * 2.2, 16), Math.max(Number(totalHeight) * 1.0, 14)], fov: 42 }}>
                       <Floor3DScene rooms={placedRooms} totalWidth={Number(totalWidth)} totalHeight={Number(totalHeight)}
                         wallThickness={Number(wallThickness)} roomHeight={Number(roomHeight)} wallSegments={wallSegments}
-                        selectedFurnitureKey={selectedFurnitureKey} onFurnitureSelect={handleFurnitureSelection} sunSettings={sunSettings} />
+                        selectedFurnitureKey={selectedFurnitureKey} onFurnitureSelect={handleFurnitureSelection}
+                        sunSettings={sunSettings} globalWallColor={globalWallColor} />
                     </Canvas>
                     {isRenderGenerating && (
                       <div className="ai-render-overlay">
@@ -3178,6 +3677,7 @@ export default function App() {
             <h2>Rooms</h2>
             <div className="header-actions rooms-sidebar-actions">
               <button className="ghost-btn" onClick={resetPlan}><RotateCcw size={16} />Reset</button>
+              <button className="ghost-btn" onClick={autoArrangeRooms}><RotateCw size={16} />Auto-Arrange</button>
               <button className="primary-btn" onClick={addRoom}><Plus size={16} />New Room</button>
             </div>
           </div>
@@ -3216,16 +3716,7 @@ export default function App() {
                         <div className="field"><label>Y Position (ft)</label><input type="number" value={room.y} onChange={(e) => updateRoom(room.id, "y", Number(e.target.value) || 0)} /></div>
                       </div>
 
-                      <div className="form-grid two-col">
-                        <div className="field">
-                          <label><PaintBucket size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Wall Color</label>
-                          <input
-                            type="color"
-                            value={room.wallColor || DEFAULT_WALL_COLOR}
-                            onChange={(e) => updateRoom(room.id, "wallColor", e.target.value)}
-                            style={{ width: "100%", minHeight: 40, padding: 4, borderRadius: 10 }}
-                          />
-                        </div>
+                      <div className="form-grid one-col">
                         <div className="field">
                           <label>Room Fill Color</label>
                           <input
@@ -3392,7 +3883,7 @@ export default function App() {
                                     <div className="field"><label>Height (ft)</label><input type="number" value={item.height} onChange={(e) => updateFurniture(room.id, item.id, "height", e.target.value)} /></div>
                                   </div>
 
-                                  {/* ── NEW: Rotation control ── */}
+                                  {/* Rotation control */}
                                   <div style={{ marginTop: 8, padding: "10px 12px", background: "rgba(59,130,246,0.06)", borderRadius: 8, border: "1px solid rgba(59,130,246,0.15)" }}>
                                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                                       <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.75, margin: 0 }}>
@@ -3408,7 +3899,6 @@ export default function App() {
                                         Reset
                                       </button>
                                     </div>
-                                    {/* Slider */}
                                     <input
                                       type="range"
                                       min="0" max="360" step="5"
@@ -3416,7 +3906,6 @@ export default function App() {
                                       style={{ width: "100%", marginBottom: 8, accentColor: "#3b82f6" }}
                                       onChange={(e) => updateFurniture(room.id, item.id, "rotation", e.target.value)}
                                     />
-                                    {/* Quick rotation preset buttons */}
                                     <div style={{ display: "flex", gap: 4 }}>
                                       {[0, 90, 180, 270].map((deg) => (
                                         <button
@@ -3429,7 +3918,6 @@ export default function App() {
                                           {deg}°
                                         </button>
                                       ))}
-                                      {/* Custom rotate +45 */}
                                       <button
                                         type="button"
                                         className="ghost-btn"
