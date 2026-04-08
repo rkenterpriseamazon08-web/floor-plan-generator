@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Grid, Text as DreiText } from "@react-three/drei";
+import { OrbitControls, Grid, Text as DreiText, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import {
   Home,
@@ -85,21 +85,11 @@ const DEFAULT_SUN_SETTINGS = {
   ambientIntensity: 0.5,
 };
 
-const ASSET_BASE = (import.meta?.env?.BASE_URL || "/").replace(/\/?$/, "/");
-
-function resolveAssetPath(path) {
-  const raw = String(path || "").trim();
-  if (!raw) return "";
-  if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
-  const cleaned = raw.replace(/^\/+/, "");
-  return `${ASSET_BASE}${cleaned}`;
-}
-
 const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "white-marble",
     name: "White Marble",
-    image: "textures/white-marble.png",
+    image: "/textures/white-marble.png",
     tileWidth: 2,
     tileHeight: 2,
     category: "marble",
@@ -107,7 +97,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "beige-marble",
     name: "Beige Marble",
-    image: "textures/beige-marble.png",
+    image: "/textures/beige-marble.png",
     tileWidth: 2,
     tileHeight: 2,
     category: "marble",
@@ -115,7 +105,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "grey-concrete",
     name: "Grey Concrete Tile",
-    image: "textures/grey-concrete-tile.png",
+    image: "/textures/grey-concrete-tile.png",
     tileWidth: 2,
     tileHeight: 2,
     category: "concrete",
@@ -123,7 +113,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "wood-floor",
     name: "Wood Floor",
-    image: "textures/wood-floor.png",
+    image: "/textures/wood-floor.png",
     tileWidth: 0.6,
     tileHeight: 3,
     category: "wood",
@@ -131,7 +121,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "patterned-tile",
     name: "Patterned Tile",
-    image: "textures/patterned-tile.png",
+    image: "/textures/patterned-tile.png",
     tileWidth: 1,
     tileHeight: 1,
     category: "decorative",
@@ -139,7 +129,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "glossy-cream",
     name: "Glossy Cream Tile",
-    image: "textures/glossy-cream-tile.png",
+    image: "/textures/glossy-cream-tile.png",
     tileWidth: 2,
     tileHeight: 2,
     category: "ceramic",
@@ -505,7 +495,41 @@ const createRoom = (index) => ({
   furniture: [],
 });
 
-function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_HEIGHT) {
+
+function resolveLabelCollisions(placedRooms, scale) {
+  const boxes = [];
+  const offsets = {};
+  
+  placedRooms.forEach((room) => {
+    (room.furniture || []).forEach((item) => {
+      const rx = Number(room.x) || 0;
+      const ry = Number(room.y) || 0;
+      const x = (rx + (Number(item.x) || 0) + (Number(item.width) || 1) / 2) * scale;
+      const y = (ry + (Number(item.y) || 0) + (Number(item.depth) || 1) / 2) * scale;
+      
+      let cy = y;
+      let labelH = 14;
+      let labelW = 40;
+      
+      let resolved = false;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const hit = boxes.find(b => Math.abs(b.x - x) < labelW && Math.abs(b.y - cy) < labelH);
+        if (!hit) {
+          boxes.push({ x, y: cy });
+          offsets[`${room.id}-${item.id}`] = cy - y;
+          resolved = true;
+          break;
+        }
+        cy += (attempt % 2 === 0 ? 1 : -1) * (12 + attempt * 4);
+      }
+      if (!resolved) {
+        offsets[`${room.id}-${item.id}`] = 0;
+      }
+    });
+  });
+  return offsets;
+}
+\nfunction normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_HEIGHT) {
   const width  = Math.max(Number(room.width)  || 0, 0);
   const height = Math.max(Number(room.height) || 0, 0);
   const x = Number(room.x) || 0;
@@ -677,56 +701,22 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
 
 function RoomFloor3D({ room }) {
   const textureMeta = getFloorTextureById(room.floorTextureId);
-  const resolvedTexturePath = useMemo(() => resolveAssetPath(textureMeta.image), [textureMeta.image]);
-  const [textureLoadFailed, setTextureLoadFailed] = useState(false);
-  const [baseTexture, setBaseTexture] = useState(null);
-
-  useEffect(() => {
-    let isCancelled = false;
-    setTextureLoadFailed(false);
-    setBaseTexture(null);
-
-    if (!resolvedTexturePath) {
-      setTextureLoadFailed(true);
-      return undefined;
-    }
-
-    const loader = new THREE.TextureLoader();
-    loader.load(
-      resolvedTexturePath,
-      (loadedTexture) => {
-        if (isCancelled) return;
-        setBaseTexture(loadedTexture);
-      },
-      undefined,
-      () => {
-        if (isCancelled) return;
-        setTextureLoadFailed(true);
-      }
-    );
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [resolvedTexturePath]);
+  const tileScaleMult = Number(room.tileScale) || 1;
+  const texture = useTexture(textureMeta.image);
 
   const preparedTexture = useMemo(() => {
-    if (!baseTexture || textureLoadFailed) return null;
-    const next = baseTexture.clone();
+    if (!texture) return null;
+    const next = texture.clone();
     next.wrapS = THREE.RepeatWrapping;
     next.wrapT = THREE.RepeatWrapping;
     next.repeat.set(
-      Math.max(1, (Number(room.width) || 1) / (Number(textureMeta.tileWidth) || 1)),
-      Math.max(1, (Number(room.height) || 1) / (Number(textureMeta.tileHeight) || 1))
+      Math.max(1, (Number(room.width) || 1) / ((Number(textureMeta.tileWidth) * tileScaleMult) || 1)),
+      Math.max(1, (Number(room.height) || 1) / ((Number(textureMeta.tileHeight) * tileScaleMult) || 1))
     );
     next.anisotropy = 8;
     next.needsUpdate = true;
     return next;
-  }, [baseTexture, textureLoadFailed, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight]);
-
-  useEffect(() => () => {
-    preparedTexture?.dispose?.();
-  }, [preparedTexture]);
+  }, [texture, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight]);
 
   return (
     <mesh
@@ -735,12 +725,7 @@ function RoomFloor3D({ room }) {
       receiveShadow
     >
       <planeGeometry args={[Math.max(Number(room.width) - 0.12, 0.2), Math.max(Number(room.height) - 0.12, 0.2)]} />
-      <meshStandardMaterial
-        map={preparedTexture || null}
-        color={preparedTexture ? "#ffffff" : (room.color || "#ffffff")}
-        roughness={0.82}
-        metalness={0.04}
-      />
+      <meshStandardMaterial map={preparedTexture} color={room.color || "#ffffff"} roughness={0.82} metalness={0.04} />
     </mesh>
   );
 }
@@ -1232,7 +1217,7 @@ function Opening2D({ room, opening, scale, wallThickness }) {
 
 // ─── 2D Furniture (UPDATED: SVG rotate transform around center) ───────────────
 
-function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect }) {
+function Furniture2D({ room, furnitureItem, scale, labelOffset = 0, isSelected = false, onSelect }) {
   const roomX  = Number(room.x) || 0;
   const roomY  = Number(room.y) || 0;
   const localX = Number(furnitureItem.x) || 0;
@@ -1255,8 +1240,8 @@ function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect 
 
   const nameFontSize = Math.max(5.5, Math.min(8, Math.min(w, h) * 0.09));
   const dimFontSize  = Math.max(4.75, Math.min(6.5, Math.min(w, h) * 0.075));
-  const labelOffsetY = h >= 42 ? -3 : -1;
-  const dimOffsetY   = h >= 42 ? 10 : 8;
+  const labelOffsetY = (h >= 42 ? -3 : -1) + labelOffset;
+  const dimOffsetY   = (h >= 42 ? 10 : 8) + labelOffset;
 
   const handleSelect = (e) => {
     if (!hasRec || typeof onSelect !== "function") return;
@@ -2112,6 +2097,7 @@ export default function App() {
   const [currentProjectId,     setCurrentProjectId]     = useState(null);
   const [projectStatusMessage, setProjectStatusMessage] = useState("");
   const [expandedRoomId,       setExpandedRoomId]       = useState(null);
+  const [sunControlsExpanded, setSunControlsExpanded] = useState(false);
   const [assistantCollapsed,   setAssistantCollapsed]   = useState(() => {
     if (typeof window === "undefined") return false;
     return window.sessionStorage.getItem(ASSISTANT_COLLAPSED_SESSION_KEY) === "true";
@@ -2707,7 +2693,7 @@ export default function App() {
           {selectedFurnitureRecommendations.map((product) => (
             <a key={product.id} className="furniture-product-card" href={product.url} target="_blank" rel="noreferrer">
               <div className="furniture-product-image-wrap">
-                <img src={resolveAssetPath(product.image)} alt={product.title} className="furniture-recommendation-image" loading="lazy" onError={(e) => { e.currentTarget.src = resolveAssetPath("products/bed-wooden.jpg"); }} />
+                <img src={product.image} alt={product.title} className="furniture-recommendation-image" loading="lazy" onError={(e) => { e.currentTarget.src = "/products/bed-wooden.jpg"; }} />
               </div>
               <div className="furniture-product-body">
                 <span className="furniture-product-label">Amazon Option</span>
@@ -2841,7 +2827,7 @@ export default function App() {
             <div className="summary-box stat-box"><span>Space Utilization</span><strong>{utilization}%</strong></div>
           </section>
 
-          <div className="workspace-content-grid">
+          <div className="workspace-content-grid" style={{ gridTemplateColumns: assistantCollapsed ? "1fr" : undefined }}>
             {/* Preview column */}
             <div className="workspace-preview-column">
               {/* 2D View */}
@@ -2898,7 +2884,7 @@ export default function App() {
                         {placedRooms.map((room) => (
                           <g key={`furniture-${room.id}`}>
                             {(room.furniture || []).map((item) => (
-                              <Furniture2D key={item.id} room={room} furnitureItem={item} scale={numericScale}
+                              <Furniture2D key={item.id} room={room} furnitureItem={item} scale={numericScale} labelOffset={labelOffsets[`${room.id}-${item.id}`] || 0}
                                 isSelected={selectedFurnitureKey === `${room.id}-${item.id}`}
                                 onSelect={(sel) => handleFurnitureSelection(room, sel)} />
                             ))}
@@ -3007,7 +2993,9 @@ export default function App() {
                           Reset
                         </button>
                       </div>
+                      <button onClick={() => setSunControlsExpanded(false)} className="ghost-btn" style={{ position: "absolute", top: 12, right: 12, padding: "4px" }}><X size={14} /></button>
                     </div>
+   )}
                     <Canvas shadows onPointerMissed={clearSelectedFurniture} gl={{ preserveDrawingBuffer: true }}
                       camera={{ position: [Math.max(Number(totalWidth) * 0.85, 14), Math.max(Number(roomHeight) * 2.2, 16), Math.max(Number(totalHeight) * 1.0, 14)], fov: 42 }}>
                       <Floor3DScene rooms={placedRooms} totalWidth={Number(totalWidth)} totalHeight={Number(totalHeight)}
@@ -3040,7 +3028,7 @@ export default function App() {
             </div>
 
             {/* Chat */}
-            <aside className="chatbot-card input-card">
+            <aside className="chatbot-card input-card" style={{ display: assistantCollapsed ? "none" : "flex" }}>
               <div className="section-header chatbot-header">
                 <div className="chatbot-header-copy">
                   <h2><MessageSquare size={16} />Floor Plan Assistant</h2>
@@ -3192,7 +3180,7 @@ export default function App() {
                                   height: 64,
                                   borderRadius: 8,
                                   marginBottom: 8,
-                                  backgroundImage: `url(${resolveAssetPath(floor.image)})`,
+                                  backgroundImage: `url(${floor.image})`,
                                   backgroundSize: "cover",
                                   backgroundPosition: "center",
                                   border: "1px solid rgba(148,163,184,0.18)",
