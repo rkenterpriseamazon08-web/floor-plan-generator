@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid, Text as DreiText } from "@react-three/drei";
+import * as THREE from "three";
 import {
   Home,
   Plus,
@@ -25,6 +26,9 @@ import {
   Moon,
   Sliders,
   ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  PaintBucket,
 } from "lucide-react";
 
 const APPS_SCRIPT_URL =
@@ -68,6 +72,79 @@ const FLOOR_PLAN_OPENAI_KEY_STORAGE = "floor-plan-openai-api-key";
 const THEME_STORAGE_KEY = "floor-plan-generator-theme";
 const OPENAI_MODEL = "gpt-4.1-mini";
 const OPENAI_IMAGE_MODEL = "gpt-image-1";
+
+const DEFAULT_WALL_COLOR = "#7e8da3";
+const DEFAULT_FLOOR_TEXTURE_ID = "white-marble";
+const ASSISTANT_COLLAPSED_SESSION_KEY = "floor-plan-assistant-collapsed";
+const SUN_SETTINGS_SESSION_KEY = "floor-plan-sun-settings";
+const DEFAULT_SUN_SETTINGS = {
+  azimuth: 132,
+  elevation: 46,
+  intensity: 1.2,
+  color: "#fff3e0",
+  ambientIntensity: 0.5,
+};
+
+const ASSET_BASE = (import.meta?.env?.BASE_URL || "/").replace(/\/?$/, "/");
+
+function resolveAssetPath(path) {
+  const raw = String(path || "").trim();
+  if (!raw) return "";
+  if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
+  const cleaned = raw.replace(/^\/+/, "");
+  return `${ASSET_BASE}${cleaned}`;
+}
+
+const FLOOR_TEXTURE_LIBRARY = [
+  {
+    id: "white-marble",
+    name: "White Marble",
+    image: "textures/white-marble.png",
+    tileWidth: 2,
+    tileHeight: 2,
+    category: "marble",
+  },
+  {
+    id: "beige-marble",
+    name: "Beige Marble",
+    image: "textures/beige-marble.png",
+    tileWidth: 2,
+    tileHeight: 2,
+    category: "marble",
+  },
+  {
+    id: "grey-concrete",
+    name: "Grey Concrete Tile",
+    image: "textures/grey-concrete-tile.png",
+    tileWidth: 2,
+    tileHeight: 2,
+    category: "concrete",
+  },
+  {
+    id: "wood-floor",
+    name: "Wood Floor",
+    image: "textures/wood-floor.png",
+    tileWidth: 0.6,
+    tileHeight: 3,
+    category: "wood",
+  },
+  {
+    id: "patterned-tile",
+    name: "Patterned Tile",
+    image: "textures/patterned-tile.png",
+    tileWidth: 1,
+    tileHeight: 1,
+    category: "decorative",
+  },
+  {
+    id: "glossy-cream",
+    name: "Glossy Cream Tile",
+    image: "textures/glossy-cream-tile.png",
+    tileWidth: 2,
+    tileHeight: 2,
+    category: "ceramic",
+  },
+];
 
 const FURNITURE_PRODUCT_RECOMMENDATIONS = {
   "bed (single / double)": [
@@ -148,6 +225,66 @@ const FURNITURE_PRESETS = {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+
+function normalizeHexColor(value, fallback = DEFAULT_WALL_COLOR) {
+  const text = String(value || "").trim();
+  return /^#([0-9a-fA-F]{6})$/.test(text) ? text : fallback;
+}
+
+function getFloorTextureById(textureId) {
+  return FLOOR_TEXTURE_LIBRARY.find((item) => item.id === textureId) || FLOOR_TEXTURE_LIBRARY[0];
+}
+
+function getDefaultFloorTextureId() {
+  return FLOOR_TEXTURE_LIBRARY[0]?.id || DEFAULT_FLOOR_TEXTURE_ID;
+}
+
+function ensureRoomVisualDefaults(room, index = 0) {
+  return {
+    ...room,
+    color: room?.color || ROOM_COLORS[index % ROOM_COLORS.length],
+    wallColor: normalizeHexColor(room?.wallColor, DEFAULT_WALL_COLOR),
+    floorTextureId: room?.floorTextureId || getDefaultFloorTextureId(),
+  };
+}
+
+function getSunPosition(azimuth, elevation, distance = 90, centerX = 0, centerZ = 0) {
+  const az = (Number(azimuth || 0) * Math.PI) / 180;
+  const el = (Number(elevation || 0) * Math.PI) / 180;
+  const horizontal = Math.cos(el) * distance;
+  return [
+    centerX + horizontal * Math.cos(az),
+    Math.max(10, Math.sin(el) * distance),
+    centerZ + horizontal * Math.sin(az),
+  ];
+}
+
+function rangesOverlapInclusive(a1, a2, b1, b2) {
+  return Math.max(a1, b1) <= Math.min(a2, b2);
+}
+
+function getWallColorForSegment(segment, rooms) {
+  const isVertical = segment.x1 === segment.x2;
+  const fixed = isVertical ? segment.x1 : segment.y1;
+  const start = isVertical ? Math.min(segment.y1, segment.y2) : Math.min(segment.x1, segment.x2);
+  const end = isVertical ? Math.max(segment.y1, segment.y2) : Math.max(segment.x1, segment.x2);
+
+  const matches = rooms.filter((room) => {
+    const rx = Number(room.x) || 0;
+    const ry = Number(room.y) || 0;
+    const rw = Number(room.width) || 0;
+    const rh = Number(room.height) || 0;
+    if (isVertical) {
+      const touches = Math.abs(fixed - rx) < 0.001 || Math.abs(fixed - (rx + rw)) < 0.001;
+      return touches && rangesOverlapInclusive(start, end, ry, ry + rh);
+    }
+    const touches = Math.abs(fixed - ry) < 0.001 || Math.abs(fixed - (ry + rh)) < 0.001;
+    return touches && rangesOverlapInclusive(start, end, rx, rx + rw);
+  });
+
+  return matches[0]?.wallColor || DEFAULT_WALL_COLOR;
 }
 
 function getWallLength(room, wall) {
@@ -361,6 +498,8 @@ const createRoom = (index) => ({
   x: 0,
   y: 0,
   color: ROOM_COLORS[index % ROOM_COLORS.length],
+  wallColor: DEFAULT_WALL_COLOR,
+  floorTextureId: getDefaultFloorTextureId(),
   doors: [],
   windows: [],
   furniture: [],
@@ -371,13 +510,15 @@ function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_
   const height = Math.max(Number(room.height) || 0, 0);
   const x = Number(room.x) || 0;
   const y = Number(room.y) || 0;
-  const baseRoom = {
+  const baseRoom = ensureRoomVisualDefaults({
     ...room, width, height,
     x: clamp(x, 0, Math.max(0, totalWidth  - width)),
     y: clamp(y, 0, Math.max(0, totalHeight - height)),
-  };
+  });
   return {
     ...baseRoom,
+    wallColor: normalizeHexColor(baseRoom.wallColor, DEFAULT_WALL_COLOR),
+    floorTextureId: baseRoom.floorTextureId || getDefaultFloorTextureId(),
     doors:    Array.isArray(baseRoom.doors)    ? baseRoom.doors.map((d)  => normalizeDoor(d, baseRoom))                  : [],
     windows:  Array.isArray(baseRoom.windows)  ? baseRoom.windows.map((w) => normalizeWindow(w, baseRoom, wallHeight))   : [],
     furniture: Array.isArray(baseRoom.furniture) ? baseRoom.furniture.map((item) => normalizeFurniture(item, baseRoom))  : [],
@@ -466,7 +607,7 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
     if (opening.type === "door") {
       return { ...opening, bottom: 0, top: clamp(Number(opening.height) || DEFAULT_DOOR_HEIGHT, 0.1, height) };
     }
-    const sillHeight    = clamp(Number(opening.sillHeight) || 0, 0, Math.max(0, height - 0.1));
+    const sillHeight = clamp(Number(opening.sillHeight) || 0, 0, Math.max(0, height - 0.1));
     const openingHeight = clamp(Number(opening.height) || DEFAULT_WINDOW_HEIGHT, 0.1, Math.max(0.1, height - sillHeight));
     return { ...opening, bottom: sillHeight, top: Math.min(height, sillHeight + openingHeight) };
   });
@@ -476,37 +617,57 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
   ).filter((v) => v >= 0 && v <= height).sort((a, b) => a - b);
 
   const wallStart = isVertical ? Math.min(y1, y2) : Math.min(x1, x2);
-  const wallEnd   = isVertical ? Math.max(y1, y2) : Math.max(x1, x2);
+  const wallEnd = isVertical ? Math.max(y1, y2) : Math.max(x1, x2);
   const bands = [];
 
   for (let i = 0; i < verticalBreaks.length - 1; i++) {
     const bandBottom = verticalBreaks[i];
-    const bandTop    = verticalBreaks[i + 1];
+    const bandTop = verticalBreaks[i + 1];
     const bandHeight = bandTop - bandBottom;
     if (bandHeight <= 0.01) continue;
     const cuts = openings
       .filter((o) => o.bottom < bandTop && o.top > bandBottom)
       .map((o) => ({ start: o.start, end: o.end }));
     subtractRanges(wallStart, wallEnd, cuts).forEach((part) => {
-      if (part.end - part.start > 0.01) bands.push({ ...part, bandBottom, bandTop, bandHeight, partLength: part.end - part.start });
+      if (part.end - part.start > 0.01) {
+        bands.push({
+          ...part,
+          bandBottom,
+          bandTop,
+          bandHeight,
+          partLength: part.end - part.start,
+        });
+      }
     });
   }
+
+  const wallColor = getWallColorForSegment(segment, rooms);
 
   return (
     <group>
       {bands.map((band, index) => {
         if (isVertical) {
           return (
-            <mesh key={index} castShadow receiveShadow position={[x1, (band.bandBottom + band.bandTop) / 2, (band.start + band.end) / 2]}>
+            <mesh
+              key={index}
+              castShadow
+              receiveShadow
+              position={[x1, (band.bandBottom + band.bandTop) / 2, (band.start + band.end) / 2]}
+            >
               <boxGeometry args={[wallThickness, band.bandHeight, band.partLength]} />
-              <meshStandardMaterial color="#7e8da3" roughness={0.86} />
+              <meshStandardMaterial color={wallColor} roughness={0.9} metalness={0.02} />
             </mesh>
           );
         }
         return (
-          <mesh key={index} castShadow receiveShadow position={[(band.start + band.end) / 2, (band.bandBottom + band.bandTop) / 2, y1]}>
+          <mesh
+            key={index}
+            castShadow
+            receiveShadow
+            position={[(band.start + band.end) / 2, (band.bandBottom + band.bandTop) / 2, y1]}
+          >
             <boxGeometry args={[band.partLength, band.bandHeight, wallThickness]} />
-            <meshStandardMaterial color="#7e8da3" roughness={0.86} />
+            <meshStandardMaterial color={wallColor} roughness={0.9} metalness={0.02} />
           </mesh>
         );
       })}
@@ -514,10 +675,175 @@ function WallMesh({ segment, wallThickness, height, rooms }) {
   );
 }
 
+function RoomFloor3D({ room }) {
+  const textureMeta = getFloorTextureById(room.floorTextureId);
+  const resolvedTexturePath = useMemo(() => resolveAssetPath(textureMeta.image), [textureMeta.image]);
+  const [textureLoadFailed, setTextureLoadFailed] = useState(false);
+  const [baseTexture, setBaseTexture] = useState(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+    setTextureLoadFailed(false);
+    setBaseTexture(null);
+
+    if (!resolvedTexturePath) {
+      setTextureLoadFailed(true);
+      return undefined;
+    }
+
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      resolvedTexturePath,
+      (loadedTexture) => {
+        if (isCancelled) return;
+        setBaseTexture(loadedTexture);
+      },
+      undefined,
+      () => {
+        if (isCancelled) return;
+        setTextureLoadFailed(true);
+      }
+    );
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [resolvedTexturePath]);
+
+  const preparedTexture = useMemo(() => {
+    if (!baseTexture || textureLoadFailed) return null;
+    const next = baseTexture.clone();
+    next.wrapS = THREE.RepeatWrapping;
+    next.wrapT = THREE.RepeatWrapping;
+    next.repeat.set(
+      Math.max(1, (Number(room.width) || 1) / (Number(textureMeta.tileWidth) || 1)),
+      Math.max(1, (Number(room.height) || 1) / (Number(textureMeta.tileHeight) || 1))
+    );
+    next.anisotropy = 8;
+    next.needsUpdate = true;
+    return next;
+  }, [baseTexture, textureLoadFailed, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight]);
+
+  useEffect(() => () => {
+    preparedTexture?.dispose?.();
+  }, [preparedTexture]);
+
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[Number(room.x) + Number(room.width) / 2, 0.03, Number(room.y) + Number(room.height) / 2]}
+      receiveShadow
+    >
+      <planeGeometry args={[Math.max(Number(room.width) - 0.12, 0.2), Math.max(Number(room.height) - 0.12, 0.2)]} />
+      <meshStandardMaterial
+        map={preparedTexture || null}
+        color={preparedTexture ? "#ffffff" : (room.color || "#ffffff")}
+        roughness={0.82}
+        metalness={0.04}
+      />
+    </mesh>
+  );
+}
+
+function Door3D({ room, door, wallThickness }) {
+  const line = getOpeningLineSegment(room, door);
+  if (!line) return null;
+
+  const width = Number(door.width) || DEFAULT_DOOR_WIDTH;
+  const height = Number(door.height) || DEFAULT_DOOR_HEIGHT;
+  const depth = Math.max(0.12, wallThickness * 0.72);
+  const frameThickness = Math.max(0.08, Math.min(width, height) * 0.045);
+  const centerX = (line.x1 + line.x2) / 2;
+  const centerZ = (line.y1 + line.y2) / 2;
+  const rotateY = door.wall === "left" || door.wall === "right" ? Math.PI / 2 : 0;
+  const handleX = width / 2 - frameThickness * 2.4;
+
+  return (
+    <group position={[centerX, 0, centerZ]} rotation={[0, rotateY, 0]}>
+      <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
+        <boxGeometry args={[width + frameThickness * 2, height + frameThickness, depth]} />
+        <meshStandardMaterial color="#7f5d44" roughness={0.84} />
+      </mesh>
+
+      <mesh castShadow receiveShadow position={[0, height / 2, depth * 0.12]}>
+        <boxGeometry args={[width, height, depth * 0.72]} />
+        <meshStandardMaterial color="#b78656" roughness={0.72} />
+      </mesh>
+
+      <mesh castShadow position={[0, height * 0.58, depth * 0.42]}>
+        <boxGeometry args={[width * 0.72, height * 0.05, depth * 0.06]} />
+        <meshStandardMaterial color="#c89a68" roughness={0.68} />
+      </mesh>
+
+      <mesh castShadow position={[handleX, height * 0.48, depth * 0.56]}>
+        <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
+        <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
+      </mesh>
+      <mesh castShadow position={[-handleX, height * 0.48, -depth * 0.56]} rotation={[0, Math.PI, 0]}>
+        <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
+        <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
+      </mesh>
+    </group>
+  );
+}
+
+function Window3D({ room, windowItem, wallThickness }) {
+  const line = getOpeningLineSegment(room, windowItem);
+  if (!line) return null;
+
+  const width = Number(windowItem.width) || DEFAULT_WINDOW_WIDTH;
+  const height = Number(windowItem.height) || DEFAULT_WINDOW_HEIGHT;
+  const sillHeight = Number(windowItem.sillHeight) || DEFAULT_WINDOW_SILL_HEIGHT;
+  const depth = Math.max(0.08, wallThickness * 0.42);
+  const frame = Math.max(0.06, Math.min(width, height) * 0.06);
+  const centerX = (line.x1 + line.x2) / 2;
+  const centerZ = (line.y1 + line.y2) / 2;
+  const centerY = sillHeight + height / 2;
+  const rotateY = windowItem.wall === "left" || windowItem.wall === "right" ? Math.PI / 2 : 0;
+  const dividerCount = width >= 4.5 ? 2 : 1;
+
+  return (
+    <group position={[centerX, centerY, centerZ]} rotation={[0, rotateY, 0]}>
+      <mesh receiveShadow castShadow position={[0, 0, 0]}>
+        <boxGeometry args={[width + frame * 2, height + frame * 2, depth]} />
+        <meshStandardMaterial color="#eef2f7" roughness={0.62} metalness={0.08} />
+      </mesh>
+      <mesh receiveShadow position={[0, 0, 0.02]}>
+        <boxGeometry args={[width, height, Math.max(0.02, depth * 0.22)]} />
+        <meshStandardMaterial color="#bfe3ff" transparent opacity={0.38} roughness={0.08} metalness={0.18} />
+      </mesh>
+
+      {dividerCount >= 1 && (
+        <mesh castShadow receiveShadow position={[0, 0, 0.03]}>
+          <boxGeometry args={[frame * 0.9, height, Math.max(0.02, depth * 0.25)]} />
+          <meshStandardMaterial color="#dbe3ec" roughness={0.58} metalness={0.08} />
+        </mesh>
+      )}
+      {dividerCount === 2 && (
+        <>
+          <mesh castShadow receiveShadow position={[-width * 0.25, 0, 0.03]}>
+            <boxGeometry args={[frame * 0.75, height, Math.max(0.02, depth * 0.25)]} />
+            <meshStandardMaterial color="#dbe3ec" roughness={0.58} metalness={0.08} />
+          </mesh>
+          <mesh castShadow receiveShadow position={[width * 0.25, 0, 0.03]}>
+            <boxGeometry args={[frame * 0.75, height, Math.max(0.02, depth * 0.25)]} />
+            <meshStandardMaterial color="#dbe3ec" roughness={0.58} metalness={0.08} />
+          </mesh>
+        </>
+      )}
+      <mesh castShadow receiveShadow position={[0, 0, 0.03]}>
+        <boxGeometry args={[width, frame * 0.8, Math.max(0.02, depth * 0.25)]} />
+        <meshStandardMaterial color="#dbe3ec" roughness={0.58} metalness={0.08} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Furniture helpers ────────────────────────────────────────────────────────
 // ─── Furniture helpers ────────────────────────────────────────────────────────
 
 function FurnitureMaterial({ color }) {
-  return <meshStandardMaterial color={color || "#cfd8e3"} roughness={0.88} metalness={0.04} />;
+  return <meshStandardMaterial color={color || "#cfd8e3"} roughness={0.72} metalness={0.08} />;
 }
 
 function FurnitureLabel({ x, y, z, text }) {
@@ -593,6 +919,10 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
           <boxGeometry args={[width, 1.1, depth]} />
           <FurnitureMaterial color={color} />
         </mesh>
+        <mesh castShadow receiveShadow position={[0, 1.04, 0]}>
+          <boxGeometry args={[width * 0.88, 0.22, depth * 0.82]} />
+          <meshStandardMaterial color="#eef2f7" roughness={0.9} metalness={0.02} />
+        </mesh>
         <mesh castShadow receiveShadow position={[0, 1.55, -depth * 0.32]}>
           <boxGeometry args={[width, 1.1, Math.max(0.3, depth * 0.22)]} />
           <FurnitureMaterial color={color} />
@@ -626,6 +956,10 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
         <mesh castShadow receiveShadow position={[0, legHeight + topThickness / 2, 0]}>
           <boxGeometry args={[width, topThickness, depth]} />
           <FurnitureMaterial color={color} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[0, legHeight + topThickness + 0.02, 0]}>
+          <boxGeometry args={[width * 0.92, Math.max(0.04, topThickness * 0.18), depth * 0.92]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.65} metalness={0.1} />
         </mesh>
         {legPositions.map((pos, idx) => (
           <mesh key={idx} castShadow receiveShadow position={pos}>
@@ -749,21 +1083,46 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
 
 // ─── 3D Scene ─────────────────────────────────────────────────────────────────
 
-function Floor3DScene({ rooms, totalWidth, totalHeight, wallThickness, roomHeight, wallSegments, selectedFurnitureKey, onFurnitureSelect }) {
+function Floor3DScene({
+  rooms,
+  totalWidth,
+  totalHeight,
+  wallThickness,
+  roomHeight,
+  wallSegments,
+  selectedFurnitureKey,
+  onFurnitureSelect,
+  sunSettings,
+}) {
   const centerX = totalWidth / 2;
   const centerZ = totalHeight / 2;
   const wt = Math.max(0.22, Number(wallThickness) || 0.5);
-  const h  = Math.max(8, Number(roomHeight) || DEFAULT_ROOM_HEIGHT);
+  const h = Math.max(8, Number(roomHeight) || DEFAULT_ROOM_HEIGHT);
+  const safeSun = { ...DEFAULT_SUN_SETTINGS, ...(sunSettings || {}) };
+  const sunPos = getSunPosition(safeSun.azimuth, safeSun.elevation, Math.max(totalWidth, totalHeight) * 1.8, centerX, centerZ);
 
   return (
     <>
-      <ambientLight intensity={0.6} />
-      <hemisphereLight intensity={0.65} groundColor="#cad4df" />
-      <directionalLight position={[24, 30, 18]} intensity={1.15} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} />
+      <ambientLight intensity={safeSun.ambientIntensity} />
+      <hemisphereLight intensity={0.42} groundColor="#cad4df" color="#f8fbff" />
+      <directionalLight
+        position={sunPos}
+        intensity={safeSun.intensity}
+        color={safeSun.color}
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-bias={-0.0005}
+      />
       <Grid
         args={[Math.max(totalWidth + 20, 80), Math.max(totalHeight + 20, 80)]}
-        cellSize={1} cellThickness={0.5} sectionSize={5} sectionThickness={1}
-        fadeDistance={120} fadeStrength={1} position={[centerX, 0, centerZ]}
+        cellSize={1}
+        cellThickness={0.5}
+        sectionSize={5}
+        sectionThickness={1}
+        fadeDistance={120}
+        fadeStrength={1}
+        position={[centerX, 0, centerZ]}
       />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[centerX, -0.02, centerZ]} receiveShadow>
         <planeGeometry args={[totalWidth, totalHeight]} />
@@ -771,36 +1130,33 @@ function Floor3DScene({ rooms, totalWidth, totalHeight, wallThickness, roomHeigh
       </mesh>
 
       {rooms.map((room) => {
-        const x = Number(room.x) || 0, z = Number(room.y) || 0;
-        const w = Math.max(Number(room.width) || 0, 0.2), d = Math.max(Number(room.height) || 0, 0.2);
-        const { windows } = getRoomOpenings(room, h);
+        const x = Number(room.x) || 0;
+        const z = Number(room.y) || 0;
+        const w = Math.max(Number(room.width) || 0, 0.2);
+        const d = Math.max(Number(room.height) || 0, 0.2);
         return (
           <group key={room.id}>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[x + w / 2, 0.03, z + d / 2]} receiveShadow>
-              <planeGeometry args={[Math.max(w - wt * 0.6, 0.2), Math.max(d - wt * 0.6, 0.2)]} />
-              <meshStandardMaterial color={room.color || "#eef4ff"} roughness={0.95} />
-            </mesh>
-            <DreiText position={[x + w / 2, 0.12, z + d / 2]} fontSize={0.52} color="#162033" anchorX="center" anchorY="middle" rotation={[-Math.PI / 2, 0, 0]}>
+            <RoomFloor3D room={room} />
+            <DreiText
+              position={[x + w / 2, 0.12, z + d / 2]}
+              fontSize={0.52}
+              color="#162033"
+              anchorX="center"
+              anchorY="middle"
+              rotation={[-Math.PI / 2, 0, 0]}
+            >
               {room.name || "Room"}
             </DreiText>
-            <DreiText position={[x + w / 2, 0.12, z + d / 2 + 0.95]} fontSize={0.34} color="#445065" anchorX="center" anchorY="middle" rotation={[-Math.PI / 2, 0, 0]}>
+            <DreiText
+              position={[x + w / 2, 0.12, z + d / 2 + 0.95]}
+              fontSize={0.34}
+              color="#445065"
+              anchorX="center"
+              anchorY="middle"
+              rotation={[-Math.PI / 2, 0, 0]}
+            >
               {`${w} ft × ${d} ft`}
             </DreiText>
-
-            {windows.map((win, idx) => {
-              const line = getOpeningLineSegment(room, win);
-              if (!line) return null;
-              const isV = line.x1 === line.x2;
-              const centerPos = isV
-                ? [line.x1, win.sillHeight + win.height / 2, (line.y1 + line.y2) / 2]
-                : [(line.x1 + line.x2) / 2, win.sillHeight + win.height / 2, line.y1];
-              return (
-                <mesh key={idx} position={centerPos}>
-                  <boxGeometry args={isV ? [Math.max(wt * 0.18, 0.04), win.height, win.width] : [win.width, win.height, Math.max(wt * 0.18, 0.04)]} />
-                  <meshStandardMaterial color="#b9e3ff" transparent opacity={0.45} roughness={0.08} metalness={0.1} />
-                </mesh>
-              );
-            })}
 
             {(room.furniture || []).map((item) => (
               <Furniture3D
@@ -819,6 +1175,20 @@ function Floor3DScene({ rooms, totalWidth, totalHeight, wallThickness, roomHeigh
         <WallMesh key={index} segment={segment} wallThickness={wt} height={h} rooms={rooms} />
       ))}
 
+      {rooms.map((room) => {
+        const { doors, windows } = getRoomOpenings(room, h);
+        return (
+          <group key={`openings-3d-${room.id}`}>
+            {doors.map((door, idx) => (
+              <Door3D key={`door-3d-${room.id}-${idx}`} room={room} door={door} wallThickness={wt} />
+            ))}
+            {windows.map((win, idx) => (
+              <Window3D key={`window-3d-${room.id}-${idx}`} room={room} windowItem={win} wallThickness={wt} />
+            ))}
+          </group>
+        );
+      })}
+
       <DreiText position={[centerX, 0.18, -2]} fontSize={0.75} color="#0f172a" anchorX="center" anchorY="middle" rotation={[-Math.PI / 2, 0, 0]}>
         {`Width: ${totalWidth} ft`}
       </DreiText>
@@ -826,11 +1196,21 @@ function Floor3DScene({ rooms, totalWidth, totalHeight, wallThickness, roomHeigh
         {`Height: ${totalHeight} ft`}
       </DreiText>
 
-      <OrbitControls makeDefault enablePan enableZoom enableRotate minDistance={12} maxDistance={160} maxPolarAngle={Math.PI / 2.08} target={[centerX, 0, centerZ]} />
+      <OrbitControls
+        makeDefault
+        enablePan
+        enableZoom
+        enableRotate
+        minDistance={12}
+        maxDistance={160}
+        maxPolarAngle={Math.PI / 2.08}
+        target={[centerX, 0, centerZ]}
+      />
     </>
   );
 }
 
+// ─── 2D Opening ───────────────────────────────────────────────────────────────
 // ─── 2D Opening ───────────────────────────────────────────────────────────────
 
 function Opening2D({ room, opening, scale, wallThickness }) {
@@ -1225,7 +1605,9 @@ function getDefaultProjectState() {
     selectedCategory: "office",
     rooms: getDefaultRooms(40, 30),
     furnitureSelections: {},
-    customPresetDimensions: {}, // NEW
+    customPresetDimensions: {},
+    assistantCollapsed: false,
+    sunSettings: DEFAULT_SUN_SETTINGS,
   };
 }
 
@@ -1355,6 +1737,8 @@ function sanitizeVisionFloorPlanResponse(aiResponse, currentState) {
     x: Math.max(0, Number(room?.x) || 0), y: Math.max(0, Number(room?.y) || 0),
     width: Math.max(4, Number(room?.width) || 10), height: Math.max(4, Number(room?.height) || 10),
     color: ROOM_COLORS[index % ROOM_COLORS.length],
+    wallColor: DEFAULT_WALL_COLOR,
+    floorTextureId: getDefaultFloorTextureId(),
     doors: [], windows: [], furniture: [],
   }));
 
@@ -1477,6 +1861,8 @@ function createTemplateRoom(index, name, width, height, category, overrides = {}
       ? crypto.randomUUID() : `room-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
     name, width, height, x: 0, y: 0,
     color: ROOM_COLORS[index % ROOM_COLORS.length],
+    wallColor: DEFAULT_WALL_COLOR,
+    floorTextureId: getDefaultFloorTextureId(),
     doors: [], windows: [], furniture: [], ...overrides,
   };
   return {
@@ -1726,13 +2112,25 @@ export default function App() {
   const [currentProjectId,     setCurrentProjectId]     = useState(null);
   const [projectStatusMessage, setProjectStatusMessage] = useState("");
   const [expandedRoomId,       setExpandedRoomId]       = useState(null);
+  const [assistantCollapsed,   setAssistantCollapsed]   = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.sessionStorage.getItem(ASSISTANT_COLLAPSED_SESSION_KEY) === "true";
+  });
+  const [sunSettings, setSunSettings] = useState(() => {
+    if (typeof window === "undefined") return DEFAULT_SUN_SETTINGS;
+    try {
+      const raw = window.sessionStorage.getItem(SUN_SETTINGS_SESSION_KEY);
+      return raw ? { ...DEFAULT_SUN_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SUN_SETTINGS;
+    } catch {
+      return DEFAULT_SUN_SETTINGS;
+    }
+  });
 
   // ── Chat ──
   const [chatMessages,  setChatMessages]  = useState(() => [createChatMessage("assistant", "Hi, I can help you navigate the app, create layouts like 1BHK / 2BHK / office / cafe, and apply voice commands.")]);
   const [chatInput,     setChatInput]     = useState("");
   const [isChatbotBusy, setIsChatbotBusy] = useState(false);
   const [isListening,   setIsListening]   = useState(false);
-  const [isAssistantCollapsed, setIsAssistantCollapsed] = useState(false);
 
   // ── Upload / render ──
   const [isFloorPlanUploading,  setIsFloorPlanUploading]  = useState(false);
@@ -1811,6 +2209,16 @@ export default function App() {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(ASSISTANT_COLLAPSED_SESSION_KEY, assistantCollapsed ? "true" : "false");
+  }, [assistantCollapsed]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(SUN_SETTINGS_SESSION_KEY, JSON.stringify(sunSettings));
+  }, [sunSettings]);
+
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   const waitForViewRender = useCallback(async (view, delay = 250) => {
@@ -1836,7 +2244,9 @@ export default function App() {
     totalWidth, totalHeight, wallThickness, scale, roomHeight,
     activeView, selectedCategory,
     rooms, furnitureSelections,
-    customPresetDimensions, // NEW
+    customPresetDimensions,
+    assistantCollapsed,
+    sunSettings,
   });
 
   const applyProjectState = (projectState) => {
@@ -1859,6 +2269,11 @@ export default function App() {
       nextState.customPresetDimensions && typeof nextState.customPresetDimensions === "object"
         ? nextState.customPresetDimensions : {}
     );
+    setAssistantCollapsed(Boolean(nextState.assistantCollapsed));
+    setSunSettings({
+      ...DEFAULT_SUN_SETTINGS,
+      ...(nextState.sunSettings && typeof nextState.sunSettings === "object" ? nextState.sunSettings : {}),
+    });
   };
 
   const refreshSavedProjects = () => {
@@ -2109,7 +2524,7 @@ export default function App() {
       totalRoomArea: Number(totalRoomArea.toFixed(2)), spaceUtilization: utilization,
       currentProjectId: currentProjectId || projectId, quotationValue: "", quotationNotes: "",
       image2D, image3D, ai_render_image_base64: generatedRenderImage || "",
-      rooms: syncedRooms.map((room) => ({ id: room.id || "", name: room.name || "", x: Number(room.x) || 0, y: Number(room.y) || 0, width: Number(room.width) || 0, height: Number(room.height) || 0, color: room.color || "", doors: Array.isArray(room.doors) ? room.doors : [], windows: Array.isArray(room.windows) ? room.windows : [], furniture: Array.isArray(room.furniture) ? room.furniture : [] })),
+      rooms: syncedRooms.map((room) => ({ id: room.id || "", name: room.name || "", x: Number(room.x) || 0, y: Number(room.y) || 0, width: Number(room.width) || 0, height: Number(room.height) || 0, color: room.color || "", wallColor: room.wallColor || DEFAULT_WALL_COLOR, floorTextureId: room.floorTextureId || getDefaultFloorTextureId(), doors: Array.isArray(room.doors) ? room.doors : [], windows: Array.isArray(room.windows) ? room.windows : [], furniture: Array.isArray(room.furniture) ? room.furniture : [] })),
     };
   };
 
@@ -2292,7 +2707,7 @@ export default function App() {
           {selectedFurnitureRecommendations.map((product) => (
             <a key={product.id} className="furniture-product-card" href={product.url} target="_blank" rel="noreferrer">
               <div className="furniture-product-image-wrap">
-                <img src={product.image} alt={product.title} className="furniture-recommendation-image" loading="lazy" onError={(e) => { e.currentTarget.src = "/products/bed-wooden.jpg"; }} />
+                <img src={resolveAssetPath(product.image)} alt={product.title} className="furniture-recommendation-image" loading="lazy" onError={(e) => { e.currentTarget.src = resolveAssetPath("products/bed-wooden.jpg"); }} />
               </div>
               <div className="furniture-product-body">
                 <span className="furniture-product-label">Amazon Option</span>
@@ -2428,7 +2843,7 @@ export default function App() {
 
           <div className="workspace-content-grid">
             {/* Preview column */}
-            <div className="workspace-preview-column" style={{ position: "relative" }}>
+            <div className="workspace-preview-column">
               {/* 2D View */}
               {activeView === "2d" && (
                 <section className="preview-card preview-card--dominant">
@@ -2465,7 +2880,7 @@ export default function App() {
                           const w = room.width * numericScale, h = room.height * numericScale;
                           return (
                             <g key={room.id}>
-                              <rect x={x} y={y} width={w} height={h} fill={room.color || "#eef4ff"} stroke="#7e8da3" strokeWidth={Math.max(2, numericWallThickness * numericScale)} />
+                              <rect x={x} y={y} width={w} height={h} fill={room.color || "#eef4ff"} stroke={room.wallColor || DEFAULT_WALL_COLOR} strokeWidth={Math.max(2, numericWallThickness * numericScale)} />
                             </g>
                           );
                         })}
@@ -2536,12 +2951,68 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="three-wrap three-wrap--dominant" ref={threeContainerRef} style={{ position: "relative", minHeight: 560, overflow: "hidden" }}>
-                    <Canvas style={{ width: "100%", height: "100%", display: "block" }} shadows onPointerMissed={clearSelectedFurniture} gl={{ preserveDrawingBuffer: true, antialias: true }}
+                  <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 14,
+                        right: 14,
+                        zIndex: 4,
+                        width: 280,
+                        padding: 14,
+                        borderRadius: 14,
+                        background: theme === "dark" ? "rgba(16,24,39,0.86)" : "rgba(255,255,255,0.92)",
+                        backdropFilter: "blur(10px)",
+                        boxShadow: "0 12px 30px rgba(15,23,42,0.16)",
+                        border: theme === "dark" ? "1px solid rgba(148,163,184,0.22)" : "1px solid rgba(148,163,184,0.18)",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                        <Sun size={16} />
+                        <strong style={{ fontSize: 13 }}>Sun / Light Controls</strong>
+                      </div>
+                      {[
+                        { key: "azimuth", label: `Azimuth — ${Math.round(sunSettings.azimuth)}°`, min: 0, max: 360, step: 1 },
+                        { key: "elevation", label: `Elevation — ${Math.round(sunSettings.elevation)}°`, min: 5, max: 85, step: 1 },
+                        { key: "intensity", label: `Intensity — ${Number(sunSettings.intensity).toFixed(1)}`, min: 0.2, max: 2.5, step: 0.1 },
+                        { key: "ambientIntensity", label: `Ambient Fill — ${Number(sunSettings.ambientIntensity).toFixed(1)}`, min: 0.1, max: 1.2, step: 0.1 },
+                      ].map((control) => (
+                        <div key={control.key} style={{ marginBottom: 10 }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.8, marginBottom: 4 }}>{control.label}</div>
+                          <input
+                            type="range"
+                            min={control.min}
+                            max={control.max}
+                            step={control.step}
+                            value={sunSettings[control.key]}
+                            onChange={(e) => setSunSettings((prev) => ({ ...prev, [control.key]: Number(e.target.value) }))}
+                            style={{ width: "100%", accentColor: "#f59e0b" }}
+                          />
+                        </div>
+                      ))}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, minWidth: 66 }}>Sun Tone</label>
+                        <input
+                          type="color"
+                          value={sunSettings.color}
+                          onChange={(e) => setSunSettings((prev) => ({ ...prev, color: e.target.value }))}
+                          style={{ width: 42, height: 30, border: "none", background: "transparent", padding: 0 }}
+                        />
+                        <button
+                          type="button"
+                          className="ghost-btn"
+                          style={{ marginLeft: "auto", fontSize: 11, padding: "4px 8px" }}
+                          onClick={() => setSunSettings(DEFAULT_SUN_SETTINGS)}
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+                    <Canvas shadows onPointerMissed={clearSelectedFurniture} gl={{ preserveDrawingBuffer: true }}
                       camera={{ position: [Math.max(Number(totalWidth) * 0.85, 14), Math.max(Number(roomHeight) * 2.2, 16), Math.max(Number(totalHeight) * 1.0, 14)], fov: 42 }}>
                       <Floor3DScene rooms={placedRooms} totalWidth={Number(totalWidth)} totalHeight={Number(totalHeight)}
                         wallThickness={Number(wallThickness)} roomHeight={Number(roomHeight)} wallSegments={wallSegments}
-                        selectedFurnitureKey={selectedFurnitureKey} onFurnitureSelect={handleFurnitureSelection} />
+                        selectedFurnitureKey={selectedFurnitureKey} onFurnitureSelect={handleFurnitureSelection} sunSettings={sunSettings} />
                     </Canvas>
                     {isRenderGenerating && (
                       <div className="ai-render-overlay">
@@ -2566,88 +3037,61 @@ export default function App() {
                   )}
                 </section>
               )}
-
-
-              {isAssistantCollapsed && (
-                <button
-                  type="button"
-                  onClick={() => setIsAssistantCollapsed(false)}
-                  aria-label="Open Floor Plan Assistant"
-                  title="Open Floor Plan Assistant"
-                  style={{
-                    position: "absolute",
-                    right: 16,
-                    bottom: 16,
-                    width: 56,
-                    height: 56,
-                    borderRadius: "999px",
-                    border: "1px solid rgba(148, 163, 184, 0.35)",
-                    background: "#ffffff",
-                    color: "#1e3a5f",
-                    boxShadow: "0 12px 28px rgba(15, 23, 42, 0.18)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    zIndex: 12,
-                    cursor: "pointer",
-                  }}
-                >
-                  <MessageSquare size={22} />
-                </button>
-              )}
             </div>
 
             {/* Chat */}
-            {!isAssistantCollapsed && (
-              <aside className="chatbot-card input-card" style={{ position: "relative" }}>
-                <div className="section-header chatbot-header">
-                  <div className="chatbot-header-copy">
-                    <h2><MessageSquare size={16} />Floor Plan Assistant</h2>
-                    <p>Ask for layouts, guidance, or use voice commands.</p>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span className="chatbot-badge"><Sparkles size={14} />Phase 1 + 2</span>
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      onClick={() => setIsAssistantCollapsed(true)}
-                      aria-label="Minimize Floor Plan Assistant"
-                      title="Minimize Floor Plan Assistant"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
+            <aside className="chatbot-card input-card">
+              <div className="section-header chatbot-header">
+                <div className="chatbot-header-copy">
+                  <h2><MessageSquare size={16} />Floor Plan Assistant</h2>
+                  <p>Ask for layouts, guidance, or use voice commands.</p>
                 </div>
-                <div className="chatbot-quick-actions">
-                  {["Create a 2BHK in 40 by 30 feet", "Create an office layout 32 by 24", "Create a cafe layout"].map((prompt) => (
-                    <button key={prompt} type="button" className="chatbot-chip" onClick={() => setChatInput(prompt)}>{prompt}</button>
-                  ))}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className="chatbot-badge"><Sparkles size={14} />Phase 1 + 2</span>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    aria-label={assistantCollapsed ? "Expand assistant" : "Collapse assistant"}
+                    onClick={() => setAssistantCollapsed((prev) => !prev)}
+                  >
+                    {assistantCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                  </button>
                 </div>
-                <div className="chatbot-messages" ref={chatScrollRef}>
-                  {chatMessages.map((msg) => (
-                    <div key={msg.id} className={`chatbot-message chatbot-message--${msg.role}`}>
-                      <div className="chatbot-message-icon">{msg.role === "assistant" ? <Bot size={14} /> : <span>You</span>}</div>
-                      <div className="chatbot-message-bubble">{msg.content}</div>
+              </div>
+
+              {!assistantCollapsed && (
+                <>
+                  <div className="chatbot-quick-actions">
+                    {["Create a 2BHK in 40 by 30 feet", "Create an office layout 32 by 24", "Create a cafe layout"].map((prompt) => (
+                      <button key={prompt} type="button" className="chatbot-chip" onClick={() => setChatInput(prompt)}>{prompt}</button>
+                    ))}
+                  </div>
+                  <div className="chatbot-messages" ref={chatScrollRef}>
+                    {chatMessages.map((msg) => (
+                      <div key={msg.id} className={`chatbot-message chatbot-message--${msg.role}`}>
+                        <div className="chatbot-message-icon">{msg.role === "assistant" ? <Bot size={14} /> : <span>You</span>}</div>
+                        <div className="chatbot-message-bubble">{msg.content}</div>
+                      </div>
+                    ))}
+                    {isChatbotBusy && (
+                      <div className="chatbot-message chatbot-message--assistant">
+                        <div className="chatbot-message-icon"><Bot size={14} /></div>
+                        <div className="chatbot-message-bubble">Working on your layout...</div>
+                      </div>
+                    )}
+                  </div>
+                  <form className="chatbot-form" onSubmit={handleChatSubmit}>
+                    <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Try: Create a 2BHK, create an office layout, or ask how to use the app." rows={4} />
+                    <div className="chatbot-form-actions">
+                      <button type="button" className={`secondary-btn chatbot-voice-btn${isListening ? " is-listening" : ""}`} onClick={handleStartVoiceInput}>
+                        <Mic size={16} />{isListening ? "Listening..." : "Voice"}
+                      </button>
+                      <button type="submit" className="primary-btn" disabled={isChatbotBusy}><Send size={16} />Apply</button>
                     </div>
-                  ))}
-                  {isChatbotBusy && (
-                    <div className="chatbot-message chatbot-message--assistant">
-                      <div className="chatbot-message-icon"><Bot size={14} /></div>
-                      <div className="chatbot-message-bubble">Working on your layout...</div>
-                    </div>
-                  )}
-                </div>
-                <form className="chatbot-form" onSubmit={handleChatSubmit}>
-                  <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Try: Create a 2BHK, create an office layout, or ask how to use the app." rows={4} />
-                  <div className="chatbot-form-actions">
-                    <button type="button" className={`secondary-btn chatbot-voice-btn${isListening ? " is-listening" : ""}`} onClick={handleStartVoiceInput}>
-                      <Mic size={16} />{isListening ? "Listening..." : "Voice"}
-                    </button>
-                    <button type="submit" className="primary-btn" disabled={isChatbotBusy}><Send size={16} />Apply</button>
-                  </div>
-                </form>
-              </aside>
-            )}
+                  </form>
+                </>
+              )}
+            </aside>
           </div>
         </main>
 
@@ -2693,6 +3137,72 @@ export default function App() {
                       <div className="form-grid two-col">
                         <div className="field"><label>X Position (ft)</label><input type="number" value={room.x} onChange={(e) => updateRoom(room.id, "x", Number(e.target.value) || 0)} /></div>
                         <div className="field"><label>Y Position (ft)</label><input type="number" value={room.y} onChange={(e) => updateRoom(room.id, "y", Number(e.target.value) || 0)} /></div>
+                      </div>
+
+                      <div className="form-grid two-col">
+                        <div className="field">
+                          <label><PaintBucket size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Wall Color</label>
+                          <input
+                            type="color"
+                            value={room.wallColor || DEFAULT_WALL_COLOR}
+                            onChange={(e) => updateRoom(room.id, "wallColor", e.target.value)}
+                            style={{ width: "100%", minHeight: 40, padding: 4, borderRadius: 10 }}
+                          />
+                        </div>
+                        <div className="field">
+                          <label>Room Fill Color</label>
+                          <input
+                            type="color"
+                            value={room.color || ROOM_COLORS[index % ROOM_COLORS.length]}
+                            onChange={(e) => updateRoom(room.id, "color", e.target.value)}
+                            style={{ width: "100%", minHeight: 40, padding: 4, borderRadius: 10 }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="section-header compact">
+                        <h3>Floor / Tiles</h3>
+                      </div>
+                      <div
+                        className="opening-card"
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                          gap: 10,
+                        }}
+                      >
+                        {FLOOR_TEXTURE_LIBRARY.map((floor) => {
+                          const isActive = (room.floorTextureId || getDefaultFloorTextureId()) === floor.id;
+                          return (
+                            <button
+                              key={floor.id}
+                              type="button"
+                              onClick={() => updateRoom(room.id, "floorTextureId", floor.id)}
+                              style={{
+                                textAlign: "left",
+                                padding: 8,
+                                borderRadius: 12,
+                                border: isActive ? "2px solid #3b82f6" : "1px solid rgba(148,163,184,0.25)",
+                                background: "transparent",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  height: 64,
+                                  borderRadius: 8,
+                                  marginBottom: 8,
+                                  backgroundImage: `url(${resolveAssetPath(floor.image)})`,
+                                  backgroundSize: "cover",
+                                  backgroundPosition: "center",
+                                  border: "1px solid rgba(148,163,184,0.18)",
+                                }}
+                              />
+                              <div style={{ fontSize: 12, fontWeight: 700 }}>{floor.name}</div>
+                              <div style={{ fontSize: 11, opacity: 0.7 }}>{floor.category}</div>
+                            </button>
+                          );
+                        })}
                       </div>
 
                       {/* Doors */}
@@ -2771,6 +3281,11 @@ export default function App() {
                                   <div className="form-grid two-col">
                                     <div className="field"><label>X Position (ft)</label><input type="number" value={item.x} onChange={(e) => updateFurniture(room.id, item.id, "x", e.target.value)} /></div>
                                     <div className="field"><label>Y Position (ft)</label><input type="number" value={item.y} onChange={(e) => updateFurniture(room.id, item.id, "y", e.target.value)} /></div>
+                                  </div>
+                                  <div className="form-grid three-col">
+                                    <div className="field"><label>Width (ft)</label><input type="number" value={item.width} onChange={(e) => updateFurniture(room.id, item.id, "width", e.target.value)} /></div>
+                                    <div className="field"><label>Depth (ft)</label><input type="number" value={item.depth} onChange={(e) => updateFurniture(room.id, item.id, "depth", e.target.value)} /></div>
+                                    <div className="field"><label>Height (ft)</label><input type="number" value={item.height} onChange={(e) => updateFurniture(room.id, item.id, "height", e.target.value)} /></div>
                                   </div>
 
                                   {/* ── NEW: Rotation control ── */}
