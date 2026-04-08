@@ -75,6 +75,7 @@ const OPENAI_IMAGE_MODEL = "gpt-image-1";
 
 const DEFAULT_WALL_COLOR = "#7e8da3";
 const DEFAULT_FLOOR_TEXTURE_ID = "white-marble";
+const DEFAULT_FLOOR_TILE_SCALE = 1;
 const ASSISTANT_COLLAPSED_SESSION_KEY = "floor-plan-assistant-collapsed";
 const SUN_SETTINGS_SESSION_KEY = "floor-plan-sun-settings";
 const DEFAULT_SUN_SETTINGS = {
@@ -247,6 +248,7 @@ function ensureRoomVisualDefaults(room, index = 0) {
     color: room?.color || ROOM_COLORS[index % ROOM_COLORS.length],
     wallColor: normalizeHexColor(room?.wallColor, DEFAULT_WALL_COLOR),
     floorTextureId: room?.floorTextureId || getDefaultFloorTextureId(),
+    floorTileScale: Math.max(0.5, Number(room?.floorTileScale) || DEFAULT_FLOOR_TILE_SCALE),
   };
 }
 
@@ -500,6 +502,7 @@ const createRoom = (index) => ({
   color: ROOM_COLORS[index % ROOM_COLORS.length],
   wallColor: DEFAULT_WALL_COLOR,
   floorTextureId: getDefaultFloorTextureId(),
+  floorTileScale: DEFAULT_FLOOR_TILE_SCALE,
   doors: [],
   windows: [],
   furniture: [],
@@ -519,6 +522,7 @@ function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_
     ...baseRoom,
     wallColor: normalizeHexColor(baseRoom.wallColor, DEFAULT_WALL_COLOR),
     floorTextureId: baseRoom.floorTextureId || getDefaultFloorTextureId(),
+    floorTileScale: Math.max(0.5, Number(baseRoom.floorTileScale) || DEFAULT_FLOOR_TILE_SCALE),
     doors:    Array.isArray(baseRoom.doors)    ? baseRoom.doors.map((d)  => normalizeDoor(d, baseRoom))                  : [],
     windows:  Array.isArray(baseRoom.windows)  ? baseRoom.windows.map((w) => normalizeWindow(w, baseRoom, wallHeight))   : [],
     furniture: Array.isArray(baseRoom.furniture) ? baseRoom.furniture.map((item) => normalizeFurniture(item, baseRoom))  : [],
@@ -716,13 +720,13 @@ function RoomFloor3D({ room }) {
     next.wrapS = THREE.RepeatWrapping;
     next.wrapT = THREE.RepeatWrapping;
     next.repeat.set(
-      Math.max(1, (Number(room.width) || 1) / (Number(textureMeta.tileWidth) || 1)),
-      Math.max(1, (Number(room.height) || 1) / (Number(textureMeta.tileHeight) || 1))
+      Math.max(1, ((Number(room.width) || 1) / (Number(textureMeta.tileWidth) || 1)) * Math.max(0.5, Number(room.floorTileScale) || DEFAULT_FLOOR_TILE_SCALE)),
+      Math.max(1, ((Number(room.height) || 1) / (Number(textureMeta.tileHeight) || 1)) * Math.max(0.5, Number(room.floorTileScale) || DEFAULT_FLOOR_TILE_SCALE))
     );
     next.anisotropy = 8;
     next.needsUpdate = true;
     return next;
-  }, [baseTexture, textureLoadFailed, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight]);
+  }, [baseTexture, textureLoadFailed, room.width, room.height, room.floorTileScale, textureMeta.tileWidth, textureMeta.tileHeight]);
 
   useEffect(() => () => {
     preparedTexture?.dispose?.();
@@ -756,7 +760,9 @@ function Door3D({ room, door, wallThickness }) {
   const centerX = (line.x1 + line.x2) / 2;
   const centerZ = (line.y1 + line.y2) / 2;
   const rotateY = door.wall === "left" || door.wall === "right" ? Math.PI / 2 : 0;
-  const handleX = width / 2 - frameThickness * 2.4;
+  const openAngle = (door.wall === "bottom" || door.wall === "right" ? -1 : 1) * (Math.PI / 10);
+  const hingeX = -width / 2 + frameThickness * 0.6;
+  const panelThickness = depth * 0.38;
 
   return (
     <group position={[centerX, 0, centerZ]} rotation={[0, rotateY, 0]}>
@@ -764,25 +770,24 @@ function Door3D({ room, door, wallThickness }) {
         <boxGeometry args={[width + frameThickness * 2, height + frameThickness, depth]} />
         <meshStandardMaterial color="#7f5d44" roughness={0.84} />
       </mesh>
-
-      <mesh castShadow receiveShadow position={[0, height / 2, depth * 0.12]}>
-        <boxGeometry args={[width, height, depth * 0.72]} />
-        <meshStandardMaterial color="#b78656" roughness={0.72} />
+      <mesh castShadow receiveShadow position={[0, height + frameThickness * 0.35, 0.01]}>
+        <boxGeometry args={[width, frameThickness * 0.8, depth * 0.52]} />
+        <meshStandardMaterial color="#6f4c34" roughness={0.82} />
       </mesh>
-
-      <mesh castShadow position={[0, height * 0.58, depth * 0.42]}>
-        <boxGeometry args={[width * 0.72, height * 0.05, depth * 0.06]} />
-        <meshStandardMaterial color="#c89a68" roughness={0.68} />
-      </mesh>
-
-      <mesh castShadow position={[handleX, height * 0.48, depth * 0.56]}>
-        <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
-        <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
-      </mesh>
-      <mesh castShadow position={[-handleX, height * 0.48, -depth * 0.56]} rotation={[0, Math.PI, 0]}>
-        <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
-        <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
-      </mesh>
+      <group position={[hingeX, height / 2, depth * 0.08]} rotation={[0, openAngle, 0]}>
+        <mesh castShadow receiveShadow position={[width / 2 - frameThickness * 0.6, 0, 0]}>
+          <boxGeometry args={[width - frameThickness * 1.2, height - frameThickness * 0.8, panelThickness]} />
+          <meshStandardMaterial color="#b78656" roughness={0.72} />
+        </mesh>
+        <mesh castShadow position={[width / 2 - frameThickness * 0.6, height * 0.08, panelThickness * 0.52]}>
+          <boxGeometry args={[width * 0.72, height * 0.05, depth * 0.06]} />
+          <meshStandardMaterial color="#c89a68" roughness={0.68} />
+        </mesh>
+        <mesh castShadow position={[width - frameThickness * 1.8, -height * 0.02, panelThickness * 0.9]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
+          <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -800,7 +805,9 @@ function Window3D({ room, windowItem, wallThickness }) {
   const centerZ = (line.y1 + line.y2) / 2;
   const centerY = sillHeight + height / 2;
   const rotateY = windowItem.wall === "left" || windowItem.wall === "right" ? Math.PI / 2 : 0;
-  const dividerCount = width >= 4.5 ? 2 : 1;
+  const glassThickness = Math.max(0.02, depth * 0.16);
+  const paneGap = frame * 0.7;
+  const paneWidth = Math.max(0.2, (width - frame * 2 - paneGap) / 2);
 
   return (
     <group position={[centerX, centerY, centerZ]} rotation={[0, rotateY, 0]}>
@@ -808,32 +815,21 @@ function Window3D({ room, windowItem, wallThickness }) {
         <boxGeometry args={[width + frame * 2, height + frame * 2, depth]} />
         <meshStandardMaterial color="#eef2f7" roughness={0.62} metalness={0.08} />
       </mesh>
-      <mesh receiveShadow position={[0, 0, 0.02]}>
-        <boxGeometry args={[width, height, Math.max(0.02, depth * 0.22)]} />
-        <meshStandardMaterial color="#bfe3ff" transparent opacity={0.38} roughness={0.08} metalness={0.18} />
+      <mesh castShadow receiveShadow position={[0, 0, depth * 0.08]}>
+        <boxGeometry args={[frame * 0.9, height, Math.max(0.02, depth * 0.25)]} />
+        <meshStandardMaterial color="#dbe3ec" roughness={0.58} metalness={0.08} />
       </mesh>
-
-      {dividerCount >= 1 && (
-        <mesh castShadow receiveShadow position={[0, 0, 0.03]}>
-          <boxGeometry args={[frame * 0.9, height, Math.max(0.02, depth * 0.25)]} />
-          <meshStandardMaterial color="#dbe3ec" roughness={0.58} metalness={0.08} />
-        </mesh>
-      )}
-      {dividerCount === 2 && (
-        <>
-          <mesh castShadow receiveShadow position={[-width * 0.25, 0, 0.03]}>
-            <boxGeometry args={[frame * 0.75, height, Math.max(0.02, depth * 0.25)]} />
-            <meshStandardMaterial color="#dbe3ec" roughness={0.58} metalness={0.08} />
-          </mesh>
-          <mesh castShadow receiveShadow position={[width * 0.25, 0, 0.03]}>
-            <boxGeometry args={[frame * 0.75, height, Math.max(0.02, depth * 0.25)]} />
-            <meshStandardMaterial color="#dbe3ec" roughness={0.58} metalness={0.08} />
-          </mesh>
-        </>
-      )}
-      <mesh castShadow receiveShadow position={[0, 0, 0.03]}>
+      <mesh castShadow receiveShadow position={[0, 0, depth * 0.08]}>
         <boxGeometry args={[width, frame * 0.8, Math.max(0.02, depth * 0.25)]} />
         <meshStandardMaterial color="#dbe3ec" roughness={0.58} metalness={0.08} />
+      </mesh>
+      <mesh receiveShadow position={[-(paneWidth + paneGap) / 2, 0, depth * 0.12]}>
+        <boxGeometry args={[paneWidth, height - frame * 1.2, glassThickness]} />
+        <meshStandardMaterial color="#bfe3ff" transparent opacity={0.34} roughness={0.08} metalness={0.18} />
+      </mesh>
+      <mesh receiveShadow position={[(paneWidth + paneGap) / 2, 0, depth * 0.12]}>
+        <boxGeometry args={[paneWidth, height - frame * 1.2, glassThickness]} />
+        <meshStandardMaterial color="#bfe3ff" transparent opacity={0.34} roughness={0.08} metalness={0.18} />
       </mesh>
     </group>
   );
@@ -1232,6 +1228,54 @@ function Opening2D({ room, opening, scale, wallThickness }) {
 
 // ─── 2D Furniture (UPDATED: SVG rotate transform around center) ───────────────
 
+function getFurnitureLabelLayout(room, furnitureItem, scale) {
+  const roomX = Number(room.x) || 0;
+  const roomY = Number(room.y) || 0;
+  const localX = Number(furnitureItem.x) || 0;
+  const localY = Number(furnitureItem.y) || 0;
+  const width = Number(furnitureItem.width) || 1;
+  const depth = Number(furnitureItem.depth) || 1;
+  const x = (roomX + localX) * scale;
+  const y = (roomY + localY) * scale;
+  const w = width * scale;
+  const h = depth * scale;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const roomLeft = roomX * scale;
+  const roomTop = roomY * scale;
+  const roomRight = roomLeft + (Number(room.width) || 0) * scale;
+  const roomBottom = roomTop + (Number(room.height) || 0) * scale;
+  const others = (room.furniture || []).filter((item) => item.id !== furnitureItem.id).map((item) => {
+    const ox = (roomX + (Number(item.x) || 0)) * scale;
+    const oy = (roomY + (Number(item.y) || 0)) * scale;
+    const ow = (Number(item.width) || 1) * scale;
+    const oh = (Number(item.depth) || 1) * scale;
+    return { left: ox - 8, right: ox + ow + 8, top: oy - 8, bottom: oy + oh + 8 };
+  });
+
+  const options = [
+    { key: "inside", labelX: cx, labelY: cy - (h >= 42 ? 3 : 1), dimX: cx, dimY: cy + (h >= 42 ? 10 : 8), anchor: "middle" },
+    { key: "above", labelX: cx, labelY: y - 14, dimX: cx, dimY: y - 4, anchor: "middle" },
+    { key: "below", labelX: cx, labelY: y + h + 12, dimX: cx, dimY: y + h + 22, anchor: "middle" },
+    { key: "right", labelX: x + w + 10, labelY: cy - 3, dimX: x + w + 10, dimY: cy + 7, anchor: "start" },
+    { key: "left", labelX: x - 10, labelY: cy - 3, dimX: x - 10, dimY: cy + 7, anchor: "end" },
+  ];
+
+  const fitsRoom = (opt) => (
+    opt.labelX >= roomLeft + 4 && opt.labelX <= roomRight - 4 &&
+    opt.dimX >= roomLeft + 4 && opt.dimX <= roomRight - 4 &&
+    opt.labelY >= roomTop + 6 && opt.dimY <= roomBottom - 4
+  );
+
+  const overlaps = (opt) => others.some((box) => (
+    opt.labelX >= box.left && opt.labelX <= box.right && opt.labelY >= box.top && opt.labelY <= box.bottom
+  ) || (
+    opt.dimX >= box.left && opt.dimX <= box.right && opt.dimY >= box.top && opt.dimY <= box.bottom
+  ));
+
+  return options.find((opt) => fitsRoom(opt) && !overlaps(opt)) || options.find((opt) => fitsRoom(opt)) || options[0];
+}
+
 function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect }) {
   const roomX  = Number(room.x) || 0;
   const roomY  = Number(room.y) || 0;
@@ -1255,8 +1299,7 @@ function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect 
 
   const nameFontSize = Math.max(5.5, Math.min(8, Math.min(w, h) * 0.09));
   const dimFontSize  = Math.max(4.75, Math.min(6.5, Math.min(w, h) * 0.075));
-  const labelOffsetY = h >= 42 ? -3 : -1;
-  const dimOffsetY   = h >= 42 ? 10 : 8;
+  const labelLayout = getFurnitureLabelLayout(room, furnitureItem, scale);
 
   const handleSelect = (e) => {
     if (!hasRec || typeof onSelect !== "function") return;
@@ -1284,17 +1327,17 @@ function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect 
           stroke="#8a98a8" strokeWidth="2"
         />
       )}
-      <text x={cx} y={cy + labelOffsetY} textAnchor="middle" dominantBaseline="middle"
+      <text x={labelLayout.labelX} y={labelLayout.labelY} textAnchor={labelLayout.anchor} dominantBaseline="middle"
         style={{ fontSize: nameFontSize, fontWeight: 600, fill: "#243246", pointerEvents: "none" }}>
         {furnitureItem.type}
       </text>
-      <text x={cx} y={cy + dimOffsetY} textAnchor="middle" dominantBaseline="middle"
+      <text x={labelLayout.dimX} y={labelLayout.dimY} textAnchor={labelLayout.anchor} dominantBaseline="middle"
         style={{ fontSize: dimFontSize, fontWeight: 500, fill: "#5b677c", pointerEvents: "none" }}>
         {`${width} ft × ${depth} ft`}
       </text>
       {/* Rotation badge when non-zero */}
       {rotation !== 0 && (
-        <text x={cx} y={cy + dimOffsetY + 9} textAnchor="middle" dominantBaseline="middle"
+        <text x={labelLayout.dimX} y={labelLayout.dimY + 9} textAnchor={labelLayout.anchor} dominantBaseline="middle"
           style={{ fontSize: 4.5, fill: "#8899b0", pointerEvents: "none" }}>
           {`↻ ${rotation}°`}
         </text>
@@ -1739,6 +1782,7 @@ function sanitizeVisionFloorPlanResponse(aiResponse, currentState) {
     color: ROOM_COLORS[index % ROOM_COLORS.length],
     wallColor: DEFAULT_WALL_COLOR,
     floorTextureId: getDefaultFloorTextureId(),
+    floorTileScale: DEFAULT_FLOOR_TILE_SCALE,
     doors: [], windows: [], furniture: [],
   }));
 
@@ -2524,7 +2568,7 @@ export default function App() {
       totalRoomArea: Number(totalRoomArea.toFixed(2)), spaceUtilization: utilization,
       currentProjectId: currentProjectId || projectId, quotationValue: "", quotationNotes: "",
       image2D, image3D, ai_render_image_base64: generatedRenderImage || "",
-      rooms: syncedRooms.map((room) => ({ id: room.id || "", name: room.name || "", x: Number(room.x) || 0, y: Number(room.y) || 0, width: Number(room.width) || 0, height: Number(room.height) || 0, color: room.color || "", wallColor: room.wallColor || DEFAULT_WALL_COLOR, floorTextureId: room.floorTextureId || getDefaultFloorTextureId(), doors: Array.isArray(room.doors) ? room.doors : [], windows: Array.isArray(room.windows) ? room.windows : [], furniture: Array.isArray(room.furniture) ? room.furniture : [] })),
+      rooms: syncedRooms.map((room) => ({ id: room.id || "", name: room.name || "", x: Number(room.x) || 0, y: Number(room.y) || 0, width: Number(room.width) || 0, height: Number(room.height) || 0, color: room.color || "", wallColor: room.wallColor || DEFAULT_WALL_COLOR, floorTextureId: room.floorTextureId || getDefaultFloorTextureId(), floorTileScale: Math.max(0.5, Number(room.floorTileScale) || DEFAULT_FLOOR_TILE_SCALE), doors: Array.isArray(room.doors) ? room.doors : [], windows: Array.isArray(room.windows) ? room.windows : [], furniture: Array.isArray(room.furniture) ? room.furniture : [] })),
     };
   };
 
@@ -2841,7 +2885,7 @@ export default function App() {
             <div className="summary-box stat-box"><span>Space Utilization</span><strong>{utilization}%</strong></div>
           </section>
 
-          <div className="workspace-content-grid">
+          <div className="workspace-content-grid" style={assistantCollapsed ? { gridTemplateColumns: "minmax(0, 1fr)", position: "relative" } : { position: "relative" }}>
             {/* Preview column */}
             <div className="workspace-preview-column">
               {/* 2D View */}
@@ -2952,61 +2996,88 @@ export default function App() {
                   </div>
 
                   <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 14,
-                        right: 14,
-                        zIndex: 4,
-                        width: 280,
-                        padding: 14,
-                        borderRadius: 14,
-                        background: theme === "dark" ? "rgba(16,24,39,0.86)" : "rgba(255,255,255,0.92)",
-                        backdropFilter: "blur(10px)",
-                        boxShadow: "0 12px 30px rgba(15,23,42,0.16)",
-                        border: theme === "dark" ? "1px solid rgba(148,163,184,0.22)" : "1px solid rgba(148,163,184,0.18)",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                        <Sun size={16} />
-                        <strong style={{ fontSize: 13 }}>Sun / Light Controls</strong>
-                      </div>
-                      {[
-                        { key: "azimuth", label: `Azimuth — ${Math.round(sunSettings.azimuth)}°`, min: 0, max: 360, step: 1 },
-                        { key: "elevation", label: `Elevation — ${Math.round(sunSettings.elevation)}°`, min: 5, max: 85, step: 1 },
-                        { key: "intensity", label: `Intensity — ${Number(sunSettings.intensity).toFixed(1)}`, min: 0.2, max: 2.5, step: 0.1 },
-                        { key: "ambientIntensity", label: `Ambient Fill — ${Number(sunSettings.ambientIntensity).toFixed(1)}`, min: 0.1, max: 1.2, step: 0.1 },
-                      ].map((control) => (
-                        <div key={control.key} style={{ marginBottom: 10 }}>
-                          <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.8, marginBottom: 4 }}>{control.label}</div>
-                          <input
-                            type="range"
-                            min={control.min}
-                            max={control.max}
-                            step={control.step}
-                            value={sunSettings[control.key]}
-                            onChange={(e) => setSunSettings((prev) => ({ ...prev, [control.key]: Number(e.target.value) }))}
-                            style={{ width: "100%", accentColor: "#f59e0b" }}
-                          />
-                        </div>
-                      ))}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <label style={{ fontSize: 11, fontWeight: 600, minWidth: 66 }}>Sun Tone</label>
-                        <input
-                          type="color"
-                          value={sunSettings.color}
-                          onChange={(e) => setSunSettings((prev) => ({ ...prev, color: e.target.value }))}
-                          style={{ width: 42, height: 30, border: "none", background: "transparent", padding: 0 }}
-                        />
+                    <div style={{ position: "absolute", top: 14, right: 14, zIndex: 4 }}>
+                      {sunControlsCollapsed ? (
                         <button
                           type="button"
-                          className="ghost-btn"
-                          style={{ marginLeft: "auto", fontSize: 11, padding: "4px 8px" }}
-                          onClick={() => setSunSettings(DEFAULT_SUN_SETTINGS)}
+                          className="icon-btn"
+                          aria-label="Open sun controls"
+                          onClick={() => setSunControlsCollapsed(false)}
+                          style={{
+                            width: 46,
+                            height: 46,
+                            borderRadius: 999,
+                            background: theme === "dark" ? "rgba(16,24,39,0.88)" : "rgba(255,255,255,0.95)",
+                            backdropFilter: "blur(10px)",
+                            boxShadow: "0 12px 30px rgba(15,23,42,0.16)",
+                            border: theme === "dark" ? "1px solid rgba(148,163,184,0.22)" : "1px solid rgba(148,163,184,0.18)",
+                          }}
                         >
-                          Reset
+                          <Sun size={18} />
                         </button>
-                      </div>
+                      ) : (
+                        <div
+                          style={{
+                            width: 280,
+                            padding: 14,
+                            borderRadius: 14,
+                            background: theme === "dark" ? "rgba(16,24,39,0.86)" : "rgba(255,255,255,0.92)",
+                            backdropFilter: "blur(10px)",
+                            boxShadow: "0 12px 30px rgba(15,23,42,0.16)",
+                            border: theme === "dark" ? "1px solid rgba(148,163,184,0.22)" : "1px solid rgba(148,163,184,0.18)",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                            <Sun size={16} />
+                            <strong style={{ fontSize: 13 }}>Sun / Light Controls</strong>
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              aria-label="Collapse sun controls"
+                              onClick={() => setSunControlsCollapsed(true)}
+                              style={{ marginLeft: "auto" }}
+                            >
+                              <ChevronUp size={16} />
+                            </button>
+                          </div>
+                          {[
+                            { key: "azimuth", label: `Azimuth — ${Math.round(sunSettings.azimuth)}°`, min: 0, max: 360, step: 1 },
+                            { key: "elevation", label: `Elevation — ${Math.round(sunSettings.elevation)}°`, min: 5, max: 85, step: 1 },
+                            { key: "intensity", label: `Intensity — ${Number(sunSettings.intensity).toFixed(1)}`, min: 0.2, max: 2.5, step: 0.1 },
+                            { key: "ambientIntensity", label: `Ambient Fill — ${Number(sunSettings.ambientIntensity).toFixed(1)}`, min: 0.1, max: 1.2, step: 0.1 },
+                          ].map((control) => (
+                            <div key={control.key} style={{ marginBottom: 10 }}>
+                              <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.8, marginBottom: 4 }}>{control.label}</div>
+                              <input
+                                type="range"
+                                min={control.min}
+                                max={control.max}
+                                step={control.step}
+                                value={sunSettings[control.key]}
+                                onChange={(e) => setSunSettings((prev) => ({ ...prev, [control.key]: Number(e.target.value) }))}
+                                style={{ width: "100%", accentColor: "#f59e0b" }}
+                              />
+                            </div>
+                          ))}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <label style={{ fontSize: 11, fontWeight: 600, minWidth: 66 }}>Sun Tone</label>
+                            <input
+                              type="color"
+                              value={sunSettings.color}
+                              onChange={(e) => setSunSettings((prev) => ({ ...prev, color: e.target.value }))}
+                              style={{ width: 42, height: 30, border: "none", background: "transparent", padding: 0 }}
+                            />
+                            <button
+                              type="button"
+                              className="ghost-btn"
+                              style={{ marginLeft: "auto", fontSize: 11, padding: "4px 8px" }}
+                              onClick={() => setSunSettings(DEFAULT_SUN_SETTINGS)}
+                            >
+                              Reset
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <Canvas shadows onPointerMissed={clearSelectedFurniture} gl={{ preserveDrawingBuffer: true }}
                       camera={{ position: [Math.max(Number(totalWidth) * 0.85, 14), Math.max(Number(roomHeight) * 2.2, 16), Math.max(Number(totalHeight) * 1.0, 14)], fov: 42 }}>
@@ -3040,7 +3111,7 @@ export default function App() {
             </div>
 
             {/* Chat */}
-            <aside className="chatbot-card input-card">
+            {!assistantCollapsed ? (<aside className="chatbot-card input-card">
               <div className="section-header chatbot-header">
                 <div className="chatbot-header-copy">
                   <h2><MessageSquare size={16} />Floor Plan Assistant</h2>
@@ -3059,9 +3130,7 @@ export default function App() {
                 </div>
               </div>
 
-              {!assistantCollapsed && (
-                <>
-                  <div className="chatbot-quick-actions">
+              <div className="chatbot-quick-actions">
                     {["Create a 2BHK in 40 by 30 feet", "Create an office layout 32 by 24", "Create a cafe layout"].map((prompt) => (
                       <button key={prompt} type="button" className="chatbot-chip" onClick={() => setChatInput(prompt)}>{prompt}</button>
                     ))}
@@ -3089,9 +3158,28 @@ export default function App() {
                       <button type="submit" className="primary-btn" disabled={isChatbotBusy}><Send size={16} />Apply</button>
                     </div>
                   </form>
-                </>
-              )}
-            </aside>
+              </aside>) : (
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Open assistant"
+                onClick={() => setAssistantCollapsed(false)}
+                style={{
+                  position: "absolute",
+                  top: 12,
+                  right: 12,
+                  zIndex: 5,
+                  width: 46,
+                  height: 46,
+                  borderRadius: 999,
+                  background: theme === "dark" ? "rgba(16,24,39,0.88)" : "rgba(255,255,255,0.96)",
+                  backdropFilter: "blur(10px)",
+                  boxShadow: "0 12px 30px rgba(15,23,42,0.16)",
+                }}
+              >
+                <MessageSquare size={18} />
+              </button>
+            )}
           </div>
         </main>
 
@@ -3203,6 +3291,21 @@ export default function App() {
                             </button>
                           );
                         })}
+                      </div>
+                      <div style={{ marginTop: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <label style={{ fontSize: 12, fontWeight: 700 }}>Tile Size / Repeat</label>
+                          <span style={{ fontSize: 11, opacity: 0.75 }}>{Number(room.floorTileScale || DEFAULT_FLOOR_TILE_SCALE).toFixed(1)}×</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="3"
+                          step="0.1"
+                          value={Number(room.floorTileScale || DEFAULT_FLOOR_TILE_SCALE)}
+                          onChange={(e) => updateRoom(room.id, "floorTileScale", Number(e.target.value))}
+                          style={{ width: "100%" }}
+                        />
                       </div>
 
                       {/* Doors */}
