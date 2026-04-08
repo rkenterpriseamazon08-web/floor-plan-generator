@@ -26,7 +26,6 @@ import {
   Moon,
   Sliders,
   ArrowLeft,
-  ChevronDown,
   ChevronUp,
   PaintBucket,
 } from "lucide-react";
@@ -715,9 +714,10 @@ function RoomFloor3D({ room }) {
     const next = baseTexture.clone();
     next.wrapS = THREE.RepeatWrapping;
     next.wrapT = THREE.RepeatWrapping;
+    const tileScale = Math.max(0.25, Math.min(4, Number(room.floorTileScale) || 1));
     next.repeat.set(
-      Math.max(1, (Number(room.width) || 1) / (Number(textureMeta.tileWidth) || 1)),
-      Math.max(1, (Number(room.height) || 1) / (Number(textureMeta.tileHeight) || 1))
+      Math.max(0.25, (Number(room.width) || 1) / (Number(textureMeta.tileWidth) || 1) / tileScale),
+      Math.max(0.25, (Number(room.height) || 1) / (Number(textureMeta.tileHeight) || 1) / tileScale)
     );
     next.anisotropy = 8;
     next.needsUpdate = true;
@@ -745,6 +745,8 @@ function RoomFloor3D({ room }) {
   );
 }
 
+const DOOR_OPEN_ANGLE = Math.PI / 6; // 30° open so door is clearly recognizable
+
 function Door3D({ room, door, wallThickness }) {
   const line = getOpeningLineSegment(room, door);
   if (!line) return null;
@@ -756,33 +758,34 @@ function Door3D({ room, door, wallThickness }) {
   const centerX = (line.x1 + line.x2) / 2;
   const centerZ = (line.y1 + line.y2) / 2;
   const rotateY = door.wall === "left" || door.wall === "right" ? Math.PI / 2 : 0;
-  const handleX = width / 2 - frameThickness * 2.4;
 
   return (
     <group position={[centerX, 0, centerZ]} rotation={[0, rotateY, 0]}>
+      {/* Static door frame */}
       <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
         <boxGeometry args={[width + frameThickness * 2, height + frameThickness, depth]} />
         <meshStandardMaterial color="#7f5d44" roughness={0.84} />
       </mesh>
 
-      <mesh castShadow receiveShadow position={[0, height / 2, depth * 0.12]}>
-        <boxGeometry args={[width, height, depth * 0.72]} />
-        <meshStandardMaterial color="#b78656" roughness={0.72} />
-      </mesh>
-
-      <mesh castShadow position={[0, height * 0.58, depth * 0.42]}>
-        <boxGeometry args={[width * 0.72, height * 0.05, depth * 0.06]} />
-        <meshStandardMaterial color="#c89a68" roughness={0.68} />
-      </mesh>
-
-      <mesh castShadow position={[handleX, height * 0.48, depth * 0.56]}>
-        <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
-        <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
-      </mesh>
-      <mesh castShadow position={[-handleX, height * 0.48, -depth * 0.56]} rotation={[0, Math.PI, 0]}>
-        <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
-        <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
-      </mesh>
+      {/* Pivoting door leaf — hinged at left edge (-width/2), open ~30° */}
+      <group position={[-width / 2, 0, 0]} rotation={[0, -DOOR_OPEN_ANGLE, 0]}>
+        <mesh castShadow receiveShadow position={[width / 2, height / 2, depth * 0.12]}>
+          <boxGeometry args={[width, height, depth * 0.72]} />
+          <meshStandardMaterial color="#b78656" roughness={0.72} />
+        </mesh>
+        <mesh castShadow position={[width / 2, height * 0.58, depth * 0.42]}>
+          <boxGeometry args={[width * 0.72, height * 0.05, depth * 0.06]} />
+          <meshStandardMaterial color="#c89a68" roughness={0.68} />
+        </mesh>
+        <mesh castShadow position={[width - frameThickness * 2.4, height * 0.48, depth * 0.56]}>
+          <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
+          <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
+        </mesh>
+        <mesh castShadow position={[frameThickness * 2.4, height * 0.48, -depth * 0.56]} rotation={[0, Math.PI, 0]}>
+          <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
+          <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -808,8 +811,14 @@ function Window3D({ room, windowItem, wallThickness }) {
         <boxGeometry args={[width + frame * 2, height + frame * 2, depth]} />
         <meshStandardMaterial color="#eef2f7" roughness={0.62} metalness={0.08} />
       </mesh>
-      <mesh receiveShadow position={[0, 0, 0.02]}>
-        <boxGeometry args={[width, height, Math.max(0.02, depth * 0.22)]} />
+      {/* Left glass pane */}
+      <mesh receiveShadow position={[-width / 4, 0, 0.02]}>
+        <boxGeometry args={[width / 2 - frame * 0.5, height, Math.max(0.02, depth * 0.22)]} />
+        <meshStandardMaterial color="#bfe3ff" transparent opacity={0.38} roughness={0.08} metalness={0.18} />
+      </mesh>
+      {/* Right glass pane */}
+      <mesh receiveShadow position={[width / 4, 0, 0.02]}>
+        <boxGeometry args={[width / 2 - frame * 0.5, height, Math.max(0.02, depth * 0.22)]} />
         <meshStandardMaterial color="#bfe3ff" transparent opacity={0.38} roughness={0.08} metalness={0.18} />
       </mesh>
 
@@ -1232,7 +1241,7 @@ function Opening2D({ room, opening, scale, wallThickness }) {
 
 // ─── 2D Furniture (UPDATED: SVG rotate transform around center) ───────────────
 
-function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect }) {
+function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect, labelDy = 0 }) {
   const roomX  = Number(room.x) || 0;
   const roomY  = Number(room.y) || 0;
   const localX = Number(furnitureItem.x) || 0;
@@ -1284,23 +1293,49 @@ function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect 
           stroke="#8a98a8" strokeWidth="2"
         />
       )}
-      <text x={cx} y={cy + labelOffsetY} textAnchor="middle" dominantBaseline="middle"
+      <text x={cx} y={cy + labelOffsetY + labelDy} textAnchor="middle" dominantBaseline="middle"
         style={{ fontSize: nameFontSize, fontWeight: 600, fill: "#243246", pointerEvents: "none" }}>
         {furnitureItem.type}
       </text>
-      <text x={cx} y={cy + dimOffsetY} textAnchor="middle" dominantBaseline="middle"
+      <text x={cx} y={cy + dimOffsetY + labelDy} textAnchor="middle" dominantBaseline="middle"
         style={{ fontSize: dimFontSize, fontWeight: 500, fill: "#5b677c", pointerEvents: "none" }}>
         {`${width} ft × ${depth} ft`}
       </text>
       {/* Rotation badge when non-zero */}
       {rotation !== 0 && (
-        <text x={cx} y={cy + dimOffsetY + 9} textAnchor="middle" dominantBaseline="middle"
+        <text x={cx} y={cy + dimOffsetY + 9 + labelDy} textAnchor="middle" dominantBaseline="middle"
           style={{ fontSize: 4.5, fill: "#8899b0", pointerEvents: "none" }}>
           {`↻ ${rotation}°`}
         </text>
       )}
     </g>
   );
+}
+
+// ─── Fix 1: 2D label collision helper ────────────────────────────────────────
+
+function computeFurnitureLabelOffsets(furnitureItems, room, scale) {
+  if (!furnitureItems || furnitureItems.length < 2) return {};
+  const positions = furnitureItems.map((item) => {
+    const w = (Number(item.width) || 1) * scale;
+    const h = (Number(item.depth) || 1) * scale;
+    const cx = (Number(room.x) + (Number(item.x) || 0)) * scale + w / 2;
+    const cy = (Number(room.y) + (Number(item.y) || 0)) * scale + h / 2;
+    return { id: item.id, cx, cy, dy: 0 };
+  });
+  const THRESHOLD = 22;
+  for (let i = 0; i < positions.length; i++) {
+    for (let j = i + 1; j < positions.length; j++) {
+      if (
+        Math.abs(positions[j].cx - positions[i].cx) < THRESHOLD &&
+        Math.abs(positions[j].cy - positions[i].cy) < THRESHOLD
+      ) {
+        positions[i].dy -= 9;
+        positions[j].dy += 9;
+      }
+    }
+  }
+  return Object.fromEntries(positions.map((p) => [p.id, p.dy]));
 }
 
 // ─── Furniture Manager Page ───────────────────────────────────────────────────
@@ -2116,6 +2151,7 @@ export default function App() {
     if (typeof window === "undefined") return false;
     return window.sessionStorage.getItem(ASSISTANT_COLLAPSED_SESSION_KEY) === "true";
   });
+  const [sunControlsCollapsed, setSunControlsCollapsed] = useState(true);
   const [sunSettings, setSunSettings] = useState(() => {
     if (typeof window === "undefined") return DEFAULT_SUN_SETTINGS;
     try {
@@ -2841,9 +2877,9 @@ export default function App() {
             <div className="summary-box stat-box"><span>Space Utilization</span><strong>{utilization}%</strong></div>
           </section>
 
-          <div className="workspace-content-grid">
+          <div className="workspace-content-grid" style={assistantCollapsed ? { display: "flex", gap: 0 } : undefined}>
             {/* Preview column */}
-            <div className="workspace-preview-column">
+            <div className="workspace-preview-column" style={assistantCollapsed ? { flex: 1, minWidth: 0 } : undefined}>
               {/* 2D View */}
               {activeView === "2d" && (
                 <section className="preview-card preview-card--dominant">
@@ -2895,15 +2931,19 @@ export default function App() {
                           );
                         })}
 
-                        {placedRooms.map((room) => (
-                          <g key={`furniture-${room.id}`}>
-                            {(room.furniture || []).map((item) => (
-                              <Furniture2D key={item.id} room={room} furnitureItem={item} scale={numericScale}
-                                isSelected={selectedFurnitureKey === `${room.id}-${item.id}`}
-                                onSelect={(sel) => handleFurnitureSelection(room, sel)} />
-                            ))}
-                          </g>
-                        ))}
+                        {placedRooms.map((room) => {
+                          const furnitureLabelOffsets = computeFurnitureLabelOffsets(room.furniture || [], room, numericScale);
+                          return (
+                            <g key={`furniture-${room.id}`}>
+                              {(room.furniture || []).map((item) => (
+                                <Furniture2D key={item.id} room={room} furnitureItem={item} scale={numericScale}
+                                  labelDy={furnitureLabelOffsets[item.id] || 0}
+                                  isSelected={selectedFurnitureKey === `${room.id}-${item.id}`}
+                                  onSelect={(sel) => handleFurnitureSelection(room, sel)} />
+                              ))}
+                            </g>
+                          );
+                        })}
 
                         {placedRooms.map((room) => {
                           const x = room.x * numericScale, y = room.y * numericScale;
@@ -2952,62 +2992,86 @@ export default function App() {
                   </div>
 
                   <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 14,
-                        right: 14,
-                        zIndex: 4,
-                        width: 280,
-                        padding: 14,
-                        borderRadius: 14,
-                        background: theme === "dark" ? "rgba(16,24,39,0.86)" : "rgba(255,255,255,0.92)",
-                        backdropFilter: "blur(10px)",
-                        boxShadow: "0 12px 30px rgba(15,23,42,0.16)",
-                        border: theme === "dark" ? "1px solid rgba(148,163,184,0.22)" : "1px solid rgba(148,163,184,0.18)",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                        <Sun size={16} />
-                        <strong style={{ fontSize: 13 }}>Sun / Light Controls</strong>
-                      </div>
-                      {[
-                        { key: "azimuth", label: `Azimuth — ${Math.round(sunSettings.azimuth)}°`, min: 0, max: 360, step: 1 },
-                        { key: "elevation", label: `Elevation — ${Math.round(sunSettings.elevation)}°`, min: 5, max: 85, step: 1 },
-                        { key: "intensity", label: `Intensity — ${Number(sunSettings.intensity).toFixed(1)}`, min: 0.2, max: 2.5, step: 0.1 },
-                        { key: "ambientIntensity", label: `Ambient Fill — ${Number(sunSettings.ambientIntensity).toFixed(1)}`, min: 0.1, max: 1.2, step: 0.1 },
-                      ].map((control) => (
-                        <div key={control.key} style={{ marginBottom: 10 }}>
-                          <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.8, marginBottom: 4 }}>{control.label}</div>
-                          <input
-                            type="range"
-                            min={control.min}
-                            max={control.max}
-                            step={control.step}
-                            value={sunSettings[control.key]}
-                            onChange={(e) => setSunSettings((prev) => ({ ...prev, [control.key]: Number(e.target.value) }))}
-                            style={{ width: "100%", accentColor: "#f59e0b" }}
-                          />
+                    {sunControlsCollapsed ? (
+                      /* Collapsed: small floating button */
+                      <button
+                        type="button"
+                        title="Sun / Light Controls"
+                        onClick={() => setSunControlsCollapsed(false)}
+                        style={{
+                          position: "absolute", top: 14, right: 14, zIndex: 4,
+                          width: 38, height: 38, borderRadius: "50%",
+                          background: theme === "dark" ? "rgba(16,24,39,0.86)" : "rgba(255,255,255,0.92)",
+                          backdropFilter: "blur(10px)",
+                          boxShadow: "0 4px 14px rgba(15,23,42,0.18)",
+                          border: theme === "dark" ? "1px solid rgba(148,163,184,0.22)" : "1px solid rgba(148,163,184,0.18)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <Sun size={17} style={{ opacity: 0.75 }} />
+                      </button>
+                    ) : (
+                      /* Expanded: full panel */
+                      <div
+                        style={{
+                          position: "absolute", top: 14, right: 14, zIndex: 4,
+                          width: 280, padding: 14, borderRadius: 14,
+                          background: theme === "dark" ? "rgba(16,24,39,0.86)" : "rgba(255,255,255,0.92)",
+                          backdropFilter: "blur(10px)",
+                          boxShadow: "0 12px 30px rgba(15,23,42,0.16)",
+                          border: theme === "dark" ? "1px solid rgba(148,163,184,0.22)" : "1px solid rgba(148,163,184,0.18)",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                          <Sun size={16} />
+                          <strong style={{ fontSize: 13 }}>Sun / Light Controls</strong>
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            style={{ marginLeft: "auto", padding: 2 }}
+                            onClick={() => setSunControlsCollapsed(true)}
+                            aria-label="Collapse sun controls"
+                          >
+                            <X size={14} />
+                          </button>
                         </div>
-                      ))}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <label style={{ fontSize: 11, fontWeight: 600, minWidth: 66 }}>Sun Tone</label>
-                        <input
-                          type="color"
-                          value={sunSettings.color}
-                          onChange={(e) => setSunSettings((prev) => ({ ...prev, color: e.target.value }))}
-                          style={{ width: 42, height: 30, border: "none", background: "transparent", padding: 0 }}
-                        />
-                        <button
-                          type="button"
-                          className="ghost-btn"
-                          style={{ marginLeft: "auto", fontSize: 11, padding: "4px 8px" }}
-                          onClick={() => setSunSettings(DEFAULT_SUN_SETTINGS)}
-                        >
-                          Reset
-                        </button>
+                        {[
+                          { key: "azimuth", label: `Azimuth — ${Math.round(sunSettings.azimuth)}°`, min: 0, max: 360, step: 1 },
+                          { key: "elevation", label: `Elevation — ${Math.round(sunSettings.elevation)}°`, min: 5, max: 85, step: 1 },
+                          { key: "intensity", label: `Intensity — ${Number(sunSettings.intensity).toFixed(1)}`, min: 0.2, max: 2.5, step: 0.1 },
+                          { key: "ambientIntensity", label: `Ambient Fill — ${Number(sunSettings.ambientIntensity).toFixed(1)}`, min: 0.1, max: 1.2, step: 0.1 },
+                        ].map((control) => (
+                          <div key={control.key} style={{ marginBottom: 10 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.8, marginBottom: 4 }}>{control.label}</div>
+                            <input
+                              type="range"
+                              min={control.min} max={control.max} step={control.step}
+                              value={sunSettings[control.key]}
+                              onChange={(e) => setSunSettings((prev) => ({ ...prev, [control.key]: Number(e.target.value) }))}
+                              style={{ width: "100%", accentColor: "#f59e0b" }}
+                            />
+                          </div>
+                        ))}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <label style={{ fontSize: 11, fontWeight: 600, minWidth: 66 }}>Sun Tone</label>
+                          <input
+                            type="color"
+                            value={sunSettings.color}
+                            onChange={(e) => setSunSettings((prev) => ({ ...prev, color: e.target.value }))}
+                            style={{ width: 42, height: 30, border: "none", background: "transparent", padding: 0 }}
+                          />
+                          <button
+                            type="button"
+                            className="ghost-btn"
+                            style={{ marginLeft: "auto", fontSize: 11, padding: "4px 8px" }}
+                            onClick={() => setSunSettings(DEFAULT_SUN_SETTINGS)}
+                          >
+                            Reset
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <Canvas shadows onPointerMissed={clearSelectedFurniture} gl={{ preserveDrawingBuffer: true }}
                       camera={{ position: [Math.max(Number(totalWidth) * 0.85, 14), Math.max(Number(roomHeight) * 2.2, 16), Math.max(Number(totalHeight) * 1.0, 14)], fov: 42 }}>
                       <Floor3DScene rooms={placedRooms} totalWidth={Number(totalWidth)} totalHeight={Number(totalHeight)}
@@ -3039,59 +3103,72 @@ export default function App() {
               )}
             </div>
 
-            {/* Chat */}
-            <aside className="chatbot-card input-card">
-              <div className="section-header chatbot-header">
-                <div className="chatbot-header-copy">
-                  <h2><MessageSquare size={16} />Floor Plan Assistant</h2>
-                  <p>Ask for layouts, guidance, or use voice commands.</p>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span className="chatbot-badge"><Sparkles size={14} />Phase 1 + 2</span>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    aria-label={assistantCollapsed ? "Expand assistant" : "Collapse assistant"}
-                    onClick={() => setAssistantCollapsed((prev) => !prev)}
-                  >
-                    {assistantCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-                  </button>
-                </div>
+            {/* Chat — fully collapses to narrow strip when closed */}
+            {assistantCollapsed ? (
+              <div
+                title="Open Floor Plan Assistant"
+                onClick={() => setAssistantCollapsed(false)}
+                style={{
+                  width: 28, flexShrink: 0, display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center", gap: 8,
+                  cursor: "pointer", borderLeft: "1px solid rgba(148,163,184,0.2)",
+                  padding: "12px 0", userSelect: "none",
+                }}
+              >
+                <MessageSquare size={14} style={{ opacity: 0.45 }} />
+                <span style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 11, opacity: 0.45, letterSpacing: "0.04em" }}>
+                  Assistant
+                </span>
               </div>
-
-              {!assistantCollapsed && (
-                <>
-                  <div className="chatbot-quick-actions">
-                    {["Create a 2BHK in 40 by 30 feet", "Create an office layout 32 by 24", "Create a cafe layout"].map((prompt) => (
-                      <button key={prompt} type="button" className="chatbot-chip" onClick={() => setChatInput(prompt)}>{prompt}</button>
-                    ))}
+            ) : (
+              <aside className="chatbot-card input-card">
+                <div className="section-header chatbot-header">
+                  <div className="chatbot-header-copy">
+                    <h2><MessageSquare size={16} />Floor Plan Assistant</h2>
+                    <p>Ask for layouts, guidance, or use voice commands.</p>
                   </div>
-                  <div className="chatbot-messages" ref={chatScrollRef}>
-                    {chatMessages.map((msg) => (
-                      <div key={msg.id} className={`chatbot-message chatbot-message--${msg.role}`}>
-                        <div className="chatbot-message-icon">{msg.role === "assistant" ? <Bot size={14} /> : <span>You</span>}</div>
-                        <div className="chatbot-message-bubble">{msg.content}</div>
-                      </div>
-                    ))}
-                    {isChatbotBusy && (
-                      <div className="chatbot-message chatbot-message--assistant">
-                        <div className="chatbot-message-icon"><Bot size={14} /></div>
-                        <div className="chatbot-message-bubble">Working on your layout...</div>
-                      </div>
-                    )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span className="chatbot-badge"><Sparkles size={14} />Phase 1 + 2</span>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      aria-label="Collapse assistant"
+                      onClick={() => setAssistantCollapsed(true)}
+                    >
+                      <ChevronUp size={16} />
+                    </button>
                   </div>
-                  <form className="chatbot-form" onSubmit={handleChatSubmit}>
-                    <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Try: Create a 2BHK, create an office layout, or ask how to use the app." rows={4} />
-                    <div className="chatbot-form-actions">
-                      <button type="button" className={`secondary-btn chatbot-voice-btn${isListening ? " is-listening" : ""}`} onClick={handleStartVoiceInput}>
-                        <Mic size={16} />{isListening ? "Listening..." : "Voice"}
-                      </button>
-                      <button type="submit" className="primary-btn" disabled={isChatbotBusy}><Send size={16} />Apply</button>
+                </div>
+                <div className="chatbot-quick-actions">
+                  {["Create a 2BHK in 40 by 30 feet", "Create an office layout 32 by 24", "Create a cafe layout"].map((prompt) => (
+                    <button key={prompt} type="button" className="chatbot-chip" onClick={() => setChatInput(prompt)}>{prompt}</button>
+                  ))}
+                </div>
+                <div className="chatbot-messages" ref={chatScrollRef}>
+                  {chatMessages.map((msg) => (
+                    <div key={msg.id} className={`chatbot-message chatbot-message--${msg.role}`}>
+                      <div className="chatbot-message-icon">{msg.role === "assistant" ? <Bot size={14} /> : <span>You</span>}</div>
+                      <div className="chatbot-message-bubble">{msg.content}</div>
                     </div>
-                  </form>
-                </>
-              )}
-            </aside>
+                  ))}
+                  {isChatbotBusy && (
+                    <div className="chatbot-message chatbot-message--assistant">
+                      <div className="chatbot-message-icon"><Bot size={14} /></div>
+                      <div className="chatbot-message-bubble">Working on your layout...</div>
+                    </div>
+                  )}
+                </div>
+                <form className="chatbot-form" onSubmit={handleChatSubmit}>
+                  <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Try: Create a 2BHK, create an office layout, or ask how to use the app." rows={4} />
+                  <div className="chatbot-form-actions">
+                    <button type="button" className={`secondary-btn chatbot-voice-btn${isListening ? " is-listening" : ""}`} onClick={handleStartVoiceInput}>
+                      <Mic size={16} />{isListening ? "Listening..." : "Voice"}
+                    </button>
+                    <button type="submit" className="primary-btn" disabled={isChatbotBusy}><Send size={16} />Apply</button>
+                  </div>
+                </form>
+              </aside>
+            )}
           </div>
         </main>
 
@@ -3203,6 +3280,33 @@ export default function App() {
                             </button>
                           );
                         })}
+                      </div>
+
+                      {/* Tile size slider */}
+                      <div style={{ marginTop: 10, padding: "10px 12px", background: "rgba(59,130,246,0.05)", borderRadius: 8, border: "1px solid rgba(59,130,246,0.12)" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                          <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.75, margin: 0 }}>
+                            Tile Size — {Number(room.floorTileScale || 1).toFixed(2)}×
+                          </label>
+                          <button
+                            type="button"
+                            className="ghost-btn"
+                            style={{ padding: "2px 8px", fontSize: 11 }}
+                            onClick={() => updateRoom(room.id, "floorTileScale", 1)}
+                          >
+                            Reset
+                          </button>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.25" max="4" step="0.25"
+                          value={room.floorTileScale || 1}
+                          onChange={(e) => updateRoom(room.id, "floorTileScale", Number(e.target.value))}
+                          style={{ width: "100%", accentColor: "#3b82f6" }}
+                        />
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, opacity: 0.55, marginTop: 2 }}>
+                          <span>0.25× small</span><span>1×</span><span>4× large</span>
+                        </div>
                       </div>
 
                       {/* Doors */}
