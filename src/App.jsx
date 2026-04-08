@@ -2939,6 +2939,35 @@ export default function App() {
                   </div>
 
                   <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
+                    {!sunControlsExpanded && (
+                      <button
+                        type="button"
+                        className="ghost-btn"
+                        onClick={() => setSunControlsExpanded(true)}
+                        title="Open sun / light controls"
+                        style={{
+                          position: "absolute",
+                          right: 14,
+                          top: 14,
+                          zIndex: 4,
+                          width: 42,
+                          height: 42,
+                          borderRadius: 999,
+                          display: "grid",
+                          placeItems: "center",
+                          background: theme === "dark" ? "rgba(16,24,39,0.88)" : "rgba(255,255,255,0.94)",
+                          backdropFilter: "blur(10px)",
+                          boxShadow: "0 12px 30px rgba(15,23,42,0.16)",
+                          border: theme === "dark"
+                            ? "1px solid rgba(148,163,184,0.22)"
+                            : "1px solid rgba(148,163,184,0.18)",
+                        }}
+                      >
+                        <Sun size={18} />
+                      </button>
+                    )}
+
+                    {sunControlsExpanded && (
                     <div
                       style={{
                         position: "absolute",
