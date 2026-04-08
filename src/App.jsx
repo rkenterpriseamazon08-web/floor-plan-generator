@@ -7,7 +7,7 @@ import {
   Home,
   Plus,
   Trash2,
-
+  RotateCcw,
   RotateCw,
   Sofa,
   Save,
