@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Grid, Text as DreiText } from "@react-three/drei";
+import { OrbitControls, Grid, Text as DreiText, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import {
   Home,
@@ -26,6 +26,7 @@ import {
   Moon,
   Sliders,
   ArrowLeft,
+  ChevronDown,
   ChevronUp,
   PaintBucket,
 } from "lucide-react";
@@ -79,37 +80,16 @@ const SUN_SETTINGS_SESSION_KEY = "floor-plan-sun-settings";
 const DEFAULT_SUN_SETTINGS = {
   azimuth: 132,
   elevation: 46,
-  intensity: 1.5,
+  intensity: 1.2,
   color: "#fff3e0",
-  ambientIntensity: 0.55,
+  ambientIntensity: 0.5,
 };
-
-// ─── Landing page prompts ─────────────────────────────────────────────────────
-
-const EXAMPLE_PROMPTS = [
-  "Design a 2BHK home in 40 by 30 feet",
-  "Create a modern office layout for 20 people",
-  "Plan a cozy cafe with seating for 30",
-  "Build a 1BHK apartment in 28 by 22 feet",
-  "Design a storage warehouse 50 by 40 feet",
-  "Create a public toilet block 20 by 15 feet",
-];
-
-const ASSET_BASE = (import.meta?.env?.BASE_URL || "/").replace(/\/?$/, "/");
-
-function resolveAssetPath(path) {
-  const raw = String(path || "").trim();
-  if (!raw) return "";
-  if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
-  const cleaned = raw.replace(/^\/+/, "");
-  return `${ASSET_BASE}${cleaned}`;
-}
 
 const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "white-marble",
     name: "White Marble",
-    image: "textures/white-marble.png",
+    image: "/textures/white-marble.png",
     tileWidth: 2,
     tileHeight: 2,
     category: "marble",
@@ -117,7 +97,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "beige-marble",
     name: "Beige Marble",
-    image: "textures/beige-marble.png",
+    image: "/textures/beige-marble.png",
     tileWidth: 2,
     tileHeight: 2,
     category: "marble",
@@ -125,7 +105,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "grey-concrete",
     name: "Grey Concrete Tile",
-    image: "textures/grey-concrete-tile.png",
+    image: "/textures/grey-concrete-tile.png",
     tileWidth: 2,
     tileHeight: 2,
     category: "concrete",
@@ -133,7 +113,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "wood-floor",
     name: "Wood Floor",
-    image: "textures/wood-floor.png",
+    image: "/textures/wood-floor.png",
     tileWidth: 0.6,
     tileHeight: 3,
     category: "wood",
@@ -141,7 +121,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "patterned-tile",
     name: "Patterned Tile",
-    image: "textures/patterned-tile.png",
+    image: "/textures/patterned-tile.png",
     tileWidth: 1,
     tileHeight: 1,
     category: "decorative",
@@ -149,7 +129,7 @@ const FLOOR_TEXTURE_LIBRARY = [
   {
     id: "glossy-cream",
     name: "Glossy Cream Tile",
-    image: "textures/glossy-cream-tile.png",
+    image: "/textures/glossy-cream-tile.png",
     tileWidth: 2,
     tileHeight: 2,
     category: "ceramic",
@@ -182,13 +162,6 @@ const FURNITURE_PRODUCT_RECOMMENDATIONS = {
   ],
 };
 
-// Shared extra items appended to every category
-const EXTRA_FURNITURE = [
-  { type: "Steel Staircase", width: 4, depth: 8, height: 10, color: "#8a9ab5", allowOutsideBuilding: true },
-  { type: "Plant (Indoor)", width: 1.5, depth: 1.5, height: 4, color: "#2d7a3a" },
-  { type: "Plant (Outdoor)", width: 2, depth: 2, height: 5, color: "#257234", allowOutsideBuilding: true },
-];
-
 const FURNITURE_PRESETS = {
   storage: [
     { type: "Storage Rack", width: 6, depth: 2, height: 7, color: "#c9d4e5" },
@@ -196,7 +169,6 @@ const FURNITURE_PRESETS = {
     { type: "Small Shelf Unit", width: 3, depth: 1.5, height: 5, color: "#cfd8c8" },
     { type: "Heavy Duty Shelf", width: 8, depth: 2.5, height: 8, color: "#b8c4d7" },
     { type: "Utility Table", width: 5, depth: 2.5, height: 3, color: "#ddd4c8" },
-    ...EXTRA_FURNITURE,
   ],
   office: [
     { type: "Workstation Desk", width: 5, depth: 2.5, height: 2.5, color: "#d4dde8" },
@@ -204,7 +176,6 @@ const FURNITURE_PRESETS = {
     { type: "Conference Table", width: 8, depth: 4, height: 2.5, color: "#d8d1c5" },
     { type: "Storage Cabinet", width: 4, depth: 1.5, height: 6, color: "#c7d0c0" },
     { type: "Reception Desk", width: 7, depth: 3, height: 3.5, color: "#d7c8bf" },
-    ...EXTRA_FURNITURE,
   ],
   cafe: [
     { type: "2-Seater Table", width: 2.5, depth: 2.5, height: 2.5, color: "#dfd2c2" },
@@ -212,7 +183,6 @@ const FURNITURE_PRESETS = {
     { type: "Chair", width: 1.8, depth: 1.8, height: 3, color: "#c7b9ab" },
     { type: "Service Counter / Cash Desk", width: 6, depth: 2.5, height: 3.5, color: "#d8c3b8" },
     { type: "Display Unit", width: 4, depth: 2, height: 5, color: "#d3ddd5" },
-    ...EXTRA_FURNITURE,
   ],
   house: [
     { type: "Bed (Single / Double)", width: 6.5, depth: 7, height: 2, color: "#d5dce8" },
@@ -224,7 +194,6 @@ const FURNITURE_PRESETS = {
     { type: "Stove / Cooktop", width: 2.5, depth: 2, height: 2.8, color: "#c9c9cf" },
     { type: "Sink", width: 2.5, depth: 2, height: 3, color: "#c5dbe5" },
     { type: "Dining Table", width: 6, depth: 3.5, height: 2.5, color: "#d8ccb9" },
-    ...EXTRA_FURNITURE,
   ],
   "public toilet": [
     { type: "Toilet Seat (WC)", width: 2.5, depth: 4, height: 3, color: "#dbe7f2" },
@@ -232,7 +201,6 @@ const FURNITURE_PRESETS = {
     { type: "Wash Basin", width: 2, depth: 1.5, height: 3, color: "#d9eef5" },
     { type: "Mirror Panel", width: 3, depth: 0.3, height: 4, color: "#d3e7f8" },
     { type: "Partition Wall", width: 3, depth: 0.3, height: 6.5, color: "#cfd4dd" },
-    ...EXTRA_FURNITURE,
   ],
   "security cabin": [
     { type: "Guard Chair", width: 2, depth: 2, height: 3, color: "#bfc9d7" },
@@ -240,9 +208,19 @@ const FURNITURE_PRESETS = {
     { type: "Storage Shelf", width: 3, depth: 1.5, height: 6, color: "#c8d1c2" },
     { type: "CCTV Monitor Unit", width: 3, depth: 1.5, height: 4, color: "#c9d3e4" },
     { type: "Barrier Control Panel", width: 2.5, depth: 1.5, height: 3.5, color: "#d2c9be" },
-    ...EXTRA_FURNITURE,
   ],
 };
+
+const EXTRA_FURNITURE = [
+  { type: "Steel Staircase", width: 3.5, depth: 8, height: 10, color: "#475569", allowOutsideBuilding: true },
+  { type: "Plant (Indoor/Outdoor)", width: 1.5, depth: 1.5, height: 3.5, color: "#34d399", allowOutsideBuilding: true },
+];
+
+Object.keys(FURNITURE_PRESETS).forEach(category => {
+  if (Array.isArray(FURNITURE_PRESETS[category])) {
+    FURNITURE_PRESETS[category] = [...FURNITURE_PRESETS[category], ...EXTRA_FURNITURE];
+  }
+});
 
 // ─── Pure helpers ────────────────────────────────────────────────────────────
 
@@ -250,9 +228,6 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function normalizeHexColor(value, fallback = DEFAULT_WALL_COLOR) {
   const text = String(value || "").trim();
@@ -271,6 +246,7 @@ function ensureRoomVisualDefaults(room, index = 0) {
   return {
     ...room,
     color: room?.color || ROOM_COLORS[index % ROOM_COLORS.length],
+    wallColor: normalizeHexColor(room?.wallColor, DEFAULT_WALL_COLOR),
     floorTextureId: room?.floorTextureId || getDefaultFloorTextureId(),
   };
 }
@@ -288,6 +264,28 @@ function getSunPosition(azimuth, elevation, distance = 90, centerX = 0, centerZ 
 
 function rangesOverlapInclusive(a1, a2, b1, b2) {
   return Math.max(a1, b1) <= Math.min(a2, b2);
+}
+
+function getWallColorForSegment(segment, rooms) {
+  const isVertical = segment.x1 === segment.x2;
+  const fixed = isVertical ? segment.x1 : segment.y1;
+  const start = isVertical ? Math.min(segment.y1, segment.y2) : Math.min(segment.x1, segment.x2);
+  const end = isVertical ? Math.max(segment.y1, segment.y2) : Math.max(segment.x1, segment.x2);
+
+  const matches = rooms.filter((room) => {
+    const rx = Number(room.x) || 0;
+    const ry = Number(room.y) || 0;
+    const rw = Number(room.width) || 0;
+    const rh = Number(room.height) || 0;
+    if (isVertical) {
+      const touches = Math.abs(fixed - rx) < 0.001 || Math.abs(fixed - (rx + rw)) < 0.001;
+      return touches && rangesOverlapInclusive(start, end, ry, ry + rh);
+    }
+    const touches = Math.abs(fixed - ry) < 0.001 || Math.abs(fixed - (ry + rh)) < 0.001;
+    return touches && rangesOverlapInclusive(start, end, rx, rx + rw);
+  });
+
+  return matches[0]?.wallColor || DEFAULT_WALL_COLOR;
 }
 
 function getWallLength(room, wall) {
@@ -353,6 +351,7 @@ function getKitchenSlabGeometry(furnitureItem, room) {
   );
   const maxOffset = Math.max(0, wallLength - length - FURNITURE_WALL_CLEARANCE * 2);
   const offset = clamp(Number(furnitureItem?.offset) || 0, 0, maxOffset);
+  // Preserve rotation
   const rotation = Number(furnitureItem?.rotation) || 0;
 
   if (wall === "top") {
@@ -511,11 +510,47 @@ const createRoom = (index) => ({
   x: 0,
   y: 0,
   color: ROOM_COLORS[index % ROOM_COLORS.length],
+  wallColor: DEFAULT_WALL_COLOR,
   floorTextureId: getDefaultFloorTextureId(),
   doors: [],
   windows: [],
   furniture: [],
 });
+
+
+function resolveLabelCollisions(placedRooms, scale) {
+  const boxes = [];
+  const offsets = {};
+  
+  placedRooms.forEach((room) => {
+    (room.furniture || []).forEach((item) => {
+      const rx = Number(room.x) || 0;
+      const ry = Number(room.y) || 0;
+      const x = (rx + (Number(item.x) || 0) + (Number(item.width) || 1) / 2) * scale;
+      const y = (ry + (Number(item.y) || 0) + (Number(item.depth) || 1) / 2) * scale;
+      
+      let cy = y;
+      let labelH = 14;
+      let labelW = 40;
+      
+      let resolved = false;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const hit = boxes.find(b => Math.abs(b.x - x) < labelW && Math.abs(b.y - cy) < labelH);
+        if (!hit) {
+          boxes.push({ x, y: cy });
+          offsets[`${room.id}-${item.id}`] = cy - y;
+          resolved = true;
+          break;
+        }
+        cy += (attempt % 2 === 0 ? 1 : -1) * (12 + attempt * 4);
+      }
+      if (!resolved) {
+        offsets[`${room.id}-${item.id}`] = 0;
+      }
+    });
+  });
+  return offsets;
+}
 
 function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_HEIGHT) {
   const width  = Math.max(Number(room.width)  || 0, 0);
@@ -529,6 +564,7 @@ function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_
   });
   return {
     ...baseRoom,
+    wallColor: normalizeHexColor(baseRoom.wallColor, DEFAULT_WALL_COLOR),
     floorTextureId: baseRoom.floorTextureId || getDefaultFloorTextureId(),
     doors:    Array.isArray(baseRoom.doors)    ? baseRoom.doors.map((d)  => normalizeDoor(d, baseRoom))                  : [],
     windows:  Array.isArray(baseRoom.windows)  ? baseRoom.windows.map((w) => normalizeWindow(w, baseRoom, wallHeight))   : [],
@@ -608,7 +644,7 @@ function buildWallSegments(rooms, totalWidth, totalHeight) {
 
 // ─── 3D Wall ─────────────────────────────────────────────────────────────────
 
-function WallMesh({ segment, wallThickness, height, rooms, globalWallColor }) {
+function WallMesh({ segment, wallThickness, height, globalWallColor, rooms }) {
   const { x1, y1, x2, y2 } = segment;
   const isVertical = x1 === x2;
   const length = isVertical ? Math.abs(y2 - y1) : Math.abs(x2 - x1);
@@ -687,58 +723,22 @@ function WallMesh({ segment, wallThickness, height, rooms, globalWallColor }) {
 }
 
 function RoomFloor3D({ room }) {
-  const textureMeta = getFloorTextureById(room.floorTextureId);
-  const resolvedTexturePath = useMemo(() => resolveAssetPath(textureMeta.image), [textureMeta.image]);
-  const [textureLoadFailed, setTextureLoadFailed] = useState(false);
-  const [baseTexture, setBaseTexture] = useState(null);
-
-  useEffect(() => {
-    let isCancelled = false;
-    setTextureLoadFailed(false);
-    setBaseTexture(null);
-
-    if (!resolvedTexturePath) {
-      setTextureLoadFailed(true);
-      return undefined;
-    }
-
-    const loader = new THREE.TextureLoader();
-    loader.load(
-      resolvedTexturePath,
-      (loadedTexture) => {
-        if (isCancelled) return;
-        setBaseTexture(loadedTexture);
-      },
-      undefined,
-      () => {
-        if (isCancelled) return;
-        setTextureLoadFailed(true);
-      }
-    );
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [resolvedTexturePath]);
+  const tileScaleMult = Number(room.tileScale) || 1;
+  const texture = useTexture(textureMeta.image);
 
   const preparedTexture = useMemo(() => {
-    if (!baseTexture || textureLoadFailed) return null;
-    const next = baseTexture.clone();
+    if (!texture) return null;
+    const next = texture.clone();
     next.wrapS = THREE.RepeatWrapping;
     next.wrapT = THREE.RepeatWrapping;
-    const tileScale = Math.max(0.25, Math.min(4, Number(room.floorTileScale) || 1));
     next.repeat.set(
-      Math.max(0.25, (Number(room.width) || 1) / (Number(textureMeta.tileWidth) || 1) / tileScale),
-      Math.max(0.25, (Number(room.height) || 1) / (Number(textureMeta.tileHeight) || 1) / tileScale)
+      Math.max(1, (Number(room.width) || 1) / ((Number(textureMeta.tileWidth) * tileScaleMult) || 1)),
+      Math.max(1, (Number(room.height) || 1) / ((Number(textureMeta.tileHeight) * tileScaleMult) || 1))
     );
     next.anisotropy = 8;
     next.needsUpdate = true;
     return next;
-  }, [baseTexture, textureLoadFailed, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight, room.floorTileScale]);
-
-  useEffect(() => () => {
-    preparedTexture?.dispose?.();
-  }, [preparedTexture]);
+  }, [texture, room.width, room.height, textureMeta?.tileWidth, textureMeta?.tileHeight, tileScaleMult]);
 
   return (
     <mesh
@@ -747,17 +747,12 @@ function RoomFloor3D({ room }) {
       receiveShadow
     >
       <planeGeometry args={[Math.max(Number(room.width) - 0.12, 0.2), Math.max(Number(room.height) - 0.12, 0.2)]} />
-      <meshStandardMaterial
-        map={preparedTexture || null}
-        color={preparedTexture ? "#ffffff" : (room.color || "#ffffff")}
-        roughness={0.82}
-        metalness={0.04}
-      />
+      <meshStandardMaterial map={preparedTexture} color={room.color || "#ffffff"} roughness={0.82} metalness={0.04} />
     </mesh>
   );
 }
 
-const DOOR_OPEN_ANGLE = Math.PI / 6; // 30° open so door is clearly recognizable
+const DOOR_OPEN_ANGLE = Math.PI / 2.2;
 
 function Door3D({ room, door, wallThickness }) {
   const line = getOpeningLineSegment(room, door);
@@ -774,23 +769,20 @@ function Door3D({ room, door, wallThickness }) {
   return (
     <group position={[centerX, 0, centerZ]} rotation={[0, rotateY, 0]}>
       {/* Hollow U-frame: left bar, right bar, top bar */}
-      {/* Left bar */}
       <mesh castShadow receiveShadow position={[-(width / 2 + frameThickness / 2), height / 2, 0]}>
         <boxGeometry args={[frameThickness, height + frameThickness, depth]} />
         <meshStandardMaterial color="#7f5d44" roughness={0.84} />
       </mesh>
-      {/* Right bar */}
       <mesh castShadow receiveShadow position={[width / 2 + frameThickness / 2, height / 2, 0]}>
         <boxGeometry args={[frameThickness, height + frameThickness, depth]} />
         <meshStandardMaterial color="#7f5d44" roughness={0.84} />
       </mesh>
-      {/* Top bar */}
       <mesh castShadow receiveShadow position={[0, height + frameThickness / 2, 0]}>
         <boxGeometry args={[width + frameThickness * 2, frameThickness, depth]} />
         <meshStandardMaterial color="#7f5d44" roughness={0.84} />
       </mesh>
 
-      {/* Pivoting door leaf — hinged at left edge (-width/2), open ~30° */}
+      {/* Pivoting door leaf */}
       <group position={[-width / 2, 0, 0]} rotation={[0, -DOOR_OPEN_ANGLE, 0]}>
         <mesh castShadow receiveShadow position={[width / 2, height / 2, depth * 0.12]}>
           <boxGeometry args={[width, height, depth * 0.72]} />
@@ -834,15 +826,15 @@ function Window3D({ room, windowItem, wallThickness }) {
         <boxGeometry args={[width + frame * 2, height + frame * 2, depth]} />
         <meshStandardMaterial color="#eef2f7" roughness={0.62} metalness={0.08} />
       </mesh>
-      {/* Left glass pane — more realistic, very transparent */}
+      {/* Left glass pane */}
       <mesh receiveShadow position={[-width / 4, 0, 0.02]}>
         <boxGeometry args={[width / 2 - frame * 0.5, height, Math.max(0.02, depth * 0.22)]} />
-        <meshPhysicalMaterial color="#d6f0ff" transmission={0.95} opacity={1} transparent roughness={0.02} metalness={0} thickness={0.2} ior={1.45} reflectivity={0.9} clearcoat={1} clearcoatRoughness={0} />
+        <meshPhysicalMaterial color="#e0f2fe" transmission={0.95} opacity={1} transparent={true} roughness={0.05} metalness={0.1} ior={1.52} thickness={0.05} />
       </mesh>
       {/* Right glass pane */}
       <mesh receiveShadow position={[width / 4, 0, 0.02]}>
         <boxGeometry args={[width / 2 - frame * 0.5, height, Math.max(0.02, depth * 0.22)]} />
-        <meshPhysicalMaterial color="#d6f0ff" transmission={0.95} opacity={1} transparent roughness={0.02} metalness={0} thickness={0.2} ior={1.45} reflectivity={0.9} clearcoat={1} clearcoatRoughness={0} />
+        <meshPhysicalMaterial color="#e0f2fe" transmission={0.95} opacity={1} transparent={true} roughness={0.05} metalness={0.1} ior={1.52} thickness={0.05} />
       </mesh>
 
       {dividerCount >= 1 && (
@@ -872,6 +864,7 @@ function Window3D({ room, windowItem, wallThickness }) {
 }
 
 // ─── Furniture helpers ────────────────────────────────────────────────────────
+// ─── Furniture helpers ────────────────────────────────────────────────────────
 
 function FurnitureMaterial({ color }) {
   return <meshStandardMaterial color={color || "#cfd8e3"} roughness={0.72} metalness={0.08} />;
@@ -897,83 +890,24 @@ function getFurnitureRecommendationItems(furnitureType) {
   return FURNITURE_PRODUCT_RECOMMENDATIONS[String(furnitureType || "").trim().toLowerCase()] || [];
 }
 
-// ─── Staircase3D ─────────────────────────────────────────────────────────────
+// ─── 3D Furniture (REFACTORED: group-based positioning for rotation support) ──
 
-function Staircase3D({ worldX, worldZ, width, depth, height, color, rotRad }) {
-  const stepCount = clamp(Math.round(height), 4, 16);
-  const stepH = height / stepCount;
-  const stepD = depth / stepCount;
-
-  return (
-    <group position={[worldX, 0, worldZ - depth / 2]} rotation={[0, rotRad, 0]}>
-      {Array.from({ length: stepCount }, (_, i) => (
-        <mesh key={i} castShadow receiveShadow
-          position={[0, stepH * i + stepH / 2, stepD * i + stepD / 2]}>
-          <boxGeometry args={[width, stepH, stepD]} />
-          <meshStandardMaterial color={color || "#8a9ab5"} roughness={0.6} metalness={0.35} />
-        </mesh>
-      ))}
-      {/* Left handrail post */}
-      <mesh castShadow position={[-width / 2 + 0.12, height / 2 + 0.5, depth / 2]}>
-        <boxGeometry args={[0.12, height + 1, 0.12]} />
-        <meshStandardMaterial color="#6b7a8d" metalness={0.55} roughness={0.4} />
-      </mesh>
-      {/* Right handrail post */}
-      <mesh castShadow position={[width / 2 - 0.12, height / 2 + 0.5, depth / 2]}>
-        <boxGeometry args={[0.12, height + 1, 0.12]} />
-        <meshStandardMaterial color="#6b7a8d" metalness={0.55} roughness={0.4} />
-      </mesh>
-    </group>
-  );
-}
-
-// ─── Plant3D ──────────────────────────────────────────────────────────────────
-
-function Plant3D({ worldX, worldZ, width, depth, height, color, rotRad }) {
-  const potH = Math.max(0.6, height * 0.22);
-  const potR = Math.max(0.3, Math.min(width, depth) * 0.38);
-  const foliageR = Math.max(0.5, Math.min(width, depth) * 0.52);
-
-  return (
-    <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]}>
-      {/* Pot */}
-      <mesh castShadow receiveShadow position={[0, potH / 2, 0]}>
-        <cylinderGeometry args={[potR * 0.9, potR * 0.72, potH, 16]} />
-        <meshStandardMaterial color="#9b7e5c" roughness={0.8} />
-      </mesh>
-      {/* Soil disc */}
-      <mesh receiveShadow position={[0, potH - 0.05, 0]}>
-        <cylinderGeometry args={[potR * 0.88, potR * 0.88, 0.1, 16]} />
-        <meshStandardMaterial color="#5a3e28" roughness={0.95} />
-      </mesh>
-      {/* Foliage spheres */}
-      <mesh castShadow position={[0, potH + foliageR * 0.85, 0]}>
-        <sphereGeometry args={[foliageR, 14, 14]} />
-        <meshStandardMaterial color={color || "#2d7a3a"} roughness={0.88} />
-      </mesh>
-      <mesh castShadow position={[foliageR * 0.4, potH + foliageR * 0.55, foliageR * 0.3]}>
-        <sphereGeometry args={[foliageR * 0.72, 12, 12]} />
-        <meshStandardMaterial color={color || "#2d7a3a"} roughness={0.88} />
-      </mesh>
-      <mesh castShadow position={[-foliageR * 0.38, potH + foliageR * 0.5, -foliageR * 0.25]}>
-        <sphereGeometry args={[foliageR * 0.68, 12, 12]} />
-        <meshStandardMaterial color={color || "#2d7a3a"} roughness={0.88} />
-      </mesh>
-    </group>
-  );
-}
-
-// ─── 3D Furniture (group-based positioning for rotation support) ──────────────
-
+/**
+ * All meshes now use LOCAL coordinates relative to the group's origin.
+ * The group is positioned at the world center of the furniture piece,
+ * and rotated around the Y-axis (floor-plan Z) to implement rotation.
+ */
 function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
   const roomX = Number(room.x) || 0;
   const roomY = Number(room.y) || 0;
   const width  = Number(furnitureItem.width)  || 1;
   const depth  = Number(furnitureItem.depth)  || 1;
   const height = Number(furnitureItem.height) || 1;
+  // rotation in degrees → radians around Y-axis (vertical axis = floor rotation)
   const rotationDeg = Number(furnitureItem.rotation) || 0;
   const rotRad = (rotationDeg * Math.PI) / 180;
 
+  // World center of the furniture piece
   const worldX = roomX + (Number(furnitureItem.x) || 0) + width / 2;
   const worldZ = roomY + (Number(furnitureItem.y) || 0) + depth / 2;
 
@@ -992,6 +926,7 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
     onSelect(furnitureItem);
   };
 
+  // Shared ring indicator (shown when product recommendations exist)
   const RecommendationRing = () =>
     hasRec ? (
       <mesh position={[0, height + 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -999,16 +934,6 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
         <meshBasicMaterial color={outlineColor} transparent opacity={0.95} />
       </mesh>
     ) : null;
-
-  // ── Staircase ──
-  if (type.includes("staircase")) {
-    return <Staircase3D worldX={worldX} worldZ={worldZ} width={width} depth={depth} height={height} color={color} rotRad={rotRad} />;
-  }
-
-  // ── Plant ──
-  if (type.includes("plant")) {
-    return <Plant3D worldX={worldX} worldZ={worldZ} width={width} depth={depth} height={height} color={color} rotRad={rotRad} />;
-  }
 
   // ── Sofa ──
   if (type.includes("sofa")) {
@@ -1279,7 +1204,7 @@ function Floor3DScene({
       })}
 
       {(wallSegments || []).map((segment, index) => (
-        <WallMesh key={index} segment={segment} wallThickness={wt} height={h} rooms={rooms} globalWallColor={globalWallColor} />
+        <WallMesh key={index} segment={segment} wallThickness={wt} height={h} globalWallColor={globalWallColor} rooms={rooms} />
       ))}
 
       {rooms.map((room) => {
@@ -1318,6 +1243,7 @@ function Floor3DScene({
 }
 
 // ─── 2D Opening ───────────────────────────────────────────────────────────────
+// ─── 2D Opening ───────────────────────────────────────────────────────────────
 
 function Opening2D({ room, opening, scale, wallThickness }) {
   const line = getOpeningLineSegment(room, opening);
@@ -1336,9 +1262,9 @@ function Opening2D({ room, opening, scale, wallThickness }) {
   );
 }
 
-// ─── 2D Furniture ─────────────────────────────────────────────────────────────
+// ─── 2D Furniture (UPDATED: SVG rotate transform around center) ───────────────
 
-function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect, labelDy = 0 }) {
+function Furniture2D({ room, furnitureItem, scale, labelOffset = 0, isSelected = false, onSelect }) {
   const roomX  = Number(room.x) || 0;
   const roomY  = Number(room.y) || 0;
   const localX = Number(furnitureItem.x) || 0;
@@ -1351,6 +1277,7 @@ function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect,
   const w = width * scale;
   const h = depth * scale;
 
+  // Rotation center = SVG center of furniture bounding box
   const cx = x + w / 2;
   const cy = y + h / 2;
   const rotation = Number(furnitureItem.rotation) || 0;
@@ -1360,8 +1287,8 @@ function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect,
 
   const nameFontSize = Math.max(5.5, Math.min(8, Math.min(w, h) * 0.09));
   const dimFontSize  = Math.max(4.75, Math.min(6.5, Math.min(w, h) * 0.075));
-  const labelOffsetY = h >= 42 ? -3 : -1;
-  const dimOffsetY   = h >= 42 ? 10 : 8;
+  const labelOffsetY = (h >= 42 ? -3 : -1) + labelOffset;
+  const dimOffsetY   = (h >= 42 ? 10 : 8) + labelOffset;
 
   const handleSelect = (e) => {
     if (!hasRec || typeof onSelect !== "function") return;
@@ -1389,285 +1316,22 @@ function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect,
           stroke="#8a98a8" strokeWidth="2"
         />
       )}
-      <text x={cx} y={cy + labelOffsetY + labelDy} textAnchor="middle" dominantBaseline="middle"
+      <text x={cx} y={cy + labelOffsetY} textAnchor="middle" dominantBaseline="middle"
         style={{ fontSize: nameFontSize, fontWeight: 600, fill: "#243246", pointerEvents: "none" }}>
         {furnitureItem.type}
       </text>
-      <text x={cx} y={cy + dimOffsetY + labelDy} textAnchor="middle" dominantBaseline="middle"
+      <text x={cx} y={cy + dimOffsetY} textAnchor="middle" dominantBaseline="middle"
         style={{ fontSize: dimFontSize, fontWeight: 500, fill: "#5b677c", pointerEvents: "none" }}>
         {`${width} ft × ${depth} ft`}
       </text>
+      {/* Rotation badge when non-zero */}
       {rotation !== 0 && (
-        <text x={cx} y={cy + dimOffsetY + 9 + labelDy} textAnchor="middle" dominantBaseline="middle"
+        <text x={cx} y={cy + dimOffsetY + 9} textAnchor="middle" dominantBaseline="middle"
           style={{ fontSize: 4.5, fill: "#8899b0", pointerEvents: "none" }}>
           {`↻ ${rotation}°`}
         </text>
       )}
     </g>
-  );
-}
-
-// ─── 2D label collision helper ────────────────────────────────────────────────
-
-function computeFurnitureLabelOffsets(furnitureItems, room, scale) {
-  if (!furnitureItems || furnitureItems.length < 2) return {};
-  const positions = furnitureItems.map((item) => {
-    const w = (Number(item.width) || 1) * scale;
-    const h = (Number(item.depth) || 1) * scale;
-    const cx = (Number(room.x) + (Number(item.x) || 0)) * scale + w / 2;
-    const cy = (Number(room.y) + (Number(item.y) || 0)) * scale + h / 2;
-    return { id: item.id, cx, cy, dy: 0 };
-  });
-  const THRESHOLD = 22;
-  for (let i = 0; i < positions.length; i++) {
-    for (let j = i + 1; j < positions.length; j++) {
-      if (
-        Math.abs(positions[j].cx - positions[i].cx) < THRESHOLD &&
-        Math.abs(positions[j].cy - positions[i].cy) < THRESHOLD
-      ) {
-        positions[i].dy -= 9;
-        positions[j].dy += 9;
-      }
-    }
-  }
-  return Object.fromEntries(positions.map((p) => [p.id, p.dy]));
-}
-
-// ─── MiniFloorPlan SVG preview ────────────────────────────────────────────────
-
-function MiniFloorPlan({ variant, size = 160 }) {
-  if (!variant) return null;
-  const rooms = Array.isArray(variant.rooms) ? variant.rooms : [];
-  const tw = Number(variant.totalWidth) || 40;
-  const th = Number(variant.totalHeight) || 30;
-  const pad = 8;
-  const scaleX = (size - pad * 2) / tw;
-  const scaleY = (size - pad * 2) / th;
-  const sc = Math.min(scaleX, scaleY);
-
-  return (
-    <svg width={size} height={size} style={{ display: "block", borderRadius: 8, background: "#f8fafc", border: "1px solid rgba(148,163,184,0.18)" }}>
-      <rect width={size} height={size} fill="#f0f4f8" />
-      <g transform={`translate(${pad}, ${pad})`}>
-        <rect x={0} y={0} width={tw * sc} height={th * sc} fill="none" stroke="#94a3b8" strokeWidth={1.5} />
-        {rooms.map((room, i) => {
-          const rx = (Number(room.x) || 0) * sc;
-          const ry = (Number(room.y) || 0) * sc;
-          const rw = Math.max(2, (Number(room.width) || 8) * sc);
-          const rh = Math.max(2, (Number(room.height) || 8) * sc);
-          return (
-            <g key={i}>
-              <rect x={rx} y={ry} width={rw} height={rh}
-                fill={ROOM_COLORS[i % ROOM_COLORS.length]}
-                stroke="#7e8da3" strokeWidth={0.8} fillOpacity={0.85} />
-              {rw > 18 && rh > 10 && (
-                <text x={rx + rw / 2} y={ry + rh / 2} textAnchor="middle" dominantBaseline="middle"
-                  style={{ fontSize: Math.min(7, rw / 4), fill: "#1e293b", fontWeight: 600, pointerEvents: "none" }}>
-                  {String(room.name || "").slice(0, 8)}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </g>
-    </svg>
-  );
-}
-
-// ─── Variant Selection Page ───────────────────────────────────────────────────
-
-function VariantSelectionPage({ variants, theme, onSelect, onBack }) {
-  return (
-    <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
-      <section className="top-control-card">
-        <div className="top-control-grid">
-          <div className="input-card top-input-card">
-            <div className="top-input-meta-row">
-              <div className="top-input-brand">
-                <span className="pill">AI Layout Options</span>
-                <div className="top-input-brand-copy">
-                  <div className="top-input-title-row">
-                    <h1><Sparkles size={20} />Choose Your Layout</h1>
-                  </div>
-                  <p>We created 3 versions of your floor plan. Pick the one that feels right — you can edit everything after.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <aside className="project-actions-card input-card">
-            <button className="primary-btn project-stack-btn" onClick={onBack}>
-              <ArrowLeft size={16} />
-              Back
-            </button>
-          </aside>
-        </div>
-      </section>
-
-      <div style={{ padding: "24px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
-        {variants.map((variant) => {
-          const rooms = Array.isArray(variant.rooms) ? variant.rooms : [];
-          const totalArea = rooms.reduce((s, r) => s + (Number(r.width) || 0) * (Number(r.height) || 0), 0);
-          return (
-            <div key={variant.id} className="input-card" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                <span className="pill" style={{ fontSize: 12 }}>{variant.label}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <MiniFloorPlan variant={variant} size={200} />
-              </div>
-              <p style={{ fontSize: 13, opacity: 0.75, margin: 0 }}>{variant.rationale}</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {rooms.slice(0, 6).map((room, i) => (
-                  <span key={i} className="chatbot-chip" style={{ fontSize: 11, padding: "3px 10px", cursor: "default" }}>
-                    {room.name || `Room ${i + 1}`}
-                  </span>
-                ))}
-                {rooms.length > 6 && <span className="chatbot-chip" style={{ fontSize: 11, padding: "3px 10px", cursor: "default" }}>+{rooms.length - 6} more</span>}
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.6 }}>
-                {variant.totalWidth} ft × {variant.totalHeight} ft &nbsp;·&nbsp; {totalArea.toFixed(0)} sq ft total area
-              </div>
-              <button className="primary-btn" style={{ marginTop: "auto" }} onClick={() => onSelect(variant)}>
-                Use This Layout
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── Landing Page ─────────────────────────────────────────────────────────────
-
-function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, generationStep }) {
-  const [promptText, setPromptText] = useState("");
-  const [voiceState, setVoiceState] = useState("idle"); // "idle" | "listening" | "processing"
-  const srAvailable = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
-  const recognitionRef = useRef(null);
-
-  const handleVoice = () => {
-    if (!srAvailable) return;
-    if (voiceState === "listening") {
-      recognitionRef.current?.stop();
-      return;
-    }
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const rec = new SR();
-    rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
-    rec.onstart = () => setVoiceState("listening");
-    rec.onend   = () => setVoiceState("idle");
-    rec.onerror = () => setVoiceState("idle");
-    rec.onresult = (e) => {
-      setVoiceState("processing");
-      setPromptText(e?.results?.[0]?.[0]?.transcript || "");
-      setTimeout(() => setVoiceState("idle"), 400);
-    };
-    recognitionRef.current = rec;
-    rec.start();
-  };
-
-  const handleSubmit = (e) => {
-    e?.preventDefault?.();
-    if (!promptText.trim() || isGenerating) return;
-    onGenerate(promptText.trim());
-  };
-
-  return (
-    <div className={`app-shell landing-page ${theme === "dark" ? "dark-theme" : "light-theme"}`}
-      style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "40px 24px" }}>
-
-      {isGenerating ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center" }}>
-          <Loader2 size={48} className="spin-icon" style={{ color: "#3b82f6" }} />
-          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Creating your floor plan...</h2>
-          <p style={{ fontSize: 15, opacity: 0.65, margin: 0 }}>{generationStep || "Working on it..."}</p>
-        </div>
-      ) : (
-        <div style={{ width: "100%", maxWidth: 640, display: "flex", flexDirection: "column", gap: 28, alignItems: "center" }}>
-          {/* Brand pill */}
-          <span className="pill" style={{ fontSize: 13 }}>AI Floor Plan Builder</span>
-
-          {/* Heading */}
-          <div style={{ textAlign: "center" }}>
-            <h1 style={{ fontSize: "clamp(28px, 5vw, 44px)", fontWeight: 800, lineHeight: 1.15, margin: "0 0 12px" }}>
-              Design your space<br />with one command
-            </h1>
-            <p style={{ fontSize: 17, opacity: 0.65, margin: 0 }}>
-              Type what you want to build and we will generate a full floor plan with rooms, furniture and layouts — instantly.
-            </p>
-          </div>
-
-          {/* Prompt form */}
-          <form onSubmit={handleSubmit} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ position: "relative" }}>
-              <textarea
-                value={promptText}
-                onChange={(e) => setPromptText(e.target.value)}
-                placeholder="Try: Design a 2BHK home with a living room, 2 bedrooms, kitchen and 2 bathrooms in 40 by 30 feet..."
-                rows={4}
-                style={{
-                  width: "100%", boxSizing: "border-box",
-                  padding: "14px 52px 14px 16px",
-                  fontSize: 15, borderRadius: 14, resize: "vertical",
-                  border: "1.5px solid rgba(148,163,184,0.3)",
-                  background: "transparent",
-                  lineHeight: 1.55,
-                  outline: "none",
-                }}
-                onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSubmit(e); }}
-              />
-              {srAvailable && (
-                <button
-                  type="button"
-                  onClick={handleVoice}
-                  aria-label={voiceState === "listening" ? "Stop recording" : "Start voice input"}
-                  style={{
-                    position: "absolute", top: 12, right: 12,
-                    width: 36, height: 36, borderRadius: "50%",
-                    border: "none", cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: voiceState === "listening" ? "#ef4444" : "rgba(59,130,246,0.12)",
-                    color: voiceState === "listening" ? "#fff" : "#3b82f6",
-                    animation: voiceState === "listening" ? "pulse 1s infinite" : "none",
-                  }}
-                >
-                  <Mic size={16} />
-                </button>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              className="primary-btn"
-              disabled={!promptText.trim()}
-              style={{ fontSize: 16, padding: "14px 28px", borderRadius: 12 }}
-            >
-              <Sparkles size={18} />
-              Generate Layout
-            </button>
-          </form>
-
-          {/* Example chips */}
-          <div style={{ width: "100%", display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-            {EXAMPLE_PROMPTS.map((p) => (
-              <button key={p} type="button" className="chatbot-chip" onClick={() => setPromptText(p)} style={{ fontSize: 12 }}>
-                {p}
-              </button>
-            ))}
-          </div>
-
-          {/* Continue without AI */}
-          <button
-            type="button"
-            onClick={onContinueWithout}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: 0.55, padding: "4px 8px", textDecoration: "underline" }}
-          >
-            Continue without AI →
-          </button>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -1678,6 +1342,7 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
 
   const presets = FURNITURE_PRESETS[activeCategory] || [];
 
+  // Count how many of each preset type are placed in rooms
   const placedCountByType = useMemo(() => {
     const counts = {};
     rooms.forEach((room) => {
@@ -1688,6 +1353,7 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
     return counts;
   }, [rooms]);
 
+  // Placed furniture items for the active category
   const placedItems = useMemo(() => {
     return rooms.flatMap((room) =>
       (room.furniture || [])
@@ -1701,6 +1367,7 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
 
   return (
     <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
+      {/* ── Header ── */}
       <section className="top-control-card">
         <div className="top-control-grid">
           <div className="input-card top-input-card">
@@ -1728,6 +1395,7 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
         </div>
       </section>
 
+      {/* ── Category Tabs ── */}
       <div style={{ padding: "0 24px 0", display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 0 }}>
         {PRODUCT_CATEGORIES.map((cat) => (
           <button
@@ -1737,6 +1405,7 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
             onClick={() => setActiveCategory(cat)}
           >
             {cat}
+            {/* badge: count of placed items in this category */}
             {(() => {
               const cnt = rooms.flatMap((r) => r.furniture || []).filter((f) =>
                 (FURNITURE_PRESETS[cat] || []).some((p) => p.type === f.type)
@@ -1753,6 +1422,7 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
 
       <div style={{ padding: "12px 24px 32px", display: "flex", flexDirection: "column", gap: 24 }}>
 
+        {/* ── Preset Catalog Section ── */}
         <section className="input-card" style={{ padding: 20 }}>
           <div className="section-header compact" style={{ marginBottom: 16 }}>
             <div>
@@ -1778,6 +1448,7 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
                   className="input-card"
                   style={{ padding: 16, border: isModified ? "1.5px solid #3b82f6" : undefined, position: "relative" }}
                 >
+                  {/* Color chip + name */}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                     <div style={{ width: 16, height: 16, borderRadius: 4, background: preset.color, border: "1px solid #b0b8c4", flexShrink: 0 }} />
                     <strong style={{ fontSize: 13, flex: 1 }}>{preset.type}</strong>
@@ -1838,6 +1509,7 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
                     </div>
                   </div>
 
+                  {/* Reset to original */}
                   {isModified && (
                     <button
                       type="button"
@@ -1854,6 +1526,7 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
           </div>
         </section>
 
+        {/* ── Placed Furniture Section ── */}
         <section className="input-card" style={{ padding: 20 }}>
           <div className="section-header compact" style={{ marginBottom: 16 }}>
             <div>
@@ -1945,7 +1618,7 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
   );
 }
 
-// ─── Template / preset helpers ────────────────────────────────────────────────
+// ─── Template / preset helpers (unchanged) ────────────────────────────────────
 
 function createProjectId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -1967,7 +1640,6 @@ function getDefaultProjectState() {
     customPresetDimensions: {},
     assistantCollapsed: false,
     sunSettings: DEFAULT_SUN_SETTINGS,
-    globalWallColor: DEFAULT_WALL_COLOR,
   };
 }
 
@@ -2097,6 +1769,7 @@ function sanitizeVisionFloorPlanResponse(aiResponse, currentState) {
     x: Math.max(0, Number(room?.x) || 0), y: Math.max(0, Number(room?.y) || 0),
     width: Math.max(4, Number(room?.width) || 10), height: Math.max(4, Number(room?.height) || 10),
     color: ROOM_COLORS[index % ROOM_COLORS.length],
+    wallColor: DEFAULT_WALL_COLOR,
     floorTextureId: getDefaultFloorTextureId(),
     doors: [], windows: [], furniture: [],
   }));
@@ -2177,9 +1850,7 @@ function createFurnitureFromPreset(preset, category, overrides = {}) {
     width: preset.width, depth: preset.depth, height: preset.height,
     x: FURNITURE_WALL_CLEARANCE, y: FURNITURE_WALL_CLEARANCE,
     rotation: 0,
-    color: preset.color,
-    ...(preset.allowOutsideBuilding ? { allowOutsideBuilding: true } : {}),
-    ...overrides,
+    color: preset.color, ...overrides,
   };
 }
 
@@ -2222,6 +1893,7 @@ function createTemplateRoom(index, name, width, height, category, overrides = {}
       ? crypto.randomUUID() : `room-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
     name, width, height, x: 0, y: 0,
     color: ROOM_COLORS[index % ROOM_COLORS.length],
+    wallColor: DEFAULT_WALL_COLOR,
     floorTextureId: getDefaultFloorTextureId(),
     doors: [], windows: [], furniture: [], ...overrides,
   };
@@ -2233,802 +1905,152 @@ function createTemplateRoom(index, name, width, height, category, overrides = {}
   };
 }
 
-function createPlanningId(prefix) {
-  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function normalizePlanningCategory(value, fallback = "office") {
-  const raw = String(value || "").trim().toLowerCase();
-  if (!raw) return fallback;
-  if (["2bhk", "1bhk", "studio", "apartment", "bedroom", "luxury bedroom", "house", "home", "flat"].includes(raw)) return "house";
-  if (raw.includes("cafe") || raw.includes("coffee")) return "cafe";
-  if (raw.includes("office") || raw.includes("workspace")) return "office";
-  if (raw.includes("toilet") || raw.includes("restroom") || raw.includes("washroom")) return "public toilet";
-  if (raw.includes("security") || raw.includes("guard")) return "security cabin";
-  if (raw.includes("storage") || raw.includes("warehouse")) return "storage";
-  return PRODUCT_CATEGORIES.includes(raw) ? raw : fallback;
-}
-
-function inferCategoryFromPrompt(prompt, fallback = "office") {
-  const lower = String(prompt || "").toLowerCase();
-  if (!lower.trim()) return fallback;
-  if (/(2\s*bhk|two bedroom|family home|apartment|flat|house|home|studio|bedroom|luxury bedroom)/.test(lower)) return "house";
-  if (/(cafe|coffee|container cafe|restaurant|counter seating)/.test(lower)) return "cafe";
-  if (/(office|workspace|workstations?|desks?|meeting room|reception)/.test(lower)) return "office";
-  if (/(public toilet|restroom|washroom|urinal|stalls?|basins?)/.test(lower)) return "public toilet";
-  if (/(security cabin|guard room|guard cabin|cctv)/.test(lower)) return "security cabin";
-  if (/(storage|warehouse|rack|inventory)/.test(lower)) return "storage";
-  return fallback;
-}
-
-function getPromptNumber(prompt, patterns, fallback = 0) {
-  const lower = String(prompt || "").toLowerCase();
-  for (const pattern of patterns) {
-    const match = lower.match(pattern);
-    if (match) return Number(match[1]) || fallback;
-  }
-  return fallback;
-}
-
-function getDefaultPlanDimensionsByCategory(category, prompt = "", currentState = {}) {
-  const extracted = extractPlanDimensions(prompt) || {};
-  const normalizedCategory = normalizePlanningCategory(category, normalizePlanningCategory(currentState?.selectedCategory, "office"));
-  const defaults = {
-    house: { totalWidth: 40, totalHeight: 30 },
-    cafe: { totalWidth: 32, totalHeight: 24 },
-    office: { totalWidth: 42, totalHeight: 28 },
-    "public toilet": { totalWidth: 24, totalHeight: 16 },
-    "security cabin": { totalWidth: 12, totalHeight: 10 },
-    storage: { totalWidth: 50, totalHeight: 36 },
-  };
-  const base = defaults[normalizedCategory] || defaults.office;
-  return {
-    totalWidth: Number(extracted.totalWidth) || Number(currentState?.totalWidth) || base.totalWidth,
-    totalHeight: Number(extracted.totalHeight) || Number(currentState?.totalHeight) || base.totalHeight,
-  };
-}
-
-function getRoomTypeFromName(name, category = "office") {
-  const lower = String(name || "").toLowerCase();
-  if (category === "house") {
-    if (lower.includes("living") || lower.includes("lounge")) return "living";
-    if (lower.includes("kitchen") || lower.includes("pantry")) return "kitchen";
-    if (lower.includes("bath") || lower.includes("toilet") || lower.includes("wash")) return "bathroom";
-    if (lower.includes("dining")) return "dining";
-    if (lower.includes("bed") || lower.includes("master") || lower.includes("guest")) return "bedroom";
-  }
-  if (category === "office") {
-    if (lower.includes("reception")) return "reception";
-    if (lower.includes("meeting") || lower.includes("conference")) return "meeting";
-    if (lower.includes("pantry")) return "pantry";
-    if (lower.includes("cabinet") || lower.includes("storage")) return "storage";
-    return "workspace";
-  }
-  if (category === "cafe") {
-    if (lower.includes("counter") || lower.includes("cash")) return "counter";
-    if (lower.includes("kitchen") || lower.includes("prep")) return "prep";
-    if (lower.includes("display")) return "display";
-    return "seating";
-  }
-  if (category === "public toilet") {
-    if (lower.includes("wash")) return "wash";
-    if (lower.includes("male") || lower.includes("female") || lower.includes("stall") || lower.includes("wc")) return "stalls";
-    return "toilet";
-  }
-  if (category === "security cabin") return "cabin";
-  if (category === "storage") return "storage";
-  return lower.includes("bath") ? "bathroom" : "room";
-}
-
-function getMinimumRoomSize(type, category) {
-  const key = `${category}:${type}`;
-  const map = {
-    "house:living": { width: 12, height: 10 },
-    "house:bedroom": { width: 10, height: 10 },
-    "house:kitchen": { width: 8, height: 6 },
-    "house:bathroom": { width: 5, height: 6 },
-    "house:dining": { width: 8, height: 7 },
-    "office:workspace": { width: 14, height: 12 },
-    "office:reception": { width: 8, height: 8 },
-    "office:meeting": { width: 9, height: 8 },
-    "office:pantry": { width: 6, height: 5 },
-    "cafe:seating": { width: 14, height: 12 },
-    "cafe:counter": { width: 8, height: 6 },
-    "cafe:prep": { width: 8, height: 6 },
-    "public toilet:stalls": { width: 8, height: 8 },
-    "public toilet:wash": { width: 6, height: 4 },
-    "security cabin:cabin": { width: 8, height: 8 },
-    "storage:storage": { width: 18, height: 14 },
-  };
-  return map[key] || { width: 8, height: 8 };
-}
-
-function buildPlanningRoom(index, name, type, width, height, category, overrides = {}) {
-  return createTemplateRoom(index, name, width, height, category, { type, ...overrides });
-}
-
-function getHouseProgram(prompt, totalWidth, totalHeight) {
-  const lower = String(prompt || "").toLowerCase();
-  const wantsStudio = /studio/.test(lower);
-  const wantsOneBed = /(^|\s)(1\s*bhk|one bedroom)(\s|$)/.test(lower);
-  const bathCount = /two bathrooms|2 bathrooms|2 bath/.test(lower) || totalWidth >= 36 ? 2 : 1;
-  if (wantsStudio) {
-    return [
-      { name: "Studio Living", type: "living", width: Math.max(16, totalWidth * 0.62), height: Math.max(12, totalHeight * 0.68) },
-      { name: "Kitchen", type: "kitchen", width: Math.max(8, totalWidth * 0.22), height: Math.max(7, totalHeight * 0.32) },
-      { name: "Bathroom", type: "bathroom", width: 6, height: 7 },
-    ];
-  }
-  if (wantsOneBed) {
-    return [
-      { name: "Living Room", type: "living", width: 14, height: 11 },
-      { name: "Bedroom 1", type: "bedroom", width: 12, height: 11 },
-      { name: "Kitchen", type: "kitchen", width: 9, height: 7 },
-      { name: "Bathroom", type: "bathroom", width: 6, height: 7 },
-    ];
-  }
-  return [
-    { name: "Living Room", type: "living", width: 14, height: 12 },
-    { name: "Master Bedroom", type: "bedroom", width: 12, height: 11 },
-    { name: "Bedroom 2", type: "bedroom", width: 11, height: 10 },
-    { name: "Kitchen", type: "kitchen", width: 10, height: 8 },
-    ...Array.from({ length: bathCount }, (_, index) => ({ name: `Bathroom ${index + 1}`, type: "bathroom", width: 6, height: 7 })),
-  ];
-}
-
-function generateCategorySeedLayout(category, totalWidth, totalHeight, prompt = "", variantStyle = "standard") {
-  const normalizedCategory = normalizePlanningCategory(category, inferCategoryFromPrompt(prompt, "office"));
-  const lower = String(prompt || "").toLowerCase();
-  const seatCount = getPromptNumber(prompt, [/for\s+(\d+)\s+people/, /(\d+)\s+seats?/, /(\d+)\s+chairs?/], normalizedCategory === "cafe" ? 12 : 0);
-  const deskCount = getPromptNumber(prompt, [/(\d+)\s+workstations?/, /(\d+)\s+desks?/, /office\s+for\s+(\d+)\s+people/], normalizedCategory === "office" ? 10 : 0);
-  const wantsMeetingRoom = /meeting room|conference/.test(lower);
-  const wantsReception = /reception/.test(lower) || normalizedCategory === "office";
-  const wantsDisplay = /display/.test(lower) || normalizedCategory === "cafe";
-  const wantsMoreWindows = /airy|sunlight|windows|premium|luxury/.test(lower);
-
-  let rooms = [];
-  let planName = `${getFriendlyCategoryName(normalizedCategory)} Layout`;
-
-  if (normalizedCategory === "house") {
-    planName = /studio/.test(lower) ? "Studio Apartment Layout" : /1\s*bhk|one bedroom/.test(lower) ? "1BHK Floor Plan" : "2BHK Floor Plan";
-    rooms = getHouseProgram(prompt, totalWidth, totalHeight).map((room, index) => buildPlanningRoom(index, room.name, room.type, room.width, room.height, "house"));
-  } else if (normalizedCategory === "office") {
-    rooms = [
-      ...(wantsReception ? [buildPlanningRoom(0, "Reception", "reception", 10, 8, "office")] : []),
-      buildPlanningRoom(1, "Workspace", "workspace", Math.max(16, 12 + Math.ceil(deskCount / 2) * 2), Math.max(12, 10 + Math.ceil(deskCount / 4) * 2), "office"),
-      ...(wantsMeetingRoom || deskCount >= 8 ? [buildPlanningRoom(2, "Meeting Room", "meeting", 10, 8, "office")] : []),
-      ...(deskCount >= 12 ? [buildPlanningRoom(3, "Storage", "storage", 8, 6, "office")] : []),
-    ];
-  } else if (normalizedCategory === "cafe") {
-    rooms = [
-      buildPlanningRoom(0, "Seating Area", "seating", Math.max(15, 12 + Math.ceil(seatCount / 6) * 2), Math.max(12, 10 + Math.ceil(seatCount / 8) * 2), "cafe"),
-      buildPlanningRoom(1, "Service Counter", "counter", 9, 6, "cafe"),
-      buildPlanningRoom(2, "Kitchen / Prep", "prep", 9, 7, "cafe"),
-      ...(wantsDisplay ? [buildPlanningRoom(3, "Display Nook", "display", 6, 5, "cafe")] : []),
-    ];
-    planName = "Cafe Layout";
-  } else if (normalizedCategory === "public toilet") {
-    const stallCount = Math.max(2, getPromptNumber(prompt, [/(\d+)\s+stalls?/, /(\d+)\s+wc/], 4));
-    rooms = [
-      buildPlanningRoom(0, stallCount >= 4 ? "Stall Area" : "Toilet Area", "stalls", Math.max(10, 6 + stallCount * 1.5), 9, "public toilet"),
-      buildPlanningRoom(1, "Wash Area", "wash", 8, 5, "public toilet"),
-      ...(stallCount >= 4 ? [buildPlanningRoom(2, "Urinal / Basin Side", "toilet", 8, 6, "public toilet")] : []),
-    ];
-    planName = "Public Toilet Layout";
-  } else if (normalizedCategory === "security cabin") {
-    rooms = [buildPlanningRoom(0, "Security Cabin", "cabin", Math.max(8, totalWidth - 2), Math.max(8, totalHeight - 2), "security cabin")];
-    planName = "Security Cabin Layout";
-  } else {
-    rooms = [buildPlanningRoom(0, "Storage Area", "storage", Math.max(18, totalWidth - 4), Math.max(14, totalHeight - 4), "storage")];
-    planName = "Storage Layout";
-  }
-
-  const styleScale = variantStyle === "compact" ? 0.92 : variantStyle === "airy" ? 1.06 : 1;
-  const scaledRooms = rooms.map((room) => {
-    const min = getMinimumRoomSize(room.type || getRoomTypeFromName(room.name, normalizedCategory), normalizedCategory);
-    let nextWidth = Math.max(min.width, Math.round(Number(room.width) * styleScale));
-    let nextHeight = Math.max(min.height, Math.round(Number(room.height) * styleScale));
-    if (variantStyle === "airy" && ["living", "workspace", "seating"].includes(room.type)) {
-      nextWidth += 2; nextHeight += 1;
-    }
-    if (variantStyle === "compact" && ["bathroom", "wash", "storage", "counter"].includes(room.type)) {
-      nextWidth = Math.max(min.width, nextWidth - 1);
-    }
-    return { ...room, width: nextWidth, height: nextHeight, wantsMoreWindows };
-  });
-
-  return {
-    planName,
-    selectedCategory: normalizedCategory,
-    totalWidth,
-    totalHeight,
-    responseText: `Created a practical ${planName.toLowerCase()} from your description.`,
-    rooms: scaledRooms,
-  };
-}
-
-function getSharedBoundary(roomA, roomB) {
-  const aLeft = Number(roomA.x) || 0;
-  const aTop = Number(roomA.y) || 0;
-  const aRight = aLeft + (Number(roomA.width) || 0);
-  const aBottom = aTop + (Number(roomA.height) || 0);
-  const bLeft = Number(roomB.x) || 0;
-  const bTop = Number(roomB.y) || 0;
-  const bRight = bLeft + (Number(roomB.width) || 0);
-  const bBottom = bTop + (Number(roomB.height) || 0);
-
-  if (Math.abs(aRight - bLeft) < 0.05 && rangesOverlapInclusive(aTop, aBottom, bTop, bBottom)) {
-    return { wallA: "right", wallB: "left", start: Math.max(aTop, bTop), end: Math.min(aBottom, bBottom) };
-  }
-  if (Math.abs(aLeft - bRight) < 0.05 && rangesOverlapInclusive(aTop, aBottom, bTop, bBottom)) {
-    return { wallA: "left", wallB: "right", start: Math.max(aTop, bTop), end: Math.min(aBottom, bBottom) };
-  }
-  if (Math.abs(aBottom - bTop) < 0.05 && rangesOverlapInclusive(aLeft, aRight, bLeft, bRight)) {
-    return { wallA: "bottom", wallB: "top", start: Math.max(aLeft, bLeft), end: Math.min(aRight, bRight) };
-  }
-  if (Math.abs(aTop - bBottom) < 0.05 && rangesOverlapInclusive(aLeft, aRight, bLeft, bRight)) {
-    return { wallA: "top", wallB: "bottom", start: Math.max(aLeft, bLeft), end: Math.min(aRight, bRight) };
-  }
+function buildPresetTemplate(kind, totalWidth, totalHeight) {
+  const k = String(kind || "").toLowerCase();
+  if (k === "1bhk") return { planName: "1BHK Floor Plan", selectedCategory: "house", totalWidth, totalHeight, rooms: [
+    createTemplateRoom(0, "Living Room", 14, 12, "house"), createTemplateRoom(1, "Bedroom 1", 12, 12, "house"),
+    createTemplateRoom(2, "Kitchen", 10, 8, "house"), createTemplateRoom(3, "Bathroom", 6, 8, "house", { furniture: [] }),
+  ]};
+  if (k === "2bhk") return { planName: "2BHK Floor Plan", selectedCategory: "house", totalWidth, totalHeight, rooms: [
+    createTemplateRoom(0, "Living Room", 14, 12, "house"), createTemplateRoom(1, "Bedroom 1", 12, 11, "house"),
+    createTemplateRoom(2, "Bedroom 2", 11, 10, "house"), createTemplateRoom(3, "Kitchen", 10, 8, "house"),
+    createTemplateRoom(4, "Bathroom 1", 6, 7, "house", { furniture: [] }), createTemplateRoom(5, "Bathroom 2", 6, 7, "house", { furniture: [] }),
+  ]};
+  if (k === "office") return { planName: "Office Layout", selectedCategory: "office", totalWidth, totalHeight, rooms: [
+    createTemplateRoom(0, "Reception", 10, 10, "office"), createTemplateRoom(1, "Workspace", 16, 14, "office"),
+    createTemplateRoom(2, "Meeting Room", 12, 10, "office"),
+  ]};
+  if (k === "cafe") return { planName: "Cafe Layout", selectedCategory: "cafe", totalWidth, totalHeight, rooms: [
+    createTemplateRoom(0, "Seating Area", 16, 14, "cafe"), createTemplateRoom(1, "Service Counter", 10, 8, "cafe"),
+    createTemplateRoom(2, "Kitchen / Prep", 10, 8, "cafe"),
+  ]};
+  if (k === "storage") return { planName: "Storage Layout", selectedCategory: "storage", totalWidth, totalHeight, rooms: [
+    createTemplateRoom(0, "Storage Area", Math.max(18, totalWidth - 4), Math.max(14, totalHeight - 4), "storage"),
+  ]};
+  if (k === "security cabin") return { planName: "Security Cabin Layout", selectedCategory: "security cabin", totalWidth, totalHeight, rooms: [
+    createTemplateRoom(0, "Security Cabin", Math.max(8, totalWidth - 2), Math.max(8, totalHeight - 2), "security cabin"),
+  ]};
+  if (k === "public toilet") return { planName: "Public Toilet Layout", selectedCategory: "public toilet", totalWidth, totalHeight, rooms: [
+    createTemplateRoom(0, "Male Toilet", 10, 8, "public toilet"), createTemplateRoom(1, "Female Toilet", 10, 8, "public toilet"),
+    createTemplateRoom(2, "Wash Area", 8, 6, "public toilet"),
+  ]};
   return null;
 }
 
-function placeRoomsByCategory(rooms, category, totalWidth, totalHeight) {
-  const normalizedCategory = normalizePlanningCategory(category, "office");
-  const typed = (Array.isArray(rooms) ? rooms : []).map((room) => ({ ...room, type: room.type || getRoomTypeFromName(room.name, normalizedCategory) }));
-  if (!typed.length) return [];
-
-  if (normalizedCategory === "security cabin" || normalizedCategory === "storage") {
-    return typed.map((room, index) => ({
+function normalizeGeneratedRooms(rooms, totalWidth, totalHeight, category) {
+  const nextRooms = Array.isArray(rooms) ? rooms : [];
+  const baseRooms = nextRooms.map((room, index) =>
+    createTemplateRoom(index, room.name || `Room ${index + 1}`, Math.max(6, Number(room.width) || 10), Math.max(6, Number(room.height) || 10), category, {
       ...room,
-      x: index === 0 ? 0.8 : FURNITURE_WALL_CLEARANCE,
-      y: index === 0 ? 0.8 : FURNITURE_WALL_CLEARANCE,
-      width: Math.min(Number(room.width) || totalWidth - 1.6, totalWidth - 1.6),
-      height: Math.min(Number(room.height) || totalHeight - 1.6, totalHeight - 1.6),
-    }));
-  }
-
-  if (normalizedCategory === "house") {
-    const living = typed.find((room) => room.type === "living") || typed[0];
-    const kitchen = typed.find((room) => room.type === "kitchen");
-    const dining = typed.find((room) => room.type === "dining");
-    const bathrooms = typed.filter((room) => room.type === "bathroom");
-    const bedrooms = typed.filter((room) => room.type === "bedroom");
-    const layout = [];
-    const frontBand = Math.max(10, Math.round(totalHeight * 0.4));
-    const livingWidth = Math.max(12, Math.round(totalWidth * 0.45));
-    if (living) layout.push({ ...living, x: 0, y: 0, width: Math.min(livingWidth, totalWidth), height: frontBand });
-    let rightX = living ? livingWidth : 0;
-    if (kitchen) layout.push({ ...kitchen, x: rightX, y: 0, width: Math.max(8, Math.round(totalWidth * 0.28)), height: Math.max(7, Math.round(frontBand * 0.62)) });
-    if (dining) layout.push({ ...dining, x: rightX, y: kitchen ? kitchen.height : 0, width: Math.max(8, Math.round(totalWidth * 0.22)), height: Math.max(6, frontBand - (kitchen ? kitchen.height : 0)) });
-    bathrooms.forEach((bath, index) => {
-      const bx = totalWidth - Math.max(6, Math.round(totalWidth * 0.16));
-      const bw = Math.max(5, Math.round(totalWidth * 0.16));
-      const bh = Math.max(6, Math.round((totalHeight - frontBand) / Math.max(1, bathrooms.length)));
-      layout.push({ ...bath, x: bx, y: frontBand + index * bh, width: bw, height: bh });
-    });
-    if (bedrooms[0]) layout.push({ ...bedrooms[0], x: 0, y: frontBand, width: Math.max(10, Math.round(totalWidth * 0.5)), height: totalHeight - frontBand });
-    if (bedrooms[1]) layout.push({ ...bedrooms[1], x: Math.max(10, Math.round(totalWidth * 0.5)), y: frontBand, width: totalWidth - Math.max(10, Math.round(totalWidth * 0.5)) - (bathrooms.length ? Math.max(5, Math.round(totalWidth * 0.16)) : 0), height: totalHeight - frontBand });
-    const placedIds = new Set(layout.map((room) => room.id));
-    typed.filter((room) => !placedIds.has(room.id)).forEach((room) => layout.push(room));
-    return fitRoomsInGrid(layout, totalWidth, totalHeight);
-  }
-
-  if (normalizedCategory === "office") {
-    const reception = typed.find((room) => room.type === "reception");
-    const workspace = typed.find((room) => room.type === "workspace") || typed[0];
-    const meeting = typed.find((room) => room.type === "meeting");
-    const pantry = typed.find((room) => room.type === "pantry");
-    const storage = typed.find((room) => room.type === "storage");
-    const layout = [];
-    const leftWidth = reception ? Math.max(8, Math.round(totalWidth * 0.22)) : 0;
-    const rightWidth = meeting ? Math.max(9, Math.round(totalWidth * 0.26)) : 0;
-    if (reception) layout.push({ ...reception, x: 0, y: 0, width: leftWidth, height: Math.max(8, Math.round(totalHeight * 0.3)) });
-    if (workspace) layout.push({ ...workspace, x: leftWidth, y: 0, width: totalWidth - leftWidth - rightWidth, height: totalHeight });
-    if (meeting) layout.push({ ...meeting, x: totalWidth - rightWidth, y: 0, width: rightWidth, height: Math.max(8, Math.round(totalHeight * 0.42)) });
-    if (pantry) layout.push({ ...pantry, x: totalWidth - rightWidth, y: meeting ? meeting.height : 0, width: rightWidth, height: Math.max(5, Math.round(totalHeight * 0.18)) });
-    if (storage) layout.push({ ...storage, x: 0, y: reception ? reception.height : totalHeight - 6, width: leftWidth || 8, height: Math.max(5, totalHeight - (reception ? reception.height : totalHeight - 6)) });
-    const placedIds = new Set(layout.map((room) => room.id));
-    typed.filter((room) => !placedIds.has(room.id)).forEach((room) => layout.push(room));
-    return fitRoomsInGrid(layout, totalWidth, totalHeight);
-  }
-
-  if (normalizedCategory === "cafe") {
-    const seating = typed.find((room) => room.type === "seating") || typed[0];
-    const counter = typed.find((room) => room.type === "counter");
-    const prep = typed.find((room) => room.type === "prep");
-    const display = typed.find((room) => room.type === "display");
-    const layout = [];
-    const serviceWidth = Math.max(8, Math.round(totalWidth * 0.28));
-    if (seating) layout.push({ ...seating, x: 0, y: 0, width: totalWidth - serviceWidth, height: totalHeight });
-    if (counter) layout.push({ ...counter, x: totalWidth - serviceWidth, y: 0, width: serviceWidth, height: Math.max(6, Math.round(totalHeight * 0.32)) });
-    if (prep) layout.push({ ...prep, x: totalWidth - serviceWidth, y: counter ? counter.height : 0, width: serviceWidth, height: Math.max(6, Math.round(totalHeight * 0.38)) });
-    if (display) layout.push({ ...display, x: totalWidth - serviceWidth, y: totalHeight - Math.max(5, Math.round(totalHeight * 0.18)), width: serviceWidth, height: Math.max(5, Math.round(totalHeight * 0.18)) });
-    const placedIds = new Set(layout.map((room) => room.id));
-    typed.filter((room) => !placedIds.has(room.id)).forEach((room) => layout.push(room));
-    return fitRoomsInGrid(layout, totalWidth, totalHeight);
-  }
-
-  if (normalizedCategory === "public toilet") {
-    const wash = typed.find((room) => room.type === "wash");
-    const others = typed.filter((room) => room.id !== wash?.id);
-    const layout = [];
-    const washHeight = wash ? Math.max(4, Math.round(totalHeight * 0.28)) : 0;
-    if (wash) layout.push({ ...wash, x: 0, y: 0, width: totalWidth, height: washHeight });
-    if (others[0]) layout.push({ ...others[0], x: 0, y: washHeight, width: Math.round(totalWidth * 0.55), height: totalHeight - washHeight });
-    if (others[1]) layout.push({ ...others[1], x: Math.round(totalWidth * 0.55), y: washHeight, width: totalWidth - Math.round(totalWidth * 0.55), height: totalHeight - washHeight });
-    return fitRoomsInGrid(layout.concat(others.slice(2)), totalWidth, totalHeight);
-  }
-
-  return fitRoomsInGrid(typed, totalWidth, totalHeight);
-}
-
-function getExternalWallsForRoom(room, totalWidth, totalHeight) {
-  const walls = [];
-  const x = Number(room.x) || 0;
-  const y = Number(room.y) || 0;
-  const width = Number(room.width) || 0;
-  const height = Number(room.height) || 0;
-  if (Math.abs(y) < 0.05) walls.push("top");
-  if (Math.abs(x) < 0.05) walls.push("left");
-  if (Math.abs((x + width) - totalWidth) < 0.05) walls.push("right");
-  if (Math.abs((y + height) - totalHeight) < 0.05) walls.push("bottom");
-  return walls;
-}
-
-function inferRotationForWall(wall) {
-  if (wall === "top" || wall === "bottom") return 0;
-  if (wall === "left") return 90;
-  if (wall === "right") return 270;
-  return 0;
-}
-
-function createFurnitureByTerms(category, terms, overrides = {}) {
-  const preset = getFurnitureOptionsForCategory(category).find((item) => terms.some((term) => String(item.type || "").toLowerCase().includes(term)));
-  return createFurnitureFromPreset(preset, category, overrides);
-}
-
-function basicFurnitureOverlap(a, b) {
-  const ax1 = Number(a.x) || 0;
-  const ay1 = Number(a.y) || 0;
-  const ax2 = ax1 + (Number(a.width) || 0);
-  const ay2 = ay1 + (Number(a.depth) || 0);
-  const bx1 = Number(b.x) || 0;
-  const by1 = Number(b.y) || 0;
-  const bx2 = bx1 + (Number(b.width) || 0);
-  const by2 = by1 + (Number(b.depth) || 0);
-  return ax1 < bx2 && ax2 > bx1 && ay1 < by2 && ay2 > by1;
-}
-
-function reduceFurnitureCollisions(items, room) {
-  const adjusted = [];
-  (Array.isArray(items) ? items : []).forEach((item) => {
-    let next = { ...item };
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      if (!adjusted.some((existing) => basicFurnitureOverlap(existing, next))) break;
-      next = { ...next, x: (Number(next.x) || 0) + 0.8 };
-      next = normalizeFurniture(next, room);
-    }
-    adjusted.push(normalizeFurniture(next, room));
-  });
-  return adjusted;
-}
-
-function autoPlaceFurnitureForRoom(room, category, prompt = "") {
-  const normalizedCategory = normalizePlanningCategory(category, "office");
-  const type = room.type || getRoomTypeFromName(room.name, normalizedCategory);
-  const width = Number(room.width) || 10;
-  const height = Number(room.height) || 10;
-  const furniture = [];
-  const add = (item) => { if (item) furniture.push(item); };
-
-  if (normalizedCategory === "house") {
-    if (type === "bedroom") {
-      add(createFurnitureByTerms("house", ["bed"], { x: 1, y: 1, rotation: 0 }));
-      add(createFurnitureByTerms("house", ["wardrobe"], { x: Math.max(1, width - 5.4), y: 1, rotation: 0 }));
-    } else if (type === "living") {
-      add(createFurnitureByTerms("house", ["sofa"], { x: 1, y: Math.max(1, height - 4), rotation: 0 }));
-      add(createFurnitureByTerms("house", ["center table"], { x: Math.max(2, width / 2 - 2), y: Math.max(2, height / 2 - 1), rotation: 0 }));
-      if (width >= 14 && height >= 10) add(createFurnitureByTerms("house", ["dining table"], { x: Math.max(2, width - 8), y: 1.5, rotation: 0 }));
-    } else if (type === "kitchen") {
-      add(createFurnitureByTerms("house", ["kitchen slab"], { attachedWall: "bottom", slabLength: Math.max(5, width - 2), slabDepth: 2, offset: 0 }));
-      add(createFurnitureByTerms("house", ["stove"], { x: Math.max(1, width - 4), y: Math.max(1, height - 2.6), rotation: 0 }));
-      add(createFurnitureByTerms("house", ["sink"], { x: 1, y: Math.max(1, height - 2.6), rotation: 0 }));
-    }
-  }
-
-  if (normalizedCategory === "office") {
-    if (type === "workspace") {
-      const deskPreset = getFurnitureOptionsForCategory("office").find((item) => String(item.type).toLowerCase().includes("workstation"));
-      const chairPreset = getFurnitureOptionsForCategory("office").find((item) => String(item.type).toLowerCase().includes("chair"));
-      const columns = Math.max(2, Math.floor((width - 2) / 6));
-      const rows = Math.max(1, Math.floor((height - 2) / 4));
-      let deskIndex = 0;
-      for (let row = 0; row < rows; row += 1) {
-        for (let col = 0; col < columns; col += 1) {
-          const x = 1 + col * 5.5;
-          const y = 1 + row * 4;
-          add(createFurnitureFromPreset(deskPreset, "office", { x, y, rotation: 0 }));
-          add(createFurnitureFromPreset(chairPreset, "office", { x: x + 1.2, y: Math.min(height - 2, y + 2.2), rotation: 180 }));
-          deskIndex += 1;
-          if (deskIndex >= 12) break;
-        }
-        if (deskIndex >= 12) break;
-      }
-      add(createFurnitureByTerms("office", ["storage cabinet"], { x: Math.max(1, width - 4.5), y: 1, rotation: 0 }));
-    } else if (type === "reception") {
-      add(createFurnitureByTerms("office", ["reception"], { x: 1, y: Math.max(1, height / 2 - 1.5), rotation: 0 }));
-      add(createFurnitureByTerms("office", ["chair"], { x: width - 3, y: Math.max(1, height / 2 - 1), rotation: 180 }));
-    } else if (type === "meeting") {
-      add(createFurnitureByTerms("office", ["conference table"], { x: Math.max(1, width / 2 - 4), y: Math.max(1, height / 2 - 2), rotation: 0 }));
-    }
-  }
-
-  if (normalizedCategory === "cafe") {
-    if (type === "seating") {
-      const fourSeat = getFurnitureOptionsForCategory("cafe").find((item) => String(item.type).toLowerCase().includes("4-seater"));
-      const chair = getFurnitureOptionsForCategory("cafe").find((item) => String(item.type).toLowerCase() === "chair");
-      const columns = Math.max(1, Math.floor((width - 2) / 6));
-      const rows = Math.max(1, Math.floor((height - 2) / 6));
-      for (let row = 0; row < rows; row += 1) {
-        for (let col = 0; col < columns; col += 1) {
-          const x = 1 + col * 6;
-          const y = 1 + row * 6;
-          add(createFurnitureFromPreset(fourSeat, "cafe", { x, y, rotation: 0 }));
-          add(createFurnitureFromPreset(chair, "cafe", { x: x - 0.2, y: y + 1.1, rotation: 90 }));
-          add(createFurnitureFromPreset(chair, "cafe", { x: x + 3.6, y: y + 1.1, rotation: 270 }));
-        }
-      }
-    } else if (type === "counter") {
-      add(createFurnitureByTerms("cafe", ["service counter"], { x: 0.8, y: Math.max(1, height / 2 - 1.25), rotation: 0 }));
-      if (/display/.test(String(prompt || "").toLowerCase())) add(createFurnitureByTerms("cafe", ["display"], { x: Math.max(1, width - 4.2), y: 1, rotation: 0 }));
-    } else if (type === "prep") {
-      add(createFurnitureByTerms("cafe", ["display"], { x: 1, y: 1, rotation: 0 }));
-      add(createFurnitureByTerms("house", ["kitchen slab"], { attachedWall: "bottom", slabLength: Math.max(5, width - 2), offset: 0 }));
-    }
-  }
-
-  if (normalizedCategory === "public toilet") {
-    if (type === "stalls" || type === "toilet") {
-      const wc = getFurnitureOptionsForCategory("public toilet").find((item) => String(item.type).toLowerCase().includes("toilet seat"));
-      const urinal = getFurnitureOptionsForCategory("public toilet").find((item) => String(item.type).toLowerCase().includes("urinal"));
-      const partition = getFurnitureOptionsForCategory("public toilet").find((item) => String(item.type).toLowerCase().includes("partition"));
-      const count = Math.max(2, Math.floor((width - 1) / 3));
-      for (let i = 0; i < count; i += 1) {
-        add(createFurnitureFromPreset(wc, "public toilet", { x: 0.8 + i * 2.8, y: Math.max(1, height - 4.5), rotation: 0 }));
-        if (i < count - 1) add(createFurnitureFromPreset(partition, "public toilet", { x: 2.4 + i * 2.8, y: 1, rotation: 90, width: 0.3, depth: Math.max(4, height - 2), height: 6.5 }));
-      }
-      if (width >= 8) add(createFurnitureFromPreset(urinal, "public toilet", { x: Math.max(1, width - 2.4), y: 1, rotation: 90 }));
-    } else if (type === "wash") {
-      add(createFurnitureByTerms("public toilet", ["wash basin"], { x: 1, y: 1, rotation: 0 }));
-      add(createFurnitureByTerms("public toilet", ["mirror"], { x: 3.5, y: 0.4, rotation: 0 }));
-    }
-  }
-
-  if (normalizedCategory === "security cabin") {
-    add(createFurnitureByTerms("security cabin", ["small desk"], { x: 1, y: Math.max(1, height - 3), rotation: 0 }));
-    add(createFurnitureByTerms("security cabin", ["guard chair"], { x: 2.5, y: Math.max(1, height - 4.5), rotation: 180 }));
-    add(createFurnitureByTerms("security cabin", ["cctv"], { x: Math.max(1, width - 4), y: 1, rotation: 0 }));
-    add(createFurnitureByTerms("security cabin", ["storage shelf"], { x: Math.max(1, width - 3.5), y: Math.max(1, height - 2.5), rotation: 0 }));
-  }
-
-  if (normalizedCategory === "storage") {
-    add(createFurnitureByTerms("storage", ["storage rack"], { x: 1, y: 1, rotation: 0 }));
-    add(createFurnitureByTerms("storage", ["heavy duty"], { x: Math.max(1, width - 9), y: 1, rotation: 0 }));
-    add(createFurnitureByTerms("storage", ["utility table"], { x: Math.max(1, width / 2 - 2.5), y: Math.max(1, height - 4), rotation: 0 }));
-  }
-
-  return reduceFurnitureCollisions(furniture.filter(Boolean), room);
-}
-
-function autoPlaceDoorsAndWindows(rooms, totalWidth, totalHeight, category, prompt = "") {
-  const normalizedCategory = normalizePlanningCategory(category, "office");
-  const commonTypes = new Set(["living", "workspace", "seating", "reception", "cabin", "storage"]);
-  const commonRoom = rooms.find((room) => commonTypes.has(room.type || getRoomTypeFromName(room.name, normalizedCategory))) || rooms[0];
-  const lower = String(prompt || "").toLowerCase();
-  const wantsMoreWindows = /airy|sunlight|windows|premium|luxury|bright/.test(lower);
-
-  return rooms.map((room) => {
-    const type = room.type || getRoomTypeFromName(room.name, normalizedCategory);
-    const externals = getExternalWallsForRoom(room, totalWidth, totalHeight);
-    let doors = [];
-    if (room.id === commonRoom?.id) {
-      const outerWall = externals.includes("bottom") ? "bottom" : externals[0] || "bottom";
-      const wallLength = getWallLength(room, outerWall);
-      const doorWidth = clamp(Math.min(4, Math.max(3, wallLength * 0.22)), 2.5, Math.max(2.5, wallLength - 0.5));
-      doors.push({ wall: outerWall, offset: Math.max(0.4, (wallLength - doorWidth) / 2), width: doorWidth, height: DEFAULT_DOOR_HEIGHT });
-    } else {
-      const shared = rooms
-        .filter((other) => other.id !== room.id)
-        .map((other) => ({ other, boundary: getSharedBoundary(room, other) }))
-        .find((entry) => entry.boundary && (entry.other.id === commonRoom?.id || commonTypes.has(entry.other.type || getRoomTypeFromName(entry.other.name, normalizedCategory))));
-      if (shared?.boundary) {
-        const span = Math.max(2.8, shared.boundary.end - shared.boundary.start);
-        const doorWidth = clamp(Math.min(3.2, span - 0.4), 2.5, span - 0.1);
-        const offset = Math.max(0.2, shared.boundary.start - (shared.boundary.wallA === "left" || shared.boundary.wallA === "right" ? Number(room.y) || 0 : Number(room.x) || 0) + (span - doorWidth) / 2);
-        doors.push({ wall: shared.boundary.wallA, offset, width: doorWidth, height: DEFAULT_DOOR_HEIGHT });
-      } else {
-        const fallbackWall = externals[0] || "left";
-        const wallLength = getWallLength(room, fallbackWall);
-        doors.push({ wall: fallbackWall, offset: Math.max(0.4, (wallLength - DEFAULT_DOOR_WIDTH) / 2), width: clamp(DEFAULT_DOOR_WIDTH, 2.5, wallLength - 0.2), height: DEFAULT_DOOR_HEIGHT });
-      }
-    }
-
-    let windows = [];
-    const preferredWalls = externals.length ? externals : ["top"];
-    const desiredCount = type === "bathroom" || type === "wash" ? 1 : wantsMoreWindows ? 2 : 1;
-    preferredWalls.slice(0, desiredCount).forEach((wall, index) => {
-      const wallLength = getWallLength(room, wall);
-      const width = clamp((type === "bathroom" || type === "wash") ? 2.2 : Math.min(5, wallLength * 0.32), 2, Math.max(2, wallLength - 0.4));
-      const offset = desiredCount === 1 ? Math.max(0.2, (wallLength - width) / 2) : Math.max(0.2, index === 0 ? 0.6 : wallLength - width - 0.6);
-      windows.push({ wall, offset, width, height: type === "bathroom" || type === "wash" ? 2.2 : DEFAULT_WINDOW_HEIGHT, sillHeight: type === "bathroom" || type === "wash" ? 4 : DEFAULT_WINDOW_SILL_HEIGHT });
-    });
-
-    return { ...room, doors, windows };
-  });
-}
-
-function improveRoomAdjacency(rooms, category, totalWidth, totalHeight, prompt = "") {
-  return placeRoomsByCategory(rooms, category, totalWidth, totalHeight, prompt);
-}
-
-function validateAndRepairAIPlan(plan, currentState = {}, prompt = "") {
-  const rawCategory = normalizePlanningCategory(plan?.selectedCategory, inferCategoryFromPrompt(prompt, normalizePlanningCategory(currentState?.selectedCategory, "office")));
-  const dims = getDefaultPlanDimensionsByCategory(rawCategory, prompt, currentState);
-  const totalWidth = clamp(Number(plan?.totalWidth) || dims.totalWidth, 10, 200);
-  const totalHeight = clamp(Number(plan?.totalHeight) || dims.totalHeight, 10, 200);
-  const rawRooms = Array.isArray(plan?.rooms) ? plan.rooms : [];
-  const sourceRooms = rawRooms.length ? rawRooms : (generateCategorySeedLayout(rawCategory, totalWidth, totalHeight, prompt).rooms || []);
-
-  const sanitizedRooms = sourceRooms.map((room, index) => {
-    const type = room?.type || getRoomTypeFromName(room?.name, rawCategory);
-    const min = getMinimumRoomSize(type, rawCategory);
-    return buildPlanningRoom(
-      index,
-      room?.name || `${getFriendlyCategoryName(type)} ${index + 1}`,
-      type,
-      Math.max(min.width, Number(room?.width) || min.width),
-      Math.max(min.height, Number(room?.height) || min.height),
-      rawCategory,
-      {
-        ...room,
-        doors: Array.isArray(room?.doors) ? room.doors : [],
-        windows: Array.isArray(room?.windows) ? room.windows : [],
-        furniture: Array.isArray(room?.furniture) ? room.furniture : [],
-      }
-    );
-  });
-
-  let arrangedRooms = improveRoomAdjacency(sanitizedRooms, rawCategory, totalWidth, totalHeight, prompt);
-  arrangedRooms = arrangedRooms.map((room, index) => {
-    const fallbackFurniture = autoPlaceFurnitureForRoom(room, rawCategory, prompt);
-    const incomingFurniture = Array.isArray(room.furniture) && room.furniture.length
-      ? room.furniture.map((item) => createFurnitureFromPreset({
-          type: item.type || `Furniture ${index + 1}`,
-          width: Number(item.width) || 3,
-          depth: Number(item.depth) || 2,
-          height: Number(item.height) || 3,
-          color: item.color || "#d4dde8",
-          allowOutsideBuilding: Boolean(item.allowOutsideBuilding),
-        }, rawCategory, {
-          x: Number(item.x),
-          y: Number(item.y),
-          rotation: Number(item.rotation) || 0,
-          attachedWall: item.attachedWall,
-          slabLength: Number(item.slabLength),
-          slabDepth: Number(item.slabDepth),
-          offset: Number(item.offset),
-        })).filter(Boolean)
-      : fallbackFurniture;
-    return normalizeRoom({
-      ...room,
-      x: Number(room.x) || 0,
-      y: Number(room.y) || 0,
-      furniture: reduceFurnitureCollisions(incomingFurniture.length ? incomingFurniture : fallbackFurniture, room),
-      doors: Array.isArray(room.doors) ? room.doors : [],
-      windows: Array.isArray(room.windows) ? room.windows : [],
-    }, totalWidth, totalHeight, Number(currentState?.roomHeight) || DEFAULT_ROOM_HEIGHT);
-  });
-
-  arrangedRooms = autoPlaceDoorsAndWindows(arrangedRooms, totalWidth, totalHeight, rawCategory, prompt).map((room) => normalizeRoom({
-    ...room,
-    furniture: reduceFurnitureCollisions(Array.isArray(room.furniture) && room.furniture.length ? room.furniture : autoPlaceFurnitureForRoom(room, rawCategory, prompt), room),
-  }, totalWidth, totalHeight, Number(currentState?.roomHeight) || DEFAULT_ROOM_HEIGHT));
-
-  if (!arrangedRooms.length) {
-    const fallback = generateCategorySeedLayout(rawCategory, totalWidth, totalHeight, prompt);
-    return validateAndRepairAIPlan(fallback, currentState, prompt);
-  }
-
-  return {
-    planName: String(plan?.planName || `${getFriendlyCategoryName(rawCategory)} Layout`),
-    selectedCategory: rawCategory,
-    totalWidth,
-    totalHeight,
-    responseText: String(plan?.responseText || `Created a practical ${getFriendlyCategoryName(rawCategory).toLowerCase()} layout.`),
-    rooms: arrangedRooms,
-  };
-}
-
-function buildPresetTemplate(kind, totalWidth, totalHeight, prompt = "") {
-  const category = normalizePlanningCategory(kind, inferCategoryFromPrompt(prompt, "office"));
-  return validateAndRepairAIPlan(generateCategorySeedLayout(category, totalWidth, totalHeight, prompt), { totalWidth, totalHeight, selectedCategory: category }, prompt);
-}
-
-function normalizeGeneratedRooms(rooms, totalWidth, totalHeight, category, prompt = "") {
-  return validateAndRepairAIPlan({ selectedCategory: category, totalWidth, totalHeight, rooms }, { totalWidth, totalHeight, selectedCategory: category }, prompt).rooms;
+      furniture: Array.isArray(room.furniture) && room.furniture.length
+        ? room.furniture.map((item, itemIndex) => createFurnitureFromPreset(
+            { type: item.type || `Furniture ${itemIndex + 1}`, width: Number(item.width) || 3, depth: Number(item.depth) || 2, height: Number(item.height) || 3, color: item.color || "#d4dde8" },
+            category,
+            { x: Number(item.x) || FURNITURE_WALL_CLEARANCE, y: Number(item.y) || FURNITURE_WALL_CLEARANCE, attachedWall: item.attachedWall, slabLength: item.slabLength, slabDepth: item.slabDepth, offset: Number(item.offset) || 0, rotation: Number(item.rotation) || 0 }
+          ))
+        : getDefaultFurnitureForRoomName(room.name, category),
+      doors:   Array.isArray(room.doors)   && room.doors.length   ? room.doors.map((d) => ({ wall: WALL_OPTIONS.includes(d.wall) ? d.wall : "bottom", offset: Number(d.offset) || 0, width: Number(d.width) || DEFAULT_DOOR_WIDTH, height: Number(d.height) || DEFAULT_DOOR_HEIGHT }))   : makeDefaultDoorForRoom(room),
+      windows: Array.isArray(room.windows) && room.windows.length ? room.windows.map((w) => ({ wall: WALL_OPTIONS.includes(w.wall) ? w.wall : "top", offset: Number(w.offset) || 0, width: Number(w.width) || DEFAULT_WINDOW_WIDTH, height: Number(w.height) || DEFAULT_WINDOW_HEIGHT, sillHeight: Number(w.sillHeight) || DEFAULT_WINDOW_SILL_HEIGHT })) : makeDefaultWindowForRoom(room),
+    })
+  );
+  return fitRoomsInGrid(baseRooms, Number(totalWidth), Number(totalHeight));
 }
 
 function parseRuleBasedPlanCommand(prompt, currentState) {
   const text = String(prompt || "").trim();
   if (!text) return null;
   const lower = text.toLowerCase();
-  const inferredCategory = inferCategoryFromPrompt(text, normalizePlanningCategory(currentState?.selectedCategory, "office"));
-  const { totalWidth, totalHeight } = getDefaultPlanDimensionsByCategory(inferredCategory, text, currentState);
+  const dimensions = extractPlanDimensions(text) || {};
+  const totalWidth  = Number(dimensions.totalWidth)  || Number(currentState.totalWidth)  || 40;
+  const totalHeight = Number(dimensions.totalHeight) || Number(currentState.totalHeight) || 30;
 
-  const directPlanIntent = /(create|make|design|plan|generate|build|layout)/.test(lower) || /(2\s*bhk|1\s*bhk|studio|cafe|office|toilet|restroom|security cabin|guard room|warehouse|storage)/.test(lower);
-  if (directPlanIntent) {
-    return buildPresetTemplate(inferredCategory, totalWidth, totalHeight, text);
+  const presetChecks = [
+    { terms: ["2bhk", "2 bhk", "two bedroom"], preset: "2bhk" },
+    { terms: ["1bhk", "1 bhk", "one bedroom"], preset: "1bhk" },
+    { terms: ["office"], preset: "office" },
+    { terms: ["cafe", "coffee shop"], preset: "cafe" },
+    { terms: ["storage", "warehouse"], preset: "storage" },
+    { terms: ["security cabin", "guard room"], preset: "security cabin" },
+    { terms: ["public toilet", "restroom", "washroom"], preset: "public toilet" },
+  ];
+
+  for (const check of presetChecks) {
+    if (check.terms.some((t) => lower.includes(t))) {
+      const preset = buildPresetTemplate(check.preset, totalWidth, totalHeight);
+      if (!preset) return null;
+      return {
+        ...preset, totalWidth, totalHeight,
+        rooms: normalizeGeneratedRooms(preset.rooms, totalWidth, totalHeight, preset.selectedCategory),
+        responseText: `Created a ${preset.planName} with ${preset.rooms.length} rooms in ${totalWidth} ft × ${totalHeight} ft.`,
+      };
+    }
   }
 
   const addMatch = lower.match(/add\s+(\d+)\s+rooms?/);
   if (addMatch) {
-    const category = normalizePlanningCategory(currentState.selectedCategory, inferredCategory);
+    const category = PRODUCT_CATEGORIES.includes(currentState.selectedCategory) ? currentState.selectedCategory : "office";
     const roomCount = Math.max(1, Number(addMatch[1]) || 1);
-    const generatedRooms = Array.from({ length: roomCount }, (_, i) => buildPlanningRoom(i, `Room ${i + 1}`, "room", 10, 10, category));
-    return validateAndRepairAIPlan({
-      planName: currentState.planName || `${getFriendlyCategoryName(category)} Layout`,
-      selectedCategory: category,
-      totalWidth,
-      totalHeight,
-      rooms: generatedRooms,
+    const generatedRooms = Array.from({ length: roomCount }, (_, i) => createTemplateRoom(i, `Room ${i + 1}`, 10, 10, category));
+    return {
+      planName: currentState.planName, selectedCategory: category, totalWidth, totalHeight,
+      rooms: normalizeGeneratedRooms(generatedRooms, totalWidth, totalHeight, category),
       responseText: `Added ${roomCount} rooms and arranged them inside the current plan.`,
-    }, currentState, text);
+    };
   }
   return null;
 }
 
-function sanitizeOpenAIPlanResponse(aiResponse, currentState, userPrompt = "") {
+function sanitizeOpenAIPlanResponse(aiResponse, currentState) {
   if (!aiResponse || typeof aiResponse !== "object") return null;
-  const repairedBase = validateAndRepairAIPlan({
-    planName: aiResponse.planName,
-    selectedCategory: aiResponse.selectedCategory,
-    totalWidth: aiResponse.totalWidth,
-    totalHeight: aiResponse.totalHeight,
-    responseText: aiResponse.responseText,
-    rooms: Array.isArray(aiResponse.rooms) ? aiResponse.rooms : [],
-  }, currentState, userPrompt);
+  const category = PRODUCT_CATEGORIES.includes(aiResponse.selectedCategory) ? aiResponse.selectedCategory : currentState.selectedCategory;
+  const totalWidth  = Number(aiResponse.totalWidth)  || Number(currentState.totalWidth)  || 40;
+  const totalHeight = Number(aiResponse.totalHeight) || Number(currentState.totalHeight) || 30;
+  
+  let validVariants = [];
+  if (Array.isArray(aiResponse.variants)) {
+    validVariants = aiResponse.variants.map((v, i) => {
+      const vRooms = normalizeGeneratedRooms(Array.isArray(v.rooms) ? v.rooms : [], totalWidth, totalHeight, category);
+      return {
+        id: v.id || `variant-${i}`,
+        label: v.label || `Option ${i+1}`,
+        rationale: v.rationale || "",
+        rooms: vRooms
+      };
+    }).filter(v => v.rooms.length > 0);
+  } else if (Array.isArray(aiResponse.rooms)) {
+    // Fallback if AI hallucinates the old schema
+    const fRooms = normalizeGeneratedRooms(aiResponse.rooms, totalWidth, totalHeight, category);
+    if (fRooms.length) {
+      validVariants.push({ id: "v-fallback", label: "Base Option", rationale: "Standard generation.", rooms: fRooms });
+    }
+  }
 
-  const variants = Array.isArray(aiResponse.variants)
-    ? aiResponse.variants
-        .map((variant, index) => {
-          const repaired = validateAndRepairAIPlan({
-            planName: repairedBase.planName,
-            selectedCategory: aiResponse.selectedCategory || repairedBase.selectedCategory,
-            totalWidth: aiResponse.totalWidth || repairedBase.totalWidth,
-            totalHeight: aiResponse.totalHeight || repairedBase.totalHeight,
-            responseText: variant?.rationale || repairedBase.responseText,
-            rooms: Array.isArray(variant?.rooms) ? variant.rooms : repairedBase.rooms,
-          }, currentState, userPrompt);
-          return {
-            ...repaired,
-            id: String(variant?.id || `option-${index + 1}`),
-            label: String(variant?.label || `Option ${String.fromCharCode(65 + index)}`),
-            rationale: String(variant?.rationale || repaired.responseText),
-          };
-        })
-        .filter(Boolean)
-    : [];
+  if (!validVariants.length) return null;
 
   return {
-    ...repairedBase,
-    responseText: aiResponse.responseText || repairedBase.responseText,
-    variants,
+    planName: aiResponse.planName || currentState.planName || "AI Floor Plan",
+    selectedCategory: category, totalWidth, totalHeight, variants: validVariants,
+    responseText: aiResponse.responseText || `Created layouts with ${validVariants[0].rooms.length} rooms.`,
   };
 }
 
 async function generatePlanFromOpenAI(apiKey, userPrompt, currentState) {
   const safeKey = String(apiKey || "").trim();
   if (!safeKey) throw new Error("OpenAI API key is missing.");
-  const inferredCategory = inferCategoryFromPrompt(userPrompt, normalizePlanningCategory(currentState?.selectedCategory, "office"));
-  const dims = getDefaultPlanDimensionsByCategory(inferredCategory, userPrompt, currentState);
-  const seed = generateCategorySeedLayout(inferredCategory, dims.totalWidth, dims.totalHeight, userPrompt);
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${safeKey}` },
     body: JSON.stringify({
       model: OPENAI_MODEL,
-      input: [
-        {
-          role: "system",
-          content: `You are a floor-planning expert helping a React floor planner app. Return structured JSON only. Interpret layman requests like "create a 2BHK", "create a cafe", "office for 10 people", "make it airy", or "add more windows". Use practical room programs, realistic room sizes, usable circulation, sensible furniture rotation, windows on external walls where possible, and doors that do not obviously open into furniture. If the request is vague, infer practical defaults. Prefer 2 or 3 variants when useful.`,
-        },
-        {
-          role: "user",
-          content: `Current app context:\n${JSON.stringify({
-            selectedCategory: currentState?.selectedCategory,
-            totalWidth: currentState?.totalWidth,
-            totalHeight: currentState?.totalHeight,
-            roomHeight: currentState?.roomHeight,
-          }, null, 2)}\n\nUser request:\n${userPrompt}\n\nInferred category: ${inferredCategory}\nSuggested seed layout:\n${JSON.stringify(seed, null, 2)}`,
-        },
+      messages: [
+        { role: "system", content: "You are an assistant for a React floor plan generator. Generate 2 to 3 plan variants. Return structured JSON only and keep room dimensions practical." },
+        { role: "user", content: `Current plan context:\n${JSON.stringify(currentState, null, 2)}\n\nUser request:\n${userPrompt}` },
       ],
-      text: { format: { type: "json_schema", name: "floor_plan_response", strict: true, schema: {
+      response_format: { type: "json_schema", json_schema: { name: "floor_plan_response", strict: true, schema: {
         type: "object",
         properties: {
-          planName: { type: "string" },
-          selectedCategory: { type: "string" },
-          totalWidth: { type: "number" },
-          totalHeight: { type: "number" },
-          responseText: { type: "string" },
-          rooms: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                type: { type: "string" },
-                x: { type: "number" },
-                y: { type: "number" },
-                width: { type: "number" },
-                height: { type: "number" },
-                doors: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      wall: { type: "string" },
-                      offset: { type: "number" },
-                      width: { type: "number" },
-                      height: { type: "number" }
-                    },
-                    required: ["wall", "offset", "width", "height"],
-                    additionalProperties: false
-                  }
-                },
-                windows: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      wall: { type: "string" },
-                      offset: { type: "number" },
-                      width: { type: "number" },
-                      height: { type: "number" },
-                      sillHeight: { type: "number" }
-                    },
-                    required: ["wall", "offset", "width", "height", "sillHeight"],
-                    additionalProperties: false
-                  }
-                },
-                furniture: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      type: { type: "string" },
-                      x: { type: "number" },
-                      y: { type: "number" },
-                      width: { type: "number" },
-                      depth: { type: "number" },
-                      height: { type: "number" },
-                      rotation: { type: "number" },
-                      color: { type: "string" },
-                      attachedWall: { type: "string" },
-                      slabLength: { type: "number" },
-                      slabDepth: { type: "number" },
-                      offset: { type: "number" }
-                    },
-                    required: ["type", "width", "depth", "height"],
-                    additionalProperties: false
-                  }
-                }
-              },
-              required: ["name", "width", "height"],
-              additionalProperties: false
-            }
-          },
+          planName: { type: "string" }, selectedCategory: { type: "string", enum: PRODUCT_CATEGORIES },
+          totalWidth: { type: "number" }, totalHeight: { type: "number" }, responseText: { type: "string" },
           variants: {
             type: "array",
             items: {
@@ -3037,23 +2059,23 @@ async function generatePlanFromOpenAI(apiKey, userPrompt, currentState) {
                 id: { type: "string" },
                 label: { type: "string" },
                 rationale: { type: "string" },
-                rooms: { "$ref": "#/properties/rooms" }
+                rooms: { type: "array", items: { type: "object", properties: { name: { type: "string" }, width: { type: "number" }, height: { type: "number" } }, required: ["name", "width", "height"], additionalProperties: false } }
               },
               required: ["id", "label", "rationale", "rooms"],
               additionalProperties: false
             }
           }
         },
-        required: ["planName", "selectedCategory", "totalWidth", "totalHeight", "responseText", "rooms"],
+        required: ["planName", "selectedCategory", "totalWidth", "totalHeight", "responseText", "variants"],
         additionalProperties: false,
       }}},
     }),
   });
   if (!response.ok) throw new Error(`OpenAI request failed with status ${response.status}`);
   const result = await response.json();
-  const rawText = result?.output_text || "";
+  const rawText = result?.choices?.[0]?.message?.content || "";
   if (!rawText) throw new Error("OpenAI returned an empty response.");
-  return sanitizeOpenAIPlanResponse(JSON.parse(rawText), currentState, userPrompt);
+  return sanitizeOpenAIPlanResponse(JSON.parse(rawText), currentState);
 }
 
 async function analyzeFloorPlanImageWithOpenAI(apiKey, file, currentState) {
@@ -3061,19 +2083,19 @@ async function analyzeFloorPlanImageWithOpenAI(apiKey, file, currentState) {
   if (!safeKey) throw new Error("OpenAI API key is missing.");
   if (!["image/png", "image/jpeg", "image/jpg"].includes(file.type)) throw new Error("Invalid image format. Please upload a PNG or JPG file.");
   const prepared = await resizeImageFileForVision(file, 1600, 0.82);
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${safeKey}` },
     body: JSON.stringify({
       model: OPENAI_MODEL,
-      input: [
-        { role: "system", content: [{ type: "input_text", text: "You analyze architectural floor plan images and extract rooms, doors, and windows into clean JSON for a React floor plan generator." }] },
+      messages: [
+        { role: "system", content: "You analyze architectural floor plan images and extract rooms, doors, and windows into clean JSON for a React floor plan generator." },
         { role: "user", content: [
-          { type: "input_text", text: `Analyze this uploaded floor plan image and return the room layout. Use practical dimensions and include x/y coordinates when possible. Current app context:\n${JSON.stringify(currentState, null, 2)}` },
-          { type: "input_image", image_url: prepared.dataUrl, detail: "high" },
+          { type: "text", text: `Analyze this uploaded floor plan image and return the room layout. Use practical dimensions and include x/y coordinates when possible. Current app context:\n${JSON.stringify(currentState, null, 2)}` },
+          { type: "image_url", image_url: { url: prepared.dataUrl, detail: "high" } },
         ]},
       ],
-      text: { format: { type: "json_schema", name: "floor_plan_image_response", strict: true, schema: {
+      response_format: { type: "json_schema", json_schema: { name: "floor_plan_image_response", strict: true, schema: {
         type: "object",
         properties: {
           planName: { type: "string" }, totalWidth: { type: "number" }, totalHeight: { type: "number" }, responseText: { type: "string" },
@@ -3093,7 +2115,7 @@ async function analyzeFloorPlanImageWithOpenAI(apiKey, file, currentState) {
     throw new Error(msg);
   }
   const result = await response.json();
-  const rawText = result?.output_text || "";
+  const rawText = result?.choices?.[0]?.message?.content || "";
   if (!rawText) throw new Error("OpenAI vision returned an empty response.");
   return sanitizeVisionFloorPlanResponse(JSON.parse(rawText), currentState);
 }
@@ -3124,51 +2146,95 @@ async function generatePlanRendersWithOpenAI(apiKey, payload) {
   return `data:image/png;base64,${b64}`;
 }
 
-// ─── generateLayoutVariants ───────────────────────────────────────────────────
+// ─── Landing Page ──────────────────────────────────────────────────────────────
+function LandingPage({ onGenerate, onSkip }) {
+  const [prompt, setPrompt] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const speechRef = useRef(null);
 
-function generateLayoutVariants(basePlan, prompt = "") {
-  const normalizedBase = validateAndRepairAIPlan(basePlan, basePlan, prompt);
-  const aiVariants = Array.isArray(basePlan?.variants) ? basePlan.variants : [];
-  if (aiVariants.length >= 2) {
-    return aiVariants.slice(0, 3).map((variant, index) => ({
-      ...validateAndRepairAIPlan({ ...normalizedBase, ...variant, rooms: variant.rooms }, normalizedBase, prompt),
-      id: variant.id || `option-${index + 1}`,
-      label: variant.label || `Option ${String.fromCharCode(65 + index)}`,
-      rationale: variant.rationale || variant.responseText || normalizedBase.responseText,
-    }));
-  }
+  const handleVoice = () => {
+    const SR = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
+    if (!SR) return alert("Voice input not supported in your browser.");
+    if (isListening && speechRef.current) {
+      speechRef.current.stop();
+      return;
+    }
+    const rec = new SR();
+    rec.lang = "en-US";
+    rec.onstart = () => setIsListening(true);
+    rec.onend = () => setIsListening(false);
+    rec.onresult = (e) => setPrompt(e.results[0][0].transcript);
+    speechRef.current = rec;
+    rec.start();
+  };
 
-  const styles = [
-    { id: "standard", label: "Option A — Balanced", rationale: "Balanced room sizes with practical access and everyday usability.", style: "standard" },
-    { id: "compact", label: "Option B — Efficient", rationale: "A slightly tighter plan with shorter walking paths and efficient space usage.", style: "compact" },
-    { id: "airy", label: "Option C — Airy", rationale: "A more open-feeling plan with stronger common areas and extra windows where practical.", style: "airy" },
-  ];
+  return (
+    <div className="landing-page-wrapper" style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%)", fontFamily: "system-ui, sans-serif" }}>
+      <div style={{ textAlign: "center", maxWidth: 600, padding: 32 }}>
+        <h1 style={{ fontSize: "2.8rem", color: "#111827", marginBottom: 16 }}>Design Your Dream Space</h1>
+        <p style={{ fontSize: "1.1rem", color: "#4B5563", marginBottom: 32 }}>Describe what you want to build and let AI map out the perfect floor plan for you.</p>
+        
+        <form onSubmit={(e) => { e.preventDefault(); if (prompt) onGenerate(prompt); }} style={{ position: "relative", marginBottom: 24 }}>
+          <input
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="e.g. 'Create a 2BHK flat with a spacious kitchen'"
+            style={{ width: "100%", padding: "16px 56px 16px 20px", fontSize: "1.1rem", borderRadius: 32, border: "2px solid #E5E7EB", outline: "none", boxShadow: "0 4px 6px rgba(0,0,0,0.05)" }}
+          />
+          <button type="button" onClick={handleVoice} style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: isListening ? "#EF4444" : "#6B7280", cursor: "pointer" }}>
+            <Mic size={24} />
+          </button>
+        </form>
 
-  return styles.map((config) => {
-    const seed = generateCategorySeedLayout(normalizedBase.selectedCategory, normalizedBase.totalWidth, normalizedBase.totalHeight, prompt, config.style);
-    const variantRooms = seed.rooms && seed.rooms.length ? seed.rooms : normalizedBase.rooms;
-    const repaired = validateAndRepairAIPlan({
-      ...normalizedBase,
-      rooms: variantRooms,
-      responseText: config.rationale,
-    }, normalizedBase, prompt);
-    return {
-      ...repaired,
-      id: config.id,
-      label: config.label,
-      rationale: config.rationale,
-    };
-  });
+        <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 32 }}>
+          <button onClick={() => onGenerate(prompt)} disabled={!prompt} style={{ padding: "12px 28px", borderRadius: 24, border: "none", background: prompt ? "#3B82F6" : "#9CA3AF", color: "white", fontSize: "1rem", fontWeight: 600, cursor: prompt ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 8 }}>
+            <Sparkles size={18} /> Generate with AI
+          </button>
+          <button onClick={onSkip} style={{ padding: "12px 28px", borderRadius: 24, border: "2px solid #D1D5DB", background: "white", color: "#374151", fontSize: "1rem", fontWeight: 600, cursor: "pointer" }}>
+            Continue without AI
+          </button>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          {["Create a cafe layout", "Make a 1BHK", "Office for 10 people"].map(ex => (
+            <span key={ex} onClick={() => setPrompt(ex)} style={{ background: "#E5E7EB", padding: "6px 14px", borderRadius: 16, fontSize: "0.9rem", color: "#374151", cursor: "pointer" }}>{ex}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Variant Selection Page ───────────────────────────────────────────────────
+function VariantSelectionPage({ variants, onSelect, onCancel }) {
+  return (
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", padding: 32, background: "#F3F4F6", overflowY: "auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+        <h2 style={{ fontSize: "2rem", color: "#111827", margin: 0 }}>Select a Layout Variant</h2>
+        <button onClick={onCancel} style={{ padding: "10px 20px", border: "1px solid #D1D5DB", borderRadius: 8, background: "white", cursor: "pointer" }}>Cancel</button>
+      </div>
+
+      <div style={{ display: "flex", gap: 24, justifyContent: "center", flexWrap: "wrap" }}>
+        {variants.map(variant => (
+          <div key={variant.id} style={{ background: "white", borderRadius: 12, padding: 24, width: 320, boxShadow: "0 4px 6px rgba(0,0,0,0.05)", border: "2px solid transparent", cursor: "pointer", transition: "all 0.2s" }} onMouseOver={(e) => e.currentTarget.style.borderColor = "#3B82F6"} onMouseOut={(e) => e.currentTarget.style.borderColor = "transparent"} onClick={() => onSelect(variant)}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 160, background: "#F9FAFB", borderRadius: 8, marginBottom: 16 }}>
+              <span style={{ color: "#9CA3AF" }}>Preview unavailable</span>
+            </div>
+            <h3 style={{ margin: "0 0 8px 0", color: "#1F2937" }}>{variant.label}</h3>
+            <p style={{ margin: 0, color: "#6B7280", fontSize: "0.9rem", lineHeight: 1.5 }}>{variant.rationale}</p>
+            <div style={{ marginTop: 16, borderTop: "1px solid #E5E7EB", paddingTop: 12 }}>
+              <span style={{ fontSize: "0.85rem", color: "#4B5563" }}><strong>{variant.rooms?.length || 0}</strong> rooms mapped</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  // ── App mode ──
-  const [appMode, setAppMode] = useState("landing"); // "landing" | "generating" | "variant-selection" | "editor"
-  const [generationStep, setGenerationStep] = useState("");
-  const [layoutVariants, setLayoutVariants] = useState([]);
-
   // ── Core plan state ──
   const [planName,          setPlanName]          = useState("My Floor Plan");
   const [totalWidth,        setTotalWidth]        = useState(40);
@@ -3176,15 +2242,17 @@ export default function App() {
   const [wallThickness,     setWallThickness]     = useState(WALL_THICKNESS_FT);
   const [scale,             setScale]             = useState(DEFAULT_SCALE);
   const [roomHeight,        setRoomHeight]        = useState(DEFAULT_ROOM_HEIGHT);
+  const [globalWallColor,   setGlobalWallColor]   = useState(DEFAULT_WALL_COLOR);
   const [activeView,        setActiveView]        = useState("2d");
   const [selectedCategory,  setSelectedCategory]  = useState("office");
   const [rooms,             setRooms]             = useState(() => getDefaultRooms(40, 30));
   const [furnitureSelections, setFurnitureSelections] = useState({});
-  const [globalWallColor,   setGlobalWallColor]   = useState(DEFAULT_WALL_COLOR);
 
-  // ── Page navigation + custom preset dimensions ──
+  // ── NEW: page navigation + custom preset dimensions ──
   const [activePage, setActivePage] = useState("planner"); // "planner" | "furniture-manager"
-  const [customPresetDimensions, setCustomPresetDimensions] = useState({});
+  const [appMode, setAppMode] = useState("landing"); // "landing" | "generating" | "variant-selection" | "editor"
+  const [layoutVariants, setLayoutVariants] = useState([]);
+  const [customPresetDimensions, setCustomPresetDimensions] = useState({}); // { "Sofa": { width, depth, height }, ... }
 
   // ── Theme ──
   const [theme, setTheme] = useState(() => {
@@ -3198,11 +2266,11 @@ export default function App() {
   const [currentProjectId,     setCurrentProjectId]     = useState(null);
   const [projectStatusMessage, setProjectStatusMessage] = useState("");
   const [expandedRoomId,       setExpandedRoomId]       = useState(null);
+  const [sunControlsExpanded, setSunControlsExpanded] = useState(false);
   const [assistantCollapsed,   setAssistantCollapsed]   = useState(() => {
     if (typeof window === "undefined") return false;
     return window.sessionStorage.getItem(ASSISTANT_COLLAPSED_SESSION_KEY) === "true";
   });
-  const [sunControlsCollapsed, setSunControlsCollapsed] = useState(true);
   const [sunSettings, setSunSettings] = useState(() => {
     if (typeof window === "undefined") return DEFAULT_SUN_SETTINGS;
     try {
@@ -3308,9 +2376,9 @@ export default function App() {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  const waitForViewRender = useCallback(async (view, delayMs = 250) => {
+  const waitForViewRender = useCallback(async (view, delay = 250) => {
     setActiveView(view);
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(resolve, delayMs))));
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(resolve, delay))));
   }, []);
 
   const capture2DImage = async () => {
@@ -3346,12 +2414,14 @@ export default function App() {
     setWallThickness(Number(nextState.wallThickness) || defaults.wallThickness);
     setScale(Number(nextState.scale)           || defaults.scale);
     setRoomHeight(Number(nextState.roomHeight) || defaults.roomHeight);
+    setGlobalWallColor(nextState.globalWallColor || DEFAULT_WALL_COLOR);
     setActiveView(nextState.activeView === "3d" ? "3d" : "2d");
     setSelectedCategory(PRODUCT_CATEGORIES.includes(nextState.selectedCategory) ? nextState.selectedCategory : defaults.selectedCategory);
     const nextRooms = Array.isArray(nextState.rooms) && nextState.rooms.length ? nextState.rooms : defaults.rooms;
     setRooms(nextRooms);
     setExpandedRoomId(nextRooms[0]?.id || null);
     setFurnitureSelections(nextState.furnitureSelections && typeof nextState.furnitureSelections === "object" ? nextState.furnitureSelections : {});
+    // NEW: restore custom preset dimensions (safe fallback for older saved projects)
     setCustomPresetDimensions(
       nextState.customPresetDimensions && typeof nextState.customPresetDimensions === "object"
         ? nextState.customPresetDimensions : {}
@@ -3361,7 +2431,6 @@ export default function App() {
       ...DEFAULT_SUN_SETTINGS,
       ...(nextState.sunSettings && typeof nextState.sunSettings === "object" ? nextState.sunSettings : {}),
     });
-    setGlobalWallColor(normalizeHexColor(nextState.globalWallColor, DEFAULT_WALL_COLOR));
   };
 
   const refreshSavedProjects = () => {
@@ -3384,85 +2453,7 @@ export default function App() {
     setProjectStatusMessage(`Applied ${sourceLabel} layout: ${nextPlan.planName || getFriendlyCategoryName(nextPlan.selectedCategory)}`);
   };
 
-  // ─── Landing page: generate layout with variants ──────────────────────────
-
-  const handleGenerateLayout = async (prompt) => {
-    setAppMode("generating");
-    try {
-      setGenerationStep("Understanding your request...");
-      await delay(420);
-
-      setGenerationStep("Planning rooms...");
-      await delay(320);
-
-      const currentPlanState = buildCurrentProjectData();
-      let basePlan = parseRuleBasedPlanCommand(prompt, currentPlanState);
-
-      if (!basePlan) {
-        const apiKey = getSavedOpenAIApiKey();
-        if (apiKey) {
-          try {
-            setGenerationStep("Asking AI for the best layout...");
-            basePlan = await generatePlanFromOpenAI(apiKey, prompt, currentPlanState);
-          } catch (err) {
-            console.warn("OpenAI failed, falling back to heuristics:", err);
-          }
-        }
-      }
-
-      if (!basePlan) {
-        setGenerationStep("Using built-in templates...");
-        await delay(200);
-        const lower = String(prompt || "").toLowerCase();
-        let kind = "office";
-        if (lower.includes("home") || lower.includes("flat") || lower.includes("apartment") || lower.includes("bhk")) kind = "2bhk";
-        else if (lower.includes("cafe") || lower.includes("coffee")) kind = "cafe";
-        else if (lower.includes("storage") || lower.includes("warehouse")) kind = "storage";
-        else if (lower.includes("toilet") || lower.includes("restroom")) kind = "public toilet";
-        else if (lower.includes("office") || lower.includes("workspace")) kind = "office";
-        const dims = extractPlanDimensions(prompt) || {};
-        const tw = Number(dims.totalWidth) || 40;
-        const th = Number(dims.totalHeight) || 30;
-        basePlan = buildPresetTemplate(kind, tw, th);
-        if (basePlan) {
-          basePlan = {
-            ...basePlan,
-            rooms: normalizeGeneratedRooms(basePlan.rooms, tw, th, basePlan.selectedCategory),
-            responseText: `Created a ${basePlan.planName} from your description.`,
-          };
-        }
-      }
-
-      if (!basePlan) {
-        basePlan = {
-          planName: "My Floor Plan",
-          selectedCategory: "office",
-          totalWidth: 40,
-          totalHeight: 30,
-          rooms: getDefaultRooms(40, 30),
-          responseText: "Here is a default layout. You can customize it in the editor.",
-        };
-      }
-
-      setGenerationStep("Creating multiple options...");
-      await delay(300);
-
-      const variants = generateLayoutVariants(basePlan, prompt);
-      setLayoutVariants(variants);
-
-      setGenerationStep("Done!");
-      await delay(200);
-
-      setAppMode("variant-selection");
-    } catch (err) {
-      console.error("Layout generation failed:", err);
-      setGenerationStep("Something went wrong, switching to editor...");
-      await delay(800);
-      setAppMode("editor");
-    }
-  };
-
-  // ─── Custom preset dimension handlers ────────────────────────────────────────
+  // ─── NEW: Custom preset dimension handlers ───────────────────────────────────
 
   const handleUpdateCustomPreset = useCallback((furnitureType, key, value) => {
     if (key === "__reset__") {
@@ -3574,7 +2565,7 @@ export default function App() {
   const removeDoor   = (roomId, index) => setRooms((prev) => prev.map((r) => r.id === roomId ? { ...r, doors:   (r.doors   || []).filter((_, i) => i !== index) } : r));
   const removeWindow = (roomId, index) => setRooms((prev) => prev.map((r) => r.id === roomId ? { ...r, windows: (r.windows || []).filter((_, i) => i !== index) } : r));
 
-  // ─── Furniture operations ─────────────────────────────────────────────────────
+  // ─── Furniture operations (UPDATED: width/depth/height/rotation support) ─────
 
   const updateFurniture = (roomId, furnitureId, key, value) => {
     setRooms((prev) =>
@@ -3583,17 +2574,16 @@ export default function App() {
         const nextFurniture = (room.furniture || []).map((item) => {
           if (item.id !== furnitureId) return item;
 
+          // ── NEW: dimension updates (from sidebar or furniture manager) ──
           if (key === "width") {
             const newWidth = Math.max(0.3, Number(value) || 0.3);
             if (isKitchenSlab(item)) return { ...item, width: newWidth, slabLength: newWidth };
-            if (item.allowOutsideBuilding) return { ...item, width: newWidth };
             const maxX = Math.max(FURNITURE_WALL_CLEARANCE, Number(room.width) - newWidth - FURNITURE_WALL_CLEARANCE);
             return { ...item, width: newWidth, x: clamp(Number(item.x) || FURNITURE_WALL_CLEARANCE, FURNITURE_WALL_CLEARANCE, maxX) };
           }
           if (key === "depth") {
             const newDepth = Math.max(0.3, Number(value) || 0.3);
             if (isKitchenSlab(item)) return { ...item, depth: newDepth, slabDepth: newDepth };
-            if (item.allowOutsideBuilding) return { ...item, depth: newDepth };
             const maxY = Math.max(FURNITURE_WALL_CLEARANCE, Number(room.height) - newDepth - FURNITURE_WALL_CLEARANCE);
             return { ...item, depth: newDepth, y: clamp(Number(item.y) || FURNITURE_WALL_CLEARANCE, FURNITURE_WALL_CLEARANCE, maxY) };
           }
@@ -3601,10 +2591,12 @@ export default function App() {
             return { ...item, height: Math.max(0.3, Number(value) || 0.3) };
           }
 
+          // ── NEW: rotation ──
           if (key === "rotation") {
             return { ...item, rotation: ((Number(value) || 0) % 360 + 360) % 360 };
           }
 
+          // ── EXISTING: kitchen slab wall / offset / slabLength ──
           if (isKitchenSlab(item)) {
             if (key === "attachedWall") return { ...item, attachedWall: value };
             if (key === "slabLength") {
@@ -3621,12 +2613,9 @@ export default function App() {
             return item;
           }
 
+          // ── EXISTING: x/y position ──
           if (key === "x" || key === "y") {
             const numericValue = Number(value) || 0;
-            // Skip clamping for items that are allowed outside the building
-            if (item.allowOutsideBuilding) {
-              return { ...item, [key]: numericValue };
-            }
             const minX = FURNITURE_WALL_CLEARANCE, minY = FURNITURE_WALL_CLEARANCE;
             const maxX = Math.max(minX, Number(room.width)  - Number(item.width) - FURNITURE_WALL_CLEARANCE);
             const maxY = Math.max(minY, Number(room.height) - Number(item.depth) - FURNITURE_WALL_CLEARANCE);
@@ -3648,6 +2637,7 @@ export default function App() {
     const selectedType = furnitureSelections[roomId] || getDefaultFurnitureSelection(selectedCategory);
     const preset = categoryOptions.find((item) => item.type === selectedType) || categoryOptions[0];
 
+    // Apply custom preset dimensions if available
     const customDim = customPresetDimensions[preset.type] || {};
     const effectivePreset = {
       ...preset,
@@ -3666,12 +2656,7 @@ export default function App() {
                 ...(item.furniture || []),
                 isSlab
                   ? { id: crypto.randomUUID(), type: effectivePreset.type, category: selectedCategory, width: effectivePreset.width, depth: effectivePreset.depth, height: effectivePreset.height, slabLength: effectivePreset.width, slabDepth: effectivePreset.depth, attachedWall: "bottom", offset: 0, rotation: 0, color: effectivePreset.color }
-                  : {
-                      id: crypto.randomUUID(), type: effectivePreset.type, category: selectedCategory,
-                      width: effectivePreset.width, depth: effectivePreset.depth, height: effectivePreset.height,
-                      x: FURNITURE_WALL_CLEARANCE, y: FURNITURE_WALL_CLEARANCE, rotation: 0, color: effectivePreset.color,
-                      ...(effectivePreset.allowOutsideBuilding ? { allowOutsideBuilding: true } : {}),
-                    },
+                  : { id: crypto.randomUUID(), type: effectivePreset.type, category: selectedCategory, width: effectivePreset.width, depth: effectivePreset.depth, height: effectivePreset.height, x: FURNITURE_WALL_CLEARANCE, y: FURNITURE_WALL_CLEARANCE, rotation: 0, color: effectivePreset.color },
               ],
             }
           : item
@@ -3696,7 +2681,7 @@ export default function App() {
       totalRoomArea: Number(totalRoomArea.toFixed(2)), spaceUtilization: utilization,
       currentProjectId: currentProjectId || projectId, quotationValue: "", quotationNotes: "",
       image2D, image3D, ai_render_image_base64: generatedRenderImage || "",
-      rooms: syncedRooms.map((room) => ({ id: room.id || "", name: room.name || "", x: Number(room.x) || 0, y: Number(room.y) || 0, width: Number(room.width) || 0, height: Number(room.height) || 0, color: room.color || "", floorTextureId: room.floorTextureId || getDefaultFloorTextureId(), doors: Array.isArray(room.doors) ? room.doors : [], windows: Array.isArray(room.windows) ? room.windows : [], furniture: Array.isArray(room.furniture) ? room.furniture : [] })),
+      rooms: syncedRooms.map((room) => ({ id: room.id || "", name: room.name || "", x: Number(room.x) || 0, y: Number(room.y) || 0, width: Number(room.width) || 0, height: Number(room.height) || 0, color: room.color || "", wallColor: room.wallColor || DEFAULT_WALL_COLOR, floorTextureId: room.floorTextureId || getDefaultFloorTextureId(), doors: Array.isArray(room.doors) ? room.doors : [], windows: Array.isArray(room.windows) ? room.windows : [], furniture: Array.isArray(room.furniture) ? room.furniture : [] })),
     };
   };
 
@@ -3838,19 +2823,14 @@ export default function App() {
     appendChatMessage("user", trimmed); setChatInput(""); setIsChatbotBusy(true);
     try {
       const currentPlanState = buildCurrentProjectData();
-      const apiKey = getSavedOpenAIApiKey();
-      if (apiKey) {
-        persistOpenAIApiKey(apiKey);
-        const aiPlan = await generatePlanFromOpenAI(apiKey, trimmed, currentPlanState);
-        if (aiPlan) {
-          applyGeneratedPlan(aiPlan, "ChatGPT");
-          appendChatMessage("assistant", aiPlan.responseText);
-          return;
-        }
-      }
       const ruleBasedPlan = parseRuleBasedPlanCommand(trimmed, currentPlanState);
       if (ruleBasedPlan) { applyGeneratedPlan(ruleBasedPlan, "chatbot"); appendChatMessage("assistant", ruleBasedPlan.responseText); return; }
-      appendChatMessage("assistant", "I understood the request only partially. Please try a more specific command like 'Create a 2BHK in 40 by 30 feet'.");
+      const apiKey = getSavedOpenAIApiKey();
+      if (!apiKey) { appendChatMessage("assistant", "I can handle preset commands right now. For free-form AI planning, save your OpenAI key in localStorage under floor-plan-openai-api-key."); return; }
+      persistOpenAIApiKey(apiKey);
+      const aiPlan = await generatePlanFromOpenAI(apiKey, trimmed, currentPlanState);
+      if (!aiPlan) { appendChatMessage("assistant", "I understood the request only partially. Please try a more specific command like 'Create a 2BHK in 40 by 30 feet'."); return; }
+      applyGeneratedPlan(aiPlan, "ChatGPT"); appendChatMessage("assistant", aiPlan.responseText);
     } catch (error) {
       console.error("Chatbot command failed:", error);
       appendChatMessage("assistant", "I could not apply that command. Please try a simpler instruction.");
@@ -3884,7 +2864,7 @@ export default function App() {
           {selectedFurnitureRecommendations.map((product) => (
             <a key={product.id} className="furniture-product-card" href={product.url} target="_blank" rel="noreferrer">
               <div className="furniture-product-image-wrap">
-                <img src={resolveAssetPath(product.image)} alt={product.title} className="furniture-recommendation-image" loading="lazy" onError={(e) => { e.currentTarget.src = resolveAssetPath("products/bed-wooden.jpg"); }} />
+                <img src={product.image} alt={product.title} className="furniture-recommendation-image" loading="lazy" onError={(e) => { e.currentTarget.src = "/products/bed-wooden.jpg"; }} />
               </div>
               <div className="furniture-product-body">
                 <span className="furniture-product-label">Amazon Option</span>
@@ -3900,36 +2880,6 @@ export default function App() {
   };
 
   const furnitureOptions = getFurnitureOptionsForCategory(selectedCategory);
-
-  // ─── Mode routing ─────────────────────────────────────────────────────────────
-
-  // Landing page
-  if (appMode === "landing" || appMode === "generating") {
-    return (
-      <LandingPage
-        theme={theme}
-        isGenerating={appMode === "generating"}
-        generationStep={generationStep}
-        onGenerate={handleGenerateLayout}
-        onContinueWithout={() => setAppMode("editor")}
-      />
-    );
-  }
-
-  // Variant selection
-  if (appMode === "variant-selection") {
-    return (
-      <VariantSelectionPage
-        variants={layoutVariants}
-        theme={theme}
-        onBack={() => setAppMode("landing")}
-        onSelect={(variant) => {
-          applyGeneratedPlan(variant, "AI");
-          setAppMode("editor");
-        }}
-      />
-    );
-  }
 
   // ─── Furniture Manager Page render ───────────────────────────────────────────
 
@@ -3948,6 +2898,50 @@ export default function App() {
   }
 
   // ─── Main Planner render ─────────────────────────────────────────────────────
+
+  const handleGenerateAI = async (prompt) => {
+    setAppMode("generating");
+    const aiKey = getSavedOpenAIApiKey() || window.prompt("Enter OpenAI API Key (will be saved formatting this prompt)");
+    if (!aiKey) { setAppMode("landing"); return; }
+    persistOpenAIApiKey(aiKey);
+    try {
+      const resp = await generatePlanFromOpenAI(aiKey, prompt, buildCurrentProjectData());
+      if (resp?.variants?.length > 0) {
+        setLayoutVariants(resp.variants);
+        setAppMode("variant-selection");
+      } else {
+        alert("Failed to generate variants.");
+        setAppMode("landing");
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+      setAppMode("landing");
+    }
+  };
+
+  const handleVariantSelect = (variant) => {
+    applyGeneratedPlan({...variant, planName: variant.label}, "ChatGPT Variant");
+    setAppMode("editor");
+  };
+
+  if (appMode === "landing") {
+    return <LandingPage onGenerate={handleGenerateAI} onSkip={() => setAppMode("editor")} />;
+  }
+
+  if (appMode === "generating") {
+    return (
+      <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#F3F4F6" }}>
+        <Loader2 size={48} color="#3B82F6" className="spin-anim" style={{ animation: "spin 1s linear infinite" }} />
+        <h2 style={{ marginTop: 24, fontSize: "1.5rem", color: "#111827" }}>Crafting Your Layout Variations...</h2>
+        <p style={{ color: "#4B5563" }}>Our AI architect is analyzing spatial rules.</p>
+        <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (appMode === "variant-selection") {
+    return <VariantSelectionPage variants={layoutVariants} onSelect={handleVariantSelect} onCancel={() => setAppMode("landing")} />;
+  }
 
   return (
     <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
@@ -4014,21 +3008,12 @@ export default function App() {
               <div className="field"><label>Wall Thickness (ft)</label><input type="number" step="0.1" value={wallThickness} onChange={(e) => setWallThickness(Number(e.target.value) || 0)} /></div>
               <div className="field"><label>Scale (px / ft)</label><input type="number" value={scale} onChange={(e) => setScale(Number(e.target.value) || 1)} /></div>
               <div className="field"><label>3D Wall Height (ft)</label><input type="number" value={roomHeight} onChange={(e) => setRoomHeight(Number(e.target.value) || 10)} /></div>
+              <div className="field"><label>Global Wall Color</label><input type="color" style={{padding:0, border:'none', height: 40}} value={globalWallColor} onChange={(e) => setGlobalWallColor(e.target.value)} /></div>
               <div className="field">
                 <label>Product Category</label>
                 <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
                   {PRODUCT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
-              </div>
-              {/* Global wall color picker */}
-              <div className="field">
-                <label><PaintBucket size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Wall Color</label>
-                <input
-                  type="color"
-                  value={globalWallColor}
-                  onChange={(e) => setGlobalWallColor(e.target.value)}
-                  style={{ width: "100%", minHeight: 38, padding: 4, borderRadius: 10 }}
-                />
               </div>
             </div>
           </div>
@@ -4038,13 +3023,10 @@ export default function App() {
             <button className="ghost-btn project-stack-btn" onClick={handleNewProject}><FilePlus2 size={16} />New Project</button>
             <button className="secondary-btn project-stack-btn" onClick={handleOpenProjectClick}><FolderOpen size={16} />Open Project</button>
             <button className="primary-btn project-stack-btn" onClick={handleSaveProject}><Save size={16} />Save Project</button>
+            {/* NEW: Furniture Manager button */}
             <button className="secondary-btn project-stack-btn" onClick={() => setActivePage("furniture-manager")}>
               <Sliders size={16} />
               Furniture Manager
-            </button>
-            <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")}>
-              <Sparkles size={16} />
-              AI Landing
             </button>
           </aside>
         </div>
@@ -4061,9 +3043,9 @@ export default function App() {
             <div className="summary-box stat-box"><span>Space Utilization</span><strong>{utilization}%</strong></div>
           </section>
 
-          <div className="workspace-content-grid" style={assistantCollapsed ? { display: "flex", gap: 0 } : undefined}>
+          <div className="workspace-content-grid" style={{ gridTemplateColumns: assistantCollapsed ? "1fr" : undefined }}>
             {/* Preview column */}
-            <div className="workspace-preview-column" style={assistantCollapsed ? { flex: 1, minWidth: 0 } : undefined}>
+            <div className="workspace-preview-column">
               {/* 2D View */}
               {activeView === "2d" && (
                 <section className="preview-card preview-card--dominant">
@@ -4100,7 +3082,7 @@ export default function App() {
                           const w = room.width * numericScale, h = room.height * numericScale;
                           return (
                             <g key={room.id}>
-                              <rect x={x} y={y} width={w} height={h} fill={room.color || "#eef4ff"} stroke={globalWallColor} strokeWidth={Math.max(2, numericWallThickness * numericScale)} />
+                              <rect x={x} y={y} width={w} height={h} fill={room.color || "#eef4ff"} stroke={room.wallColor || DEFAULT_WALL_COLOR} strokeWidth={Math.max(2, numericWallThickness * numericScale)} />
                             </g>
                           );
                         })}
@@ -4115,19 +3097,15 @@ export default function App() {
                           );
                         })}
 
-                        {placedRooms.map((room) => {
-                          const furnitureLabelOffsets = computeFurnitureLabelOffsets(room.furniture || [], room, numericScale);
-                          return (
-                            <g key={`furniture-${room.id}`}>
-                              {(room.furniture || []).map((item) => (
-                                <Furniture2D key={item.id} room={room} furnitureItem={item} scale={numericScale}
-                                  labelDy={furnitureLabelOffsets[item.id] || 0}
-                                  isSelected={selectedFurnitureKey === `${room.id}-${item.id}`}
-                                  onSelect={(sel) => handleFurnitureSelection(room, sel)} />
-                              ))}
-                            </g>
-                          );
-                        })}
+                        {placedRooms.map((room) => (
+                          <g key={`furniture-${room.id}`}>
+                            {(room.furniture || []).map((item) => (
+                              <Furniture2D key={item.id} room={room} furnitureItem={item} scale={numericScale} labelOffset={labelOffsets[`${room.id}-${item.id}`] || 0}
+                                isSelected={selectedFurnitureKey === `${room.id}-${item.id}`}
+                                onSelect={(sel) => handleFurnitureSelection(room, sel)} />
+                            ))}
+                          </g>
+                        ))}
 
                         {placedRooms.map((room) => {
                           const x = room.x * numericScale, y = room.y * numericScale;
@@ -4176,90 +3154,72 @@ export default function App() {
                   </div>
 
                   <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
-                    {sunControlsCollapsed ? (
-                      <button
-                        type="button"
-                        title="Sun / Light Controls"
-                        onClick={() => setSunControlsCollapsed(false)}
-                        style={{
-                          position: "absolute", top: 14, right: 14, zIndex: 4,
-                          width: 38, height: 38, borderRadius: "50%",
-                          background: theme === "dark" ? "rgba(16,24,39,0.86)" : "rgba(255,255,255,0.92)",
-                          backdropFilter: "blur(10px)",
-                          boxShadow: "0 4px 14px rgba(15,23,42,0.18)",
-                          border: theme === "dark" ? "1px solid rgba(148,163,184,0.22)" : "1px solid rgba(148,163,184,0.18)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Sun size={17} style={{ opacity: 0.75 }} />
-                      </button>
-                    ) : (
+                    {!sunControlsCollapsed && (
                       <div
                         style={{
-                          position: "absolute", top: 14, right: 14, zIndex: 4,
-                          width: 280, padding: 14, borderRadius: 14,
-                          background: theme === "dark" ? "rgba(16,24,39,0.86)" : "rgba(255,255,255,0.92)",
-                          backdropFilter: "blur(10px)",
-                          boxShadow: "0 12px 30px rgba(15,23,42,0.16)",
-                          border: theme === "dark" ? "1px solid rgba(148,163,184,0.22)" : "1px solid rgba(148,163,184,0.18)",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                          <Sun size={16} />
-                          <strong style={{ fontSize: 13 }}>Sun / Light Controls</strong>
-                          <button
-                            type="button"
-                            className="icon-btn"
-                            style={{ marginLeft: "auto", padding: 2 }}
-                            onClick={() => setSunControlsCollapsed(true)}
-                            aria-label="Collapse sun controls"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                        {[
-                          { key: "azimuth", label: `Azimuth — ${Math.round(sunSettings.azimuth)}°`, min: 0, max: 360, step: 1 },
-                          { key: "elevation", label: `Elevation — ${Math.round(sunSettings.elevation)}°`, min: 5, max: 85, step: 1 },
-                          { key: "intensity", label: `Intensity — ${Number(sunSettings.intensity).toFixed(1)}`, min: 0.2, max: 4.0, step: 0.1 },
-                          { key: "ambientIntensity", label: `Ambient Fill — ${Number(sunSettings.ambientIntensity).toFixed(1)}`, min: 0.1, max: 1.2, step: 0.1 },
-                        ].map((control) => (
-                          <div key={control.key} style={{ marginBottom: 10 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.8, marginBottom: 4 }}>{control.label}</div>
-                            <input
-                              type="range"
-                              min={control.min} max={control.max} step={control.step}
-                              value={sunSettings[control.key]}
-                              onChange={(e) => setSunSettings((prev) => ({ ...prev, [control.key]: Number(e.target.value) }))}
-                              style={{ width: "100%", accentColor: "#f59e0b" }}
-                            />
-                          </div>
-                        ))}
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <label style={{ fontSize: 11, fontWeight: 600, minWidth: 66 }}>Sun Tone</label>
-                          <input
-                            type="color"
-                            value={sunSettings.color}
-                            onChange={(e) => setSunSettings((prev) => ({ ...prev, color: e.target.value }))}
-                            style={{ width: 42, height: 30, border: "none", background: "transparent", padding: 0 }}
-                          />
-                          <button
-                            type="button"
-                            className="ghost-btn"
-                            style={{ marginLeft: "auto", fontSize: 11, padding: "4px 8px" }}
-                            onClick={() => setSunSettings(DEFAULT_SUN_SETTINGS)}
-                          >
-                            Reset
-                          </button>
-                        </div>
+                          position: "absolute",
+                        top: 14,
+                        right: 14,
+                        zIndex: 4,
+                        width: 280,
+                        padding: 14,
+                        borderRadius: 14,
+                        background: theme === "dark" ? "rgba(16,24,39,0.86)" : "rgba(255,255,255,0.92)",
+                        backdropFilter: "blur(10px)",
+                        boxShadow: "0 12px 30px rgba(15,23,42,0.16)",
+                        border: theme === "dark" ? "1px solid rgba(148,163,184,0.22)" : "1px solid rgba(148,163,184,0.18)",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                        <Sun size={16} />
+                        <strong style={{ fontSize: 13 }}>Sun / Light Controls</strong>
                       </div>
+                      {[
+                        { key: "azimuth", label: `Azimuth — ${Math.round(sunSettings.azimuth)}°`, min: 0, max: 360, step: 1 },
+                        { key: "elevation", label: `Elevation — ${Math.round(sunSettings.elevation)}°`, min: 5, max: 85, step: 1 },
+                        { key: "intensity", label: `Intensity — ${Number(sunSettings.intensity).toFixed(1)}`, min: 0.2, max: 5, step: 0.1 },
+                        { key: "ambientIntensity", label: `Ambient Fill — ${Number(sunSettings.ambientIntensity).toFixed(1)}`, min: 0.1, max: 2.5, step: 0.1 },
+                      ].map((control) => (
+                        <div key={control.key} style={{ marginBottom: 10 }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.8, marginBottom: 4 }}>{control.label}</div>
+                          <input
+                            type="range"
+                            min={control.min}
+                            max={control.max}
+                            step={control.step}
+                            value={sunSettings[control.key]}
+                            onChange={(e) => setSunSettings((prev) => ({ ...prev, [control.key]: Number(e.target.value) }))}
+                            style={{ width: "100%", accentColor: "#f59e0b" }}
+                          />
+                        </div>
+                      ))}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, minWidth: 66 }}>Sun Tone</label>
+                        <input
+                          type="color"
+                          value={sunSettings.color}
+                          onChange={(e) => setSunSettings((prev) => ({ ...prev, color: e.target.value }))}
+                          style={{ width: 42, height: 30, border: "none", background: "transparent", padding: 0 }}
+                        />
+                        <button
+                          type="button"
+                          className="ghost-btn"
+                          style={{ marginLeft: "auto", fontSize: 11, padding: "4px 8px" }}
+                          onClick={() => setSunSettings(DEFAULT_SUN_SETTINGS)}
+                        >
+                          Reset
+                        </button>
+                      </div>
+                      <button onClick={() => setSunControlsExpanded(false)} className="ghost-btn" style={{ position: "absolute", top: 12, right: 12, padding: "4px" }}><X size={14} /></button>
+                    </div>
                     )}
                     <Canvas shadows onPointerMissed={clearSelectedFurniture} gl={{ preserveDrawingBuffer: true }}
                       camera={{ position: [Math.max(Number(totalWidth) * 0.85, 14), Math.max(Number(roomHeight) * 2.2, 16), Math.max(Number(totalHeight) * 1.0, 14)], fov: 42 }}>
-                      <Floor3DScene rooms={placedRooms} totalWidth={Number(totalWidth)} totalHeight={Number(totalHeight)}
-                        wallThickness={Number(wallThickness)} roomHeight={Number(roomHeight)} wallSegments={wallSegments}
-                        selectedFurnitureKey={selectedFurnitureKey} onFurnitureSelect={handleFurnitureSelection}
-                        sunSettings={sunSettings} globalWallColor={globalWallColor} />
+                      <Suspense fallback={null}>
+                        <Floor3DScene rooms={placedRooms} totalWidth={Number(totalWidth)} totalHeight={Number(totalHeight)}
+                          wallThickness={Number(wallThickness)} roomHeight={Number(roomHeight)} wallSegments={wallSegments}
+                          selectedFurnitureKey={selectedFurnitureKey} onFurnitureSelect={handleFurnitureSelection} sunSettings={sunSettings} globalWallColor={globalWallColor} />
+                      </Suspense>
                     </Canvas>
                     {isRenderGenerating && (
                       <div className="ai-render-overlay">
@@ -4286,72 +3246,59 @@ export default function App() {
               )}
             </div>
 
-            {/* Chat — fully collapses to narrow strip when closed */}
-            {assistantCollapsed ? (
-              <div
-                title="Open Floor Plan Assistant"
-                onClick={() => setAssistantCollapsed(false)}
-                style={{
-                  width: 28, flexShrink: 0, display: "flex", flexDirection: "column",
-                  alignItems: "center", justifyContent: "center", gap: 8,
-                  cursor: "pointer", borderLeft: "1px solid rgba(148,163,184,0.2)",
-                  padding: "12px 0", userSelect: "none",
-                }}
-              >
-                <MessageSquare size={14} style={{ opacity: 0.45 }} />
-                <span style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 11, opacity: 0.45, letterSpacing: "0.04em" }}>
-                  Assistant
-                </span>
+            {/* Chat */}
+            <aside className="chatbot-card input-card" style={{ display: assistantCollapsed ? "none" : "flex" }}>
+              <div className="section-header chatbot-header">
+                <div className="chatbot-header-copy">
+                  <h2><MessageSquare size={16} />Floor Plan Assistant</h2>
+                  <p>Ask for layouts, guidance, or use voice commands.</p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className="chatbot-badge"><Sparkles size={14} />Phase 1 + 2</span>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    aria-label={assistantCollapsed ? "Expand assistant" : "Collapse assistant"}
+                    onClick={() => setAssistantCollapsed((prev) => !prev)}
+                  >
+                    {assistantCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                  </button>
+                </div>
               </div>
-            ) : (
-              <aside className="chatbot-card input-card">
-                <div className="section-header chatbot-header">
-                  <div className="chatbot-header-copy">
-                    <h2><MessageSquare size={16} />Floor Plan Assistant</h2>
-                    <p>Ask for layouts, guidance, or use voice commands.</p>
+
+              {!assistantCollapsed && (
+                <>
+                  <div className="chatbot-quick-actions">
+                    {["Create a 2BHK in 40 by 30 feet", "Create an office layout 32 by 24", "Create a cafe layout"].map((prompt) => (
+                      <button key={prompt} type="button" className="chatbot-chip" onClick={() => setChatInput(prompt)}>{prompt}</button>
+                    ))}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className="chatbot-badge"><Sparkles size={14} />Phase 1 + 2</span>
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      aria-label="Collapse assistant"
-                      onClick={() => setAssistantCollapsed(true)}
-                    >
-                      <ChevronUp size={16} />
-                    </button>
+                  <div className="chatbot-messages" ref={chatScrollRef}>
+                    {chatMessages.map((msg) => (
+                      <div key={msg.id} className={`chatbot-message chatbot-message--${msg.role}`}>
+                        <div className="chatbot-message-icon">{msg.role === "assistant" ? <Bot size={14} /> : <span>You</span>}</div>
+                        <div className="chatbot-message-bubble">{msg.content}</div>
+                      </div>
+                    ))}
+                    {isChatbotBusy && (
+                      <div className="chatbot-message chatbot-message--assistant">
+                        <div className="chatbot-message-icon"><Bot size={14} /></div>
+                        <div className="chatbot-message-bubble">Working on your layout...</div>
+                      </div>
+                    )}
                   </div>
-                </div>
-                <div className="chatbot-quick-actions">
-                  {["Create a 2BHK in 40 by 30 feet", "Create an office layout 32 by 24", "Create a cafe layout"].map((prompt) => (
-                    <button key={prompt} type="button" className="chatbot-chip" onClick={() => setChatInput(prompt)}>{prompt}</button>
-                  ))}
-                </div>
-                <div className="chatbot-messages" ref={chatScrollRef}>
-                  {chatMessages.map((msg) => (
-                    <div key={msg.id} className={`chatbot-message chatbot-message--${msg.role}`}>
-                      <div className="chatbot-message-icon">{msg.role === "assistant" ? <Bot size={14} /> : <span>You</span>}</div>
-                      <div className="chatbot-message-bubble">{msg.content}</div>
+                  <form className="chatbot-form" onSubmit={handleChatSubmit}>
+                    <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Try: Create a 2BHK, create an office layout, or ask how to use the app." rows={4} />
+                    <div className="chatbot-form-actions">
+                      <button type="button" className={`secondary-btn chatbot-voice-btn${isListening ? " is-listening" : ""}`} onClick={handleStartVoiceInput}>
+                        <Mic size={16} />{isListening ? "Listening..." : "Voice"}
+                      </button>
+                      <button type="submit" className="primary-btn" disabled={isChatbotBusy}><Send size={16} />Apply</button>
                     </div>
-                  ))}
-                  {isChatbotBusy && (
-                    <div className="chatbot-message chatbot-message--assistant">
-                      <div className="chatbot-message-icon"><Bot size={14} /></div>
-                      <div className="chatbot-message-bubble">Working on your layout...</div>
-                    </div>
-                  )}
-                </div>
-                <form className="chatbot-form" onSubmit={handleChatSubmit}>
-                  <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Try: Create a 2BHK, create an office layout, or ask how to use the app." rows={4} />
-                  <div className="chatbot-form-actions">
-                    <button type="button" className={`secondary-btn chatbot-voice-btn${isListening ? " is-listening" : ""}`} onClick={handleStartVoiceInput}>
-                      <Mic size={16} />{isListening ? "Listening..." : "Voice"}
-                    </button>
-                    <button type="submit" className="primary-btn" disabled={isChatbotBusy}><Send size={16} />Apply</button>
-                  </div>
-                </form>
-              </aside>
-            )}
+                  </form>
+                </>
+              )}
+            </aside>
           </div>
         </main>
 
@@ -4361,7 +3308,6 @@ export default function App() {
             <h2>Rooms</h2>
             <div className="header-actions rooms-sidebar-actions">
               <button className="ghost-btn" onClick={resetPlan}><RotateCcw size={16} />Reset</button>
-              <button className="ghost-btn" onClick={autoArrangeRooms}><RotateCw size={16} />Auto-Arrange</button>
               <button className="primary-btn" onClick={addRoom}><Plus size={16} />New Room</button>
             </div>
           </div>
@@ -4400,7 +3346,16 @@ export default function App() {
                         <div className="field"><label>Y Position (ft)</label><input type="number" value={room.y} onChange={(e) => updateRoom(room.id, "y", Number(e.target.value) || 0)} /></div>
                       </div>
 
-                      <div className="form-grid one-col">
+                      <div className="form-grid two-col">
+                        <div className="field">
+                          <label><PaintBucket size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Wall Color</label>
+                          <input
+                            type="color"
+                            value={room.wallColor || DEFAULT_WALL_COLOR}
+                            onChange={(e) => updateRoom(room.id, "wallColor", e.target.value)}
+                            style={{ width: "100%", minHeight: 40, padding: 4, borderRadius: 10 }}
+                          />
+                        </div>
                         <div className="field">
                           <label>Room Fill Color</label>
                           <input
@@ -4444,7 +3399,7 @@ export default function App() {
                                   height: 64,
                                   borderRadius: 8,
                                   marginBottom: 8,
-                                  backgroundImage: `url(${resolveAssetPath(floor.image)})`,
+                                  backgroundImage: `url(${floor.image})`,
                                   backgroundSize: "cover",
                                   backgroundPosition: "center",
                                   border: "1px solid rgba(148,163,184,0.18)",
@@ -4455,33 +3410,6 @@ export default function App() {
                             </button>
                           );
                         })}
-                      </div>
-
-                      {/* Tile size slider */}
-                      <div style={{ marginTop: 10, padding: "10px 12px", background: "rgba(59,130,246,0.05)", borderRadius: 8, border: "1px solid rgba(59,130,246,0.12)" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                          <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.75, margin: 0 }}>
-                            Tile Size — {Number(room.floorTileScale || 1).toFixed(2)}×
-                          </label>
-                          <button
-                            type="button"
-                            className="ghost-btn"
-                            style={{ padding: "2px 8px", fontSize: 11 }}
-                            onClick={() => updateRoom(room.id, "floorTileScale", 1)}
-                          >
-                            Reset
-                          </button>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.25" max="4" step="0.25"
-                          value={room.floorTileScale || 1}
-                          onChange={(e) => updateRoom(room.id, "floorTileScale", Number(e.target.value))}
-                          style={{ width: "100%", accentColor: "#3b82f6" }}
-                        />
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, opacity: 0.55, marginTop: 2 }}>
-                          <span>0.25× small</span><span>1×</span><span>4× large</span>
-                        </div>
                       </div>
 
                       {/* Doors */}
@@ -4567,7 +3495,7 @@ export default function App() {
                                     <div className="field"><label>Height (ft)</label><input type="number" value={item.height} onChange={(e) => updateFurniture(room.id, item.id, "height", e.target.value)} /></div>
                                   </div>
 
-                                  {/* Rotation control */}
+                                  {/* ── NEW: Rotation control ── */}
                                   <div style={{ marginTop: 8, padding: "10px 12px", background: "rgba(59,130,246,0.06)", borderRadius: 8, border: "1px solid rgba(59,130,246,0.15)" }}>
                                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                                       <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.75, margin: 0 }}>
@@ -4583,6 +3511,7 @@ export default function App() {
                                         Reset
                                       </button>
                                     </div>
+                                    {/* Slider */}
                                     <input
                                       type="range"
                                       min="0" max="360" step="5"
@@ -4590,6 +3519,7 @@ export default function App() {
                                       style={{ width: "100%", marginBottom: 8, accentColor: "#3b82f6" }}
                                       onChange={(e) => updateFurniture(room.id, item.id, "rotation", e.target.value)}
                                     />
+                                    {/* Quick rotation preset buttons */}
                                     <div style={{ display: "flex", gap: 4 }}>
                                       {[0, 90, 180, 270].map((deg) => (
                                         <button
@@ -4602,6 +3532,7 @@ export default function App() {
                                           {deg}°
                                         </button>
                                       ))}
+                                      {/* Custom rotate +45 */}
                                       <button
                                         type="button"
                                         className="ghost-btn"
