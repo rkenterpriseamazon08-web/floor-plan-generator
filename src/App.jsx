@@ -529,7 +529,8 @@ function resolveLabelCollisions(placedRooms, scale) {
   });
   return offsets;
 }
-\nfunction normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_HEIGHT) {
+
+function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_HEIGHT) {
   const width  = Math.max(Number(room.width)  || 0, 0);
   const height = Math.max(Number(room.height) || 0, 0);
   const x = Number(room.x) || 0;
