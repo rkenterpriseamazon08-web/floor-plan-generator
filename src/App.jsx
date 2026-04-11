@@ -823,7 +823,7 @@ function Window3D({ room, windowItem, wallThickness }) {
   const height = Number(windowItem.height) || DEFAULT_WINDOW_HEIGHT;
   const sillHeight = Number(windowItem.sillHeight) || DEFAULT_WINDOW_SILL_HEIGHT;
   const depth = Math.max(0.08, wallThickness * 0.42);
-  const frame = Math.max(0.06, Math.min(width, height) * 0.06);
+  const frame = Math.max(0.035, Math.min(width, height) * 0.04);
   const centerX = (line.x1 + line.x2) / 2;
   const centerZ = (line.y1 + line.y2) / 2;
   const centerY = sillHeight + height / 2;
@@ -836,40 +836,44 @@ function Window3D({ room, windowItem, wallThickness }) {
       {/* Left glass pane — extra transparent, more glass-like */}
       <mesh receiveShadow position={[-width / 4, 0, 0.02]}>
         <boxGeometry args={[width / 2 - frame * 0.5, height, Math.max(0.02, depth * 0.16)]} />
-        <meshPhysicalMaterial
-          color="#ebf9ff"
-          transparent
-          opacity={0.06}
-          transmission={0.5}
-          roughness={0.002}
-          metalness={0}
-          thickness={0.05}
-          ior={1.45}
-          reflectivity={0.95}
-          clearcoat={1}
-          clearcoatRoughness={0}
-          attenuationDistance={35}
-          attenuationColor="#ffffff"
-        />
+       <meshPhysicalMaterial
+  color="#ffffff"
+  transparent
+  opacity={0.03}
+  transmission={1}
+  roughness={0.001}
+  metalness={0}
+  thickness={0.01}
+  ior={1.45}
+  reflectivity={0.95}
+  clearcoat={1}
+  clearcoatRoughness={0}
+  attenuationDistance={80}
+  attenuationColor="#ffffff"
+  depthWrite={false}
+  side={THREE.DoubleSide}
+/>
       </mesh>
       {/* Right glass pane */}
       <mesh receiveShadow position={[width / 4, 0, 0.02]}>
         <boxGeometry args={[width / 2 - frame * 0.5, height, Math.max(0.02, depth * 0.16)]} />
-        <meshPhysicalMaterial
-          color="#ebf9ff"
-          transparent
-          opacity={0.06}
-          transmission={0.5}
-          roughness={0.002}
-          metalness={0}
-          thickness={0.08}
-          ior={1.45}
-          reflectivity={0.95}
-          clearcoat={1}
-          clearcoatRoughness={0}
-          attenuationDistance={35}
-          attenuationColor="#ffffff"
-        />
+      <meshPhysicalMaterial
+  color="#ffffff"
+  transparent
+  opacity={0.03}
+  transmission={1}
+  roughness={0.001}
+  metalness={0}
+  thickness={0.01}
+  ior={1.45}
+  reflectivity={0.95}
+  clearcoat={1}
+  clearcoatRoughness={0}
+  attenuationDistance={80}
+  attenuationColor="#ffffff"
+  depthWrite={false}
+  side={THREE.DoubleSide}
+/>
       </mesh>
 
       {dividerCount >= 1 && (
