@@ -842,8 +842,8 @@ function Window3D({ room, windowItem, wallThickness }) {
         <meshPhysicalMaterial
           color="#ebf9ff"
           transparent
-          opacity={0.05}
-          transmission={0.550}
+          opacity={0.006}
+          transmission={1}
           roughness={0.002}
           metalness={0}
           thickness={0.05}
@@ -861,8 +861,8 @@ function Window3D({ room, windowItem, wallThickness }) {
         <meshPhysicalMaterial
           color="#ebf9ff"
           transparent
-          opacity={0.05}
-          transmission={0.550}
+          opacity={0.006}
+          transmission={1}
           roughness={0.002}
           metalness={0}
           thickness={0.08}
