@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbxOlTAlMg002Crlo1j6ZGQk_kTUuYhB6PITvvKNfvHmLPKBGxtzDQo8BfxT86SDh9Fizg/exec";
+  "https://script.google.com/macros/s/AKfycbzCPLQrJiZdW4Np6ZsOlNT_0DX1e5bl0ZyARf53eCl7LVFUP4urG2_IPYMB4WQMmMPNUw/exec";
 const MAX_SYNC_ROOMS = 8;
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 10;
@@ -3424,6 +3424,60 @@ export default function App() {
     }
   };
 
+  const capture3DAngledImage = async () => {
+    const canvas = threeContainerRef.current?.querySelector("canvas");
+    const sceneState = threeSceneStateRef.current;
+    if (!canvas || !sceneState?.gl || !sceneState?.scene || !sceneState?.camera) return "";
+
+    const { gl, scene, camera } = sceneState;
+    const controls = orbitControlsRef.current || null;
+    const centerX = Number(totalWidth) / 2;
+    const centerZ = Number(totalHeight) / 2;
+    const maxPlanSpan = Math.max(Number(totalWidth) || 0, Number(totalHeight) || 0, 12);
+    const angledDistance = Math.max((Number(roomHeight) || DEFAULT_ROOM_HEIGHT) * 2.2, maxPlanSpan * 0.95);
+
+    const prevPosition = camera.position.clone();
+    const prevQuaternion = camera.quaternion.clone();
+    const prevUp = camera.up.clone();
+    const prevZoom = camera.zoom;
+    const prevTarget = controls?.target?.clone?.() || null;
+
+    try {
+      camera.position.set(
+        centerX + angledDistance * 0.72,
+        angledDistance * 0.95,
+        centerZ + angledDistance * 0.42
+      );
+      camera.up.set(0, 1, 0);
+      camera.lookAt(centerX, Math.max(1.2, (Number(roomHeight) || DEFAULT_ROOM_HEIGHT) * 0.32), centerZ);
+      camera.updateProjectionMatrix?.();
+
+      if (controls?.target) {
+        controls.target.set(centerX, 0, centerZ);
+        controls.update?.();
+      }
+
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(resolve, 120))));
+      gl.render(scene, camera);
+      return canvas.toDataURL("image/png");
+    } catch {
+      return "";
+    } finally {
+      camera.position.copy(prevPosition);
+      camera.quaternion.copy(prevQuaternion);
+      camera.up.copy(prevUp);
+      camera.zoom = prevZoom;
+      camera.updateProjectionMatrix?.();
+
+      if (controls?.target && prevTarget) {
+        controls.target.copy(prevTarget);
+        controls.update?.();
+      }
+
+      gl.render(scene, camera);
+    }
+  };
+
   const buildCurrentProjectData = () => ({
     planName,
     ai_render_image_base64: generatedRenderImage || "",
@@ -3827,7 +3881,7 @@ const handleGenerateLayout = async (prompt) => {
     return projects.find((item) => String(item.project_id || "").trim() === String(projectId).trim()) || null;
   }
 
-  const buildGoogleSheetsPayload = async ({ projectId, safeName, image2D, image3D }) => {
+  const buildGoogleSheetsPayload = async ({ projectId, safeName, image2D, image3D, image3DAngle }) => {
     const syncedRooms = placedRooms.slice(0, MAX_SYNC_ROOMS);
     const projectState = {
       ...buildCurrentProjectData(),
@@ -3857,6 +3911,7 @@ const handleGenerateLayout = async (prompt) => {
       projectStateJson: JSON.stringify(projectState),
       image2D,
       image3D,
+      image3DAngle,
       ai_render_image_base64: generatedRenderImage || "",
       rooms: syncedRooms.map((room) => ({
         id: room.id || "",
@@ -3930,15 +3985,16 @@ const handleGenerateLayout = async (prompt) => {
     try {
       setProjectStatusMessage(`Saving "${safeName}" locally and syncing to Google Sheets...`);
       const previousView = activeView;
-      let image2D = "", image3D = "";
+      let image2D = "", image3D = "", image3DAngle = "";
       if (GOOGLE_SHEETS_INCLUDE_CAPTURED_IMAGES) {
         if (previousView !== "2d") await waitForViewRender("2d", 320);
         image2D = await capture2DImage();
         if (previousView !== "3d") await waitForViewRender("3d", 650);
         image3D = await capture3DImage();
+        image3DAngle = await capture3DAngledImage();
         if (previousView !== "3d") await waitForViewRender(previousView, 120);
       }
-      const syncResult = await syncProjectToGoogleSheets(await buildGoogleSheetsPayload({ projectId: projectRecord.id, safeName, image2D, image3D }));
+      const syncResult = await syncProjectToGoogleSheets(await buildGoogleSheetsPayload({ projectId: projectRecord.id, safeName, image2D, image3D, image3DAngle }));
       setProjectStatusMessage(syncResult?.warning ? `Saved "${safeName}" locally and synced to Google Sheets with a warning` : `Saved "${safeName}" locally and synced to Google Sheets`);
     } catch (error) {
       console.error("Google Sheets sync failed:", error);
