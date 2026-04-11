@@ -184,15 +184,16 @@ const FURNITURE_PRODUCT_RECOMMENDATIONS = {
   ],
 };
 
+const TOILET_SEAT_FURNITURE = { type: "Toilet Seat (WC)", width: 2.5, depth: 4, height: 3, color: "#dbe7f2" };
+
 // Shared extra items appended to every category
 const EXTRA_FURNITURE = [
   { type: "Steel Staircase", width: 4, depth: 8, height: 10, color: "#8a9ab5", allowOutsideBuilding: true },
-  { type: "Plant (Indoor)", width: 1.5, depth: 1.5, height: 4, color: "#2d7a3a" },
-  { type: "Plant (Outdoor)", width: 2, depth: 2, height: 5, color: "#257234", allowOutsideBuilding: true },
 ];
 
 const FURNITURE_PRESETS = {
   storage: [
+    TOILET_SEAT_FURNITURE,
     { type: "Storage Rack", width: 6, depth: 2, height: 7, color: "#c9d4e5" },
     { type: "Pallet Stack", width: 4, depth: 4, height: 4, color: "#d9c3a2" },
     { type: "Small Shelf Unit", width: 3, depth: 1.5, height: 5, color: "#cfd8c8" },
@@ -201,6 +202,7 @@ const FURNITURE_PRESETS = {
     ...EXTRA_FURNITURE,
   ],
   office: [
+    TOILET_SEAT_FURNITURE,
     { type: "Workstation Desk", width: 5, depth: 2.5, height: 2.5, color: "#d4dde8" },
     { type: "Office Chair", width: 2, depth: 2, height: 3, color: "#bcc7d9" },
     { type: "Conference Table", width: 8, depth: 4, height: 2.5, color: "#d8d1c5" },
@@ -209,6 +211,7 @@ const FURNITURE_PRESETS = {
     ...EXTRA_FURNITURE,
   ],
   cafe: [
+    TOILET_SEAT_FURNITURE,
     { type: "2-Seater Table", width: 2.5, depth: 2.5, height: 2.5, color: "#dfd2c2" },
     { type: "4-Seater Table", width: 4, depth: 4, height: 2.5, color: "#d7cab8" },
     { type: "Chair", width: 1.8, depth: 1.8, height: 3, color: "#c7b9ab" },
@@ -217,6 +220,7 @@ const FURNITURE_PRESETS = {
     ...EXTRA_FURNITURE,
   ],
   house: [
+    TOILET_SEAT_FURNITURE,
     { type: "Bed (Single / Double)", width: 6.5, depth: 7, height: 2, color: "#d5dce8" },
     { type: "Wardrobe", width: 5, depth: 2, height: 7, color: "#c7d0bf" },
     { type: "Sofa", width: 7, depth: 3, height: 3, color: "#c8d6ea" },
@@ -229,7 +233,7 @@ const FURNITURE_PRESETS = {
     ...EXTRA_FURNITURE,
   ],
   "public toilet": [
-    { type: "Toilet Seat (WC)", width: 2.5, depth: 4, height: 3, color: "#dbe7f2" },
+    TOILET_SEAT_FURNITURE,
     { type: "Urinal", width: 2, depth: 1.5, height: 3.5, color: "#d8e7ef" },
     { type: "Wash Basin", width: 2, depth: 1.5, height: 3, color: "#d9eef5" },
     { type: "Mirror Panel", width: 3, depth: 0.3, height: 4, color: "#d3e7f8" },
@@ -237,6 +241,7 @@ const FURNITURE_PRESETS = {
     ...EXTRA_FURNITURE,
   ],
   "security cabin": [
+    TOILET_SEAT_FURNITURE,
     { type: "Guard Chair", width: 2, depth: 2, height: 3, color: "#bfc9d7" },
     { type: "Small Desk", width: 4, depth: 2, height: 2.5, color: "#d7cdbf" },
     { type: "Storage Shelf", width: 3, depth: 1.5, height: 6, color: "#c8d1c2" },
@@ -958,42 +963,6 @@ function Staircase3D({ worldX, worldZ, width, depth, height, color, rotRad }) {
   );
 }
 
-// ─── Plant3D ──────────────────────────────────────────────────────────────────
-
-function Plant3D({ worldX, worldZ, width, depth, height, color, rotRad }) {
-  const potH = Math.max(0.6, height * 0.22);
-  const potR = Math.max(0.3, Math.min(width, depth) * 0.38);
-  const foliageR = Math.max(0.5, Math.min(width, depth) * 0.52);
-
-  return (
-    <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]}>
-      {/* Pot */}
-      <mesh castShadow receiveShadow position={[0, potH / 2, 0]}>
-        <cylinderGeometry args={[potR * 0.9, potR * 0.72, potH, 16]} />
-        <meshStandardMaterial color="#9b7e5c" roughness={0.8} />
-      </mesh>
-      {/* Soil disc */}
-      <mesh receiveShadow position={[0, potH - 0.05, 0]}>
-        <cylinderGeometry args={[potR * 0.88, potR * 0.88, 0.1, 16]} />
-        <meshStandardMaterial color="#5a3e28" roughness={0.95} />
-      </mesh>
-      {/* Foliage spheres */}
-      <mesh castShadow position={[0, potH + foliageR * 0.85, 0]}>
-        <sphereGeometry args={[foliageR, 14, 14]} />
-        <meshStandardMaterial color={color || "#2d7a3a"} roughness={0.88} />
-      </mesh>
-      <mesh castShadow position={[foliageR * 0.4, potH + foliageR * 0.55, foliageR * 0.3]}>
-        <sphereGeometry args={[foliageR * 0.72, 12, 12]} />
-        <meshStandardMaterial color={color || "#2d7a3a"} roughness={0.88} />
-      </mesh>
-      <mesh castShadow position={[-foliageR * 0.38, potH + foliageR * 0.5, -foliageR * 0.25]}>
-        <sphereGeometry args={[foliageR * 0.68, 12, 12]} />
-        <meshStandardMaterial color={color || "#2d7a3a"} roughness={0.88} />
-      </mesh>
-    </group>
-  );
-}
-
 // ─── 3D Furniture (group-based positioning for rotation support) ──────────────
 
 function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
@@ -1036,10 +1005,6 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
     return <Staircase3D worldX={worldX} worldZ={worldZ} width={width} depth={depth} height={height} color={color} rotRad={rotRad} />;
   }
 
-  // ── Plant ──
-  if (type.includes("plant")) {
-    return <Plant3D worldX={worldX} worldZ={worldZ} width={width} depth={depth} height={height} color={color} rotRad={rotRad} />;
-  }
 
   // ── Sofa ──
   if (type.includes("sofa")) {
@@ -1149,6 +1114,130 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
           <boxGeometry args={[width, 0.6, Math.max(0.25, depth * 0.12)]} />
           <FurnitureMaterial color={color} />
         </mesh>
+        <RecommendationRing />
+        <FurnitureLabel x={0} y={labelY} z={0} text={furnitureItem.type} />
+      </group>
+    );
+  }
+
+  // ── Switch Rack ──
+  if (type.includes("switch rack")) {
+    const frameW = Math.max(0.08, width * 0.04);
+    const frameD = Math.max(0.08, depth * 0.08);
+    const shelfCount = Math.max(2, Math.min(4, Math.round(height / 2)));
+    const innerHeight = Math.max(0.4, height - 0.18);
+    return (
+      <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleSelect}>
+        <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
+          <boxGeometry args={[width, height, depth]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[0, height / 2, depth * 0.16]}>
+          <boxGeometry args={[Math.max(0.2, width - frameW * 2.2), Math.max(0.2, height - 0.18), Math.max(0.02, depth * 0.08)]} />
+          <meshStandardMaterial color="#1f2937" roughness={0.5} metalness={0.35} />
+        </mesh>
+        {[-1, 1].map((dir) => (
+          <mesh key={`rack-side-${dir}`} castShadow receiveShadow position={[dir * (width / 2 - frameW / 2), height / 2, 0]}>
+            <boxGeometry args={[frameW, height, depth]} />
+            <meshStandardMaterial color="#7c8796" roughness={0.58} metalness={0.32} />
+          </mesh>
+        ))}
+        {[-1, 1].map((dir) => (
+          <mesh key={`rack-edge-${dir}`} castShadow receiveShadow position={[0, height / 2, dir * (depth / 2 - frameD / 2)]}>
+            <boxGeometry args={[width, height, frameD]} />
+            <meshStandardMaterial color="#8b97a6" roughness={0.62} metalness={0.22} />
+          </mesh>
+        ))}
+        {Array.from({ length: shelfCount }, (_, index) => {
+          const yPos = innerHeight * ((index + 1) / (shelfCount + 1));
+          return (
+            <mesh key={`rack-shelf-${index}`} castShadow receiveShadow position={[0, yPos, 0]}>
+              <boxGeometry args={[Math.max(0.2, width - frameW * 2.4), Math.max(0.05, height * 0.04), Math.max(0.18, depth * 0.82)]} />
+              <meshStandardMaterial color="#cbd5df" roughness={0.7} metalness={0.12} />
+            </mesh>
+          );
+        })}
+        <mesh castShadow receiveShadow position={[0, height - Math.max(0.09, height * 0.05), depth / 2 + 0.015]}>
+          <boxGeometry args={[Math.max(0.25, width * 0.72), Math.max(0.05, height * 0.05), 0.03]} />
+          <meshStandardMaterial color="#e5e7eb" roughness={0.35} metalness={0.18} />
+        </mesh>
+        <RecommendationRing />
+        <FurnitureLabel x={0} y={labelY} z={0} text={furnitureItem.type} />
+      </group>
+    );
+  }
+
+  // ── Urinal ──
+  if (type.includes("urinal")) {
+    const bodyWidth = Math.max(0.55, width * 0.72);
+    const bodyDepth = Math.max(0.45, depth * 0.68);
+    const rimHeight = Math.max(0.08, height * 0.04);
+    return (
+      <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleSelect}>
+        <mesh castShadow receiveShadow position={[0, height * 0.6, -depth * 0.08]}>
+          <boxGeometry args={[bodyWidth, Math.max(0.5, height * 0.78), bodyDepth]} />
+          <meshStandardMaterial color="#eef5fb" roughness={0.28} metalness={0.04} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[0, height * 0.9, -depth * 0.02]}>
+          <cylinderGeometry args={[Math.max(0.18, bodyWidth * 0.34), Math.max(0.22, bodyWidth * 0.42), Math.max(0.25, height * 0.22), 28, 1, false, Math.PI, Math.PI]} />
+          <meshStandardMaterial color="#f8fbff" roughness={0.22} metalness={0.03} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh receiveShadow position={[0, height * 0.76, bodyDepth * 0.12]}>
+          <boxGeometry args={[Math.max(0.2, bodyWidth * 0.76), Math.max(0.18, height * 0.42), Math.max(0.08, bodyDepth * 0.28)]} />
+          <meshStandardMaterial color="#dfe9f3" roughness={0.2} metalness={0.02} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[0, height * 0.38, bodyDepth * 0.2]}>
+          <cylinderGeometry args={[Math.max(0.06, bodyWidth * 0.1), Math.max(0.07, bodyWidth * 0.12), Math.max(0.2, height * 0.22), 18]} />
+          <meshStandardMaterial color="#edf4fa" roughness={0.26} metalness={0.03} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[0, height * 0.96, -bodyDepth * 0.06]}>
+          <boxGeometry args={[Math.max(0.25, bodyWidth * 0.82), rimHeight, Math.max(0.16, bodyDepth * 0.5)]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.18} metalness={0.03} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[0, height * 0.98, bodyDepth * 0.32]}>
+          <cylinderGeometry args={[0.035, 0.035, 0.16, 16]} />
+          <meshStandardMaterial color="#c7d2de" roughness={0.2} metalness={0.85} />
+        </mesh>
+        <RecommendationRing />
+        <FurnitureLabel x={0} y={labelY} z={0} text={furnitureItem.type} />
+      </group>
+    );
+  }
+
+  // ── CCTV Monitor Unit ──
+  if (type.includes("cctv monitor unit")) {
+    const screenW = Math.max(0.8, width * 0.84);
+    const screenH = Math.max(0.8, height * 0.42);
+    const screenD = Math.max(0.08, depth * 0.14);
+    const consoleH = Math.max(0.4, height * 0.24);
+    return (
+      <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleSelect}>
+        <mesh castShadow receiveShadow position={[0, consoleH / 2, 0]}>
+          <boxGeometry args={[width, consoleH, depth]} />
+          <FurnitureMaterial color={color} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[0, consoleH + screenH * 0.38, -depth * 0.08]}>
+          <boxGeometry args={[screenW, screenH, screenD]} />
+          <meshStandardMaterial color="#1f2937" roughness={0.42} metalness={0.4} />
+        </mesh>
+        <mesh receiveShadow position={[0, consoleH + screenH * 0.38, screenD * 0.52]}>
+          <boxGeometry args={[screenW * 0.88, screenH * 0.82, Math.max(0.02, screenD * 0.18)]} />
+          <meshStandardMaterial color="#2b5c85" emissive="#15324a" emissiveIntensity={0.65} roughness={0.22} metalness={0.18} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[0, consoleH + screenH * 0.06, -depth * 0.1]}>
+          <boxGeometry args={[Math.max(0.1, width * 0.08), Math.max(0.3, height * 0.22), Math.max(0.08, depth * 0.16)]} />
+          <meshStandardMaterial color="#8d99a8" roughness={0.5} metalness={0.34} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[0, consoleH + 0.05, 0]}>
+          <boxGeometry args={[Math.max(0.55, width * 0.34), 0.08, Math.max(0.4, depth * 0.28)]} />
+          <meshStandardMaterial color="#9aa7b5" roughness={0.45} metalness={0.3} />
+        </mesh>
+        {[-1, 0, 1].map((xPos) => (
+          <mesh key={`monitor-indicator-${xPos}`} receiveShadow position={[xPos * width * 0.18, consoleH * 0.52, depth / 2 + 0.02]}>
+            <boxGeometry args={[0.08, 0.08, 0.04]} />
+            <meshStandardMaterial color={xPos === 0 ? "#74c69d" : "#cbd5df"} roughness={0.3} metalness={0.12} />
+          </mesh>
+        ))}
         <RecommendationRing />
         <FurnitureLabel x={0} y={labelY} z={0} text={furnitureItem.type} />
       </group>
