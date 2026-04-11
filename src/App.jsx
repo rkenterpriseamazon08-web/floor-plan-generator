@@ -68,6 +68,7 @@ const PRODUCT_CATEGORIES = [
 ];
 
 const PROJECTS_STORAGE_KEY = "floor-plan-generator-projects";
+const PROJECT_ID_QUERY_PARAM = "projectId";
 const FLOOR_PLAN_OPENAI_KEY_STORAGE = "floor-plan-openai-api-key";
 const THEME_STORAGE_KEY = "floor-plan-generator-theme";
 const OPENAI_MODEL = "gpt-4.1-mini";
@@ -1272,7 +1273,7 @@ function Floor3DScene({
         const d = Math.max(Number(room.height) || 0, 0.2);
         return (
           <group key={room.id}>
-            <RoomFloor3D room={room} />
+            <RoomFloor3D key={`${room.id}-${room.floorTextureId || ""}-${room.floorTileScale || 1}`} room={room} />
             <DreiText
               position={[x + w / 2, 0.12, z + d / 2]}
               fontSize={0.52}
@@ -2013,6 +2014,32 @@ function readProjectsFromStorage() {
 function writeProjectsToStorage(projects) {
   if (typeof window === "undefined") return;
   try { window.localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects)); } catch {}
+}
+
+function getProjectIdFromUrl() {
+  if (typeof window === "undefined") return "";
+  try {
+    return new URL(window.location.href).searchParams.get(PROJECT_ID_QUERY_PARAM) || "";
+  } catch {
+    return "";
+  }
+}
+
+function buildProjectShareUrl(projectId) {
+  if (typeof window === "undefined" || !projectId) return "";
+  const url = new URL(window.location.href);
+  url.searchParams.set(PROJECT_ID_QUERY_PARAM, projectId);
+  return url.toString();
+}
+
+function syncProjectIdToUrl(projectId) {
+  if (typeof window === "undefined") return;
+  try {
+    const url = new URL(window.location.href);
+    if (projectId) url.searchParams.set(PROJECT_ID_QUERY_PARAM, projectId);
+    else url.searchParams.delete(PROJECT_ID_QUERY_PARAM);
+    window.history.replaceState({}, "", url.toString());
+  } catch {}
 }
 
 async function svgElementToPngDataUrl(svgEl, outputWidth = 1600) {
@@ -3040,7 +3067,7 @@ export default function App() {
   const [isProjectModalOpen,   setIsProjectModalOpen]   = useState(false);
   const [currentProjectId,     setCurrentProjectId]     = useState(null);
   const [projectStatusMessage, setProjectStatusMessage] = useState("");
-  const [expandedRoomId,       setExpandedRoomId]       = useState(null);
+  const [expandedRoomIds,      setExpandedRoomIds]      = useState({});
   const [assistantCollapsed,   setAssistantCollapsed]   = useState(() => {
     if (typeof window === "undefined") return false;
     return window.sessionStorage.getItem(ASSISTANT_COLLAPSED_SESSION_KEY) === "true";
@@ -3122,8 +3149,60 @@ export default function App() {
   useEffect(() => { refreshSavedProjects(); }, []);
 
   useEffect(() => {
-    if (!expandedRoomId && rooms.length) setExpandedRoomId(rooms[0].id);
-  }, [expandedRoomId, rooms]);
+    const projectIdFromUrl = getProjectIdFromUrl();
+    if (!projectIdFromUrl) return;
+    let isCancelled = false;
+
+    const openProjectFromUrl = async () => {
+      const localProjects = readProjectsFromStorage();
+      const localMatch = localProjects.find((project) => project.id === projectIdFromUrl);
+      if (localMatch?.data) {
+        if (isCancelled) return;
+        applyProjectState(localMatch.data);
+        setCurrentProjectId(localMatch.id);
+        setGeneratedRenderImage(localMatch.data.ai_render_image_base64 || "");
+        setGeneratedRenderProjectId(localMatch.id);
+        setProjectStatusMessage(`Opened "${localMatch.name}" from link.`);
+        return;
+      }
+
+      try {
+        const remoteProject = await fetchProjectFromGoogleSheets(projectIdFromUrl);
+        if (isCancelled || !remoteProject) return;
+        const rawState = remoteProject.project_state_json || remoteProject.projectStateJson || "";
+        if (!rawState) {
+          setProjectStatusMessage("Project link found, but no full saved state was available in Google Sheets.");
+          return;
+        }
+        const parsedState = JSON.parse(rawState);
+        applyProjectState(parsedState);
+        setCurrentProjectId(projectIdFromUrl);
+        setGeneratedRenderImage(parsedState.ai_render_image_base64 || remoteProject.ai_render_image_base64 || "");
+        setGeneratedRenderProjectId(projectIdFromUrl);
+        setProjectStatusMessage(`Opened project from Google Sheets link.`);
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Failed to open project from URL:", error);
+          setProjectStatusMessage("Could not open the linked project.");
+        }
+      }
+    };
+
+    openProjectFromUrl();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    setExpandedRoomIds((prev) => {
+      const next = {};
+      rooms.forEach((room) => {
+        next[room.id] = Object.prototype.hasOwnProperty.call(prev, room.id) ? prev[room.id] : true;
+      });
+      return next;
+    });
+  }, [rooms]);
 
   useEffect(() => {
     if (!chatScrollRef.current) return;
@@ -3193,7 +3272,7 @@ export default function App() {
     setSelectedCategory(PRODUCT_CATEGORIES.includes(nextState.selectedCategory) ? nextState.selectedCategory : defaults.selectedCategory);
     const nextRooms = Array.isArray(nextState.rooms) && nextState.rooms.length ? nextState.rooms : defaults.rooms;
     setRooms(nextRooms);
-    setExpandedRoomId(nextRooms[0]?.id || null);
+    setExpandedRoomIds(Object.fromEntries(nextRooms.map((room) => [room.id, true])));
     setFurnitureSelections(nextState.furnitureSelections && typeof nextState.furnitureSelections === "object" ? nextState.furnitureSelections : {});
     setCustomPresetDimensions(
       nextState.customPresetDimensions && typeof nextState.customPresetDimensions === "object"
@@ -3372,17 +3451,21 @@ const handleGenerateLayout = async (prompt) => {
   const updateRoom = (id, key, value) =>
     setRooms((prev) => prev.map((room) => room.id === id ? { ...room, [key]: value } : room));
 
+  const toggleRoomExpanded = (roomId) => {
+    setExpandedRoomIds((prev) => ({ ...prev, [roomId]: !prev[roomId] }));
+  };
+
   const addRoom = () => {
     const newRoom = createRoom(rooms.length);
     setRooms((prev) => [...prev, newRoom]);
-    setExpandedRoomId(newRoom.id);
+    setExpandedRoomIds((prev) => ({ ...prev, [newRoom.id]: true }));
   };
 
   const removeRoom = (id) => {
     const remaining = rooms.filter((r) => r.id !== id);
     setRooms(remaining);
     setFurnitureSelections((prev) => { const next = { ...prev }; delete next[id]; return next; });
-    if (expandedRoomId === id) setExpandedRoomId(remaining[0]?.id || null);
+    setExpandedRoomIds((prev) => { const next = { ...prev }; delete next[id]; return next; });
   };
 
   const autoArrangeRooms = () => {
@@ -3395,6 +3478,7 @@ const handleGenerateLayout = async (prompt) => {
     setGeneratedRenderImage("");
     setGeneratedRenderProjectId(null);
     setProjectStatusMessage("");
+    syncProjectIdToUrl("");
   };
 
   // ─── Door / Window operations ────────────────────────────────────────────────
@@ -3542,17 +3626,64 @@ const handleGenerateLayout = async (prompt) => {
 
   // ─── Project save / open ─────────────────────────────────────────────────────
 
+  async function fetchProjectFromGoogleSheets(projectId) {
+    if (!projectId) return null;
+    const url = `${APPS_SCRIPT_URL}?projectId=${encodeURIComponent(projectId)}`;
+    const response = await fetch(url, { method: "GET" });
+    const rawText = await response.text();
+    let result;
+    try { result = JSON.parse(rawText); } catch { throw new Error(`Apps Script GET did not return valid JSON: ${rawText}`); }
+    if (!response.ok) throw new Error(result?.message || `Request failed with status ${response.status}`);
+    if (!result?.success) throw new Error(result?.message || "Apps Script GET failed.");
+    const projects = Array.isArray(result?.projects) ? result.projects : [];
+    return projects.find((item) => String(item.project_id || "").trim() === String(projectId).trim()) || null;
+  }
+
   const buildGoogleSheetsPayload = async ({ projectId, safeName, image2D, image3D }) => {
     const syncedRooms = placedRooms.slice(0, MAX_SYNC_ROOMS);
+    const projectState = {
+      ...buildCurrentProjectData(),
+      planName: safeName,
+      currentProjectId: projectId,
+      rooms: placedRooms,
+    };
     return {
-      action: "saveProject", projectId, planName: safeName,
-      savedAt: new Date().toISOString(), selectedCategory, totalWidth, totalHeight,
-      wallThickness, scale, roomHeight,
-      planSizeLabel: `${totalWidth} × ${totalHeight}`, totalRooms: placedRooms.length,
-      totalRoomArea: Number(totalRoomArea.toFixed(2)), spaceUtilization: utilization,
-      currentProjectId: currentProjectId || projectId, quotationValue: "", quotationNotes: "",
-      image2D, image3D, ai_render_image_base64: generatedRenderImage || "",
-      rooms: syncedRooms.map((room) => ({ id: room.id || "", name: room.name || "", x: Number(room.x) || 0, y: Number(room.y) || 0, width: Number(room.width) || 0, height: Number(room.height) || 0, color: room.color || "", floorTextureId: room.floorTextureId || getDefaultFloorTextureId(), doors: Array.isArray(room.doors) ? room.doors : [], windows: Array.isArray(room.windows) ? room.windows : [], furniture: Array.isArray(room.furniture) ? room.furniture : [] })),
+      action: "saveProject",
+      projectId,
+      planName: safeName,
+      savedAt: new Date().toISOString(),
+      selectedCategory,
+      totalWidth,
+      totalHeight,
+      wallThickness,
+      scale,
+      roomHeight,
+      planSizeLabel: `${totalWidth} × ${totalHeight}`,
+      totalRooms: placedRooms.length,
+      totalRoomArea: Number(totalRoomArea.toFixed(2)),
+      spaceUtilization: utilization,
+      currentProjectId: projectId,
+      quotationValue: "",
+      quotationNotes: "",
+      projectLink: buildProjectShareUrl(projectId),
+      projectStateJson: JSON.stringify(projectState),
+      image2D,
+      image3D,
+      ai_render_image_base64: generatedRenderImage || "",
+      rooms: syncedRooms.map((room) => ({
+        id: room.id || "",
+        name: room.name || "",
+        x: Number(room.x) || 0,
+        y: Number(room.y) || 0,
+        width: Number(room.width) || 0,
+        height: Number(room.height) || 0,
+        color: room.color || "",
+        floorTextureId: room.floorTextureId || getDefaultFloorTextureId(),
+        floorTileScale: Number(room.floorTileScale) || 1,
+        doors: Array.isArray(room.doors) ? room.doors : [],
+        windows: Array.isArray(room.windows) ? room.windows : [],
+        furniture: Array.isArray(room.furniture) ? room.furniture : [],
+      })),
     };
   };
 
@@ -3587,6 +3718,7 @@ const handleGenerateLayout = async (prompt) => {
       : [projectRecord, ...existingProjects];
     writeProjectsToStorage(nextProjects);
     setCurrentProjectId(projectId); setPlanName(safeName);
+    syncProjectIdToUrl(projectId);
     setSavedProjects(nextProjects.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)));
     try {
       setProjectStatusMessage(`Saving "${safeName}" locally and syncing to Google Sheets...`);
@@ -3615,6 +3747,7 @@ const handleGenerateLayout = async (prompt) => {
     setCurrentProjectId(selected.id);
     setGeneratedRenderImage(selected.data.ai_render_image_base64 || "");
     setGeneratedRenderProjectId(selected.id);
+    syncProjectIdToUrl(selected.id);
     setIsProjectModalOpen(false);
     setProjectStatusMessage(`Opened "${selected.name}"`);
   };
@@ -3639,7 +3772,7 @@ const handleGenerateLayout = async (prompt) => {
       const aiPlan = await analyzeFloorPlanImageWithOpenAI(apiKey, file, buildCurrentProjectData());
       if (!aiPlan || !Array.isArray(aiPlan.rooms) || !aiPlan.rooms.length) throw new Error("ChatGPT could not detect any rooms from this image.");
       applyGeneratedPlan({ ...aiPlan, activeView: "2d" }, "ChatGPT");
-      setExpandedRoomId(aiPlan.rooms[0]?.id || null); setActiveView("2d");
+      setExpandedRoomIds(Object.fromEntries((aiPlan.rooms || []).map((room) => [room.id, true]))); setActiveView("2d");
       setProjectStatusMessage(`Floor plan uploaded successfully from "${file.name}".`);
     } catch (error) {
       console.error("Floor plan upload failed:", error);
@@ -3937,6 +4070,25 @@ const handleGenerateLayout = async (prompt) => {
                           <rect width="50" height="50" fill="url(#smallGrid)" />
                           <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#bdd0e8" strokeWidth="1" />
                         </pattern>
+                        {placedRooms.map((room) => {
+                          const textureMeta = getFloorTextureById(room.floorTextureId);
+                          const tileScale = Math.max(0.25, Math.min(4, Number(room.floorTileScale) || 1));
+                          const patternWidth = Math.max(8, Number(textureMeta.tileWidth || 1) * numericScale * tileScale);
+                          const patternHeight = Math.max(8, Number(textureMeta.tileHeight || 1) * numericScale * tileScale);
+                          const patternId = `floor-pattern-${String(room.id).replace(/[^a-zA-Z0-9_-]/g, "")}`;
+                          return (
+                            <pattern key={patternId} id={patternId} width={patternWidth} height={patternHeight} patternUnits="userSpaceOnUse">
+                              <image
+                                href={resolveAssetPath(textureMeta.image)}
+                                x="0"
+                                y="0"
+                                width={patternWidth}
+                                height={patternHeight}
+                                preserveAspectRatio="none"
+                              />
+                            </pattern>
+                          );
+                        })}
                       </defs>
                       <rect width={svgWidth} height={svgHeight} fill="#ffffff" />
                       <g transform="translate(60,60)">
@@ -3948,7 +4100,7 @@ const handleGenerateLayout = async (prompt) => {
                           const w = room.width * numericScale, h = room.height * numericScale;
                           return (
                             <g key={room.id}>
-                              <rect x={x} y={y} width={w} height={h} fill={room.color || "#eef4ff"} stroke={globalWallColor} strokeWidth={Math.max(2, numericWallThickness * numericScale)} />
+                              <rect x={x} y={y} width={w} height={h} fill={`url(#floor-pattern-${String(room.id).replace(/[^a-zA-Z0-9_-]/g, "")})`} stroke={globalWallColor} strokeWidth={Math.max(2, numericWallThickness * numericScale)} />
                             </g>
                           );
                         })}
@@ -4217,11 +4369,11 @@ const handleGenerateLayout = async (prompt) => {
           <div className="room-list room-list--sidebar">
             {rooms.map((room, index) => {
               const roomFurnitureSelection = furnitureSelections[room.id] || getDefaultFurnitureSelection(selectedCategory);
-              const isExpanded = expandedRoomId === room.id;
+              const isExpanded = expandedRoomIds[room.id] !== false;
 
               return (
                 <div className={`room-card accordion-room-card${isExpanded ? " expanded" : " collapsed"}`} key={room.id}>
-                  <button type="button" className="room-accordion-trigger" onClick={() => setExpandedRoomId(isExpanded ? null : room.id)}>
+                  <button type="button" className="room-accordion-trigger" onClick={() => toggleRoomExpanded(room.id)}>
                     <div className="room-accordion-title-wrap">
                       <span className="room-accordion-arrow">{isExpanded ? "▾" : "▸"}</span>
                       <span className="room-accordion-title">{room.name || `Room ${index + 1}`}</span>
@@ -4246,18 +4398,6 @@ const handleGenerateLayout = async (prompt) => {
                       <div className="form-grid two-col">
                         <div className="field"><label>X Position (ft)</label><input type="number" value={room.x} onChange={(e) => updateRoom(room.id, "x", Number(e.target.value) || 0)} /></div>
                         <div className="field"><label>Y Position (ft)</label><input type="number" value={room.y} onChange={(e) => updateRoom(room.id, "y", Number(e.target.value) || 0)} /></div>
-                      </div>
-
-                      <div className="form-grid one-col">
-                        <div className="field">
-                          <label>Room Fill Color</label>
-                          <input
-                            type="color"
-                            value={room.color || ROOM_COLORS[index % ROOM_COLORS.length]}
-                            onChange={(e) => updateRoom(room.id, "color", e.target.value)}
-                            style={{ width: "100%", minHeight: 40, padding: 4, borderRadius: 10 }}
-                          />
-                        </div>
                       </div>
 
                       <div className="section-header compact">
