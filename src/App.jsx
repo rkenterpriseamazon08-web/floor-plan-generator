@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbxJ-NMPoDuDJ48oruobnrhJPMDDH2OrNABCqfedFdf5msu1GFL2PpbNlfr0pq9BAhK9Jg/exec";
+  "https://script.google.com/macros/s/AKfycbzCPLQrJiZdW4Np6ZsOlNT_0DX1e5bl0ZyARf53eCl7LVFUP4urG2_IPYMB4WQMmMPNUw/exec";
 const MAX_SYNC_ROOMS = 8;
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 10;
@@ -1471,99 +1471,115 @@ function ReadOnly3DViewerShell({
 }) {
   const safeTitle = String(planName || "").trim() || "Saved Floor Plan";
   return (
-    <div className="readonly-viewer-page">
-      <div className="readonly-viewer-header">
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        background: "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <div
+        style={{
+          padding: "14px 18px",
+          borderBottom: "1px solid rgba(148, 163, 184, 0.22)",
+          background: "rgba(255,255,255,0.88)",
+          backdropFilter: "blur(10px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+        }}
+      >
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>{safeTitle}</div>
           <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
             Read-only 3D viewer · rotate, zoom, and pan enabled
           </div>
         </div>
-        <div className="readonly-viewer-meta">
+        <div style={{ fontSize: 12, color: "#334155", textAlign: "right" }}>
           <div>{Number(totalWidth) || 0} ft × {Number(totalHeight) || 0} ft</div>
           <div style={{ opacity: 0.7 }}>Height: {Number(roomHeight) || 0} ft</div>
         </div>
       </div>
 
-      <div className="readonly-viewer-canvas-wrap">
-        <div className="three-wrap">
-          <Canvas
-            style={{ width: "100%", height: "100%" }}
-            shadows
-            gl={{ preserveDrawingBuffer: true }}
-            camera={{
-              position: [
-                Math.max(Number(totalWidth) * 0.85, 14),
-                Math.max(Number(roomHeight) * 2.2, 16),
-                Math.max(Number(totalHeight) * 1.0, 14),
-              ],
-              fov: 42,
+      <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+        <Canvas
+          shadows
+          gl={{ preserveDrawingBuffer: true }}
+          camera={{
+            position: [
+              Math.max(Number(totalWidth) * 0.85, 14),
+              Math.max(Number(roomHeight) * 2.2, 16),
+              Math.max(Number(totalHeight) * 1.0, 14),
+            ],
+            fov: 42,
+          }}
+        >
+          <Floor3DScene
+            rooms={placedRooms}
+            totalWidth={Number(totalWidth)}
+            totalHeight={Number(totalHeight)}
+            wallThickness={Number(wallThickness)}
+            roomHeight={Number(roomHeight)}
+            wallSegments={wallSegments}
+            selectedFurnitureKey=""
+            onFurnitureSelect={undefined}
+            sunSettings={sunSettings}
+            globalWallColor={globalWallColor}
+            orbitControlsRef={orbitControlsRef}
+          />
+        </Canvas>
+
+        {isLoading && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(248,250,252,0.72)",
+              backdropFilter: "blur(4px)",
             }}
           >
-            <Floor3DScene
-              rooms={placedRooms}
-              totalWidth={Number(totalWidth)}
-              totalHeight={Number(totalHeight)}
-              wallThickness={Number(wallThickness)}
-              roomHeight={Number(roomHeight)}
-              wallSegments={wallSegments}
-              selectedFurnitureKey=""
-              onFurnitureSelect={undefined}
-              sunSettings={sunSettings}
-              globalWallColor={globalWallColor}
-              orbitControlsRef={orbitControlsRef}
-            />
-          </Canvas>
-
-          {isLoading && (
             <div
               style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(248,250,252,0.72)",
-                backdropFilter: "blur(4px)",
-              }}
-            >
-              <div
-                style={{
-                  padding: "14px 18px",
-                  borderRadius: 14,
-                  background: "rgba(255,255,255,0.94)",
-                  border: "1px solid rgba(148,163,184,0.22)",
-                  boxShadow: "0 18px 38px rgba(15,23,42,0.10)",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: "#0f172a",
-                }}
-              >
-                Loading 3D viewer...
-              </div>
-            </div>
-          )}
-
-          {!isLoading && statusMessage && /could not open|no full saved state/i.test(String(statusMessage || "")) && (
-            <div
-              style={{
-                position: "absolute",
-                left: 18,
-                bottom: 18,
-                padding: "10px 12px",
-                borderRadius: 12,
+                padding: "14px 18px",
+                borderRadius: 14,
                 background: "rgba(255,255,255,0.94)",
-                border: "1px solid rgba(248,113,113,0.24)",
-                color: "#991b1b",
-                fontSize: 12,
-                maxWidth: 340,
-                boxShadow: "0 14px 30px rgba(15,23,42,0.10)",
+                border: "1px solid rgba(148,163,184,0.22)",
+                boxShadow: "0 18px 38px rgba(15,23,42,0.10)",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#0f172a",
               }}
             >
-              {statusMessage}
+              Loading 3D viewer...
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {!isLoading && statusMessage && /could not open|no full saved state/i.test(String(statusMessage || "")) && (
+          <div
+            style={{
+              position: "absolute",
+              left: 18,
+              bottom: 18,
+              padding: "10px 12px",
+              borderRadius: 12,
+              background: "rgba(255,255,255,0.94)",
+              border: "1px solid rgba(248,113,113,0.24)",
+              color: "#991b1b",
+              fontSize: 12,
+              maxWidth: 340,
+              boxShadow: "0 14px 30px rgba(15,23,42,0.10)",
+            }}
+          >
+            {statusMessage}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3316,7 +3332,6 @@ export default function App() {
   const [isProjectModalOpen,   setIsProjectModalOpen]   = useState(false);
   const [currentProjectId,     setCurrentProjectId]     = useState(null);
   const [projectStatusMessage, setProjectStatusMessage] = useState("");
-  const [isPlanGenerating, setIsPlanGenerating] = useState(false);
   const isReadOnly3DViewer = useMemo(() => isReadOnlyViewerModeFromUrl(), []);
   const initialProjectIdFromUrl = useMemo(() => getProjectIdFromUrl(), []);
   const shouldForceUrlProjectTo3D = useMemo(
@@ -4033,27 +4048,6 @@ const handleGenerateLayout = async (prompt) => {
     return projects.find((item) => String(item.project_id || "").trim() === String(projectId).trim()) || null;
   }
 
-
-
-  async function generateFloorPlanPdf(projectId) {
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8",
-        "Accept": "application/json",
-      },
-      body: JSON.stringify({ action: "generatePlanPdf", projectId }),
-      redirect: "follow",
-    });
-    const rawText = await response.text();
-    if (!rawText) throw new Error("Plan generation returned an empty response.");
-    let result;
-    try { result = JSON.parse(rawText); } catch { throw new Error(`Plan generation did not return valid JSON: ${rawText}`); }
-    if (!response.ok) throw new Error(result?.message || `Request failed with status ${response.status}`);
-    if (!result?.success) throw new Error(result?.message || "Plan generation failed.");
-    return result;
-  }
-
   const buildGoogleSheetsPayload = async ({ projectId, safeName, image2D, image3D, image3DAngle }) => {
     const syncedRooms = placedRooms.slice(0, MAX_SYNC_ROOMS);
     const projectState = {
@@ -4173,32 +4167,6 @@ const handleGenerateLayout = async (prompt) => {
     } catch (error) {
       console.error("Google Sheets sync failed:", error);
       setProjectStatusMessage(error?.message || `Saved "${safeName}" locally, but Google Sheets sync failed`);
-    }
-  };
-
-
-
-  const handleGenerateFloorPlan = async () => {
-    const projectId = String(currentProjectId || "").trim();
-    if (!projectId) {
-      setProjectStatusMessage("You need to first save the project to generate the plan.");
-      return;
-    }
-
-    try {
-      setIsPlanGenerating(true);
-      setProjectStatusMessage("Generating floor plan PDF...");
-      const result = await generateFloorPlanPdf(projectId);
-      const pdfUrl = result?.pdf_download_url || result?.pdf_url || "";
-      setProjectStatusMessage(result?.message || "Floor plan PDF generated successfully.");
-      if (pdfUrl && typeof window !== "undefined") {
-        window.open(pdfUrl, "_blank", "noopener,noreferrer");
-      }
-    } catch (error) {
-      console.error("Floor plan generation failed:", error);
-      setProjectStatusMessage(error?.message || "Could not generate the floor plan PDF.");
-    } finally {
-      setIsPlanGenerating(false);
     }
   };
 
@@ -4527,10 +4495,6 @@ const handleGenerateLayout = async (prompt) => {
             <button className="secondary-btn project-stack-btn" onClick={() => setActivePage("furniture-manager")}>
               <Sliders size={16} />
               Furniture Manager
-            </button>
-            <button className="secondary-btn project-stack-btn" onClick={handleGenerateFloorPlan} disabled={isPlanGenerating}>
-              <FilePlus2 size={16} />
-              {isPlanGenerating ? "Generating Plan..." : "Generate Floor Plan"}
             </button>
             {FEATURE_AI_LANDING_ENABLED && FEATURE_AI_ENABLED && (
               <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")}>
