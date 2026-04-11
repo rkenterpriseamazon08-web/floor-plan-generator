@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbw2VS478hBynrAvMDA2td8399we3SMRXbiE0Omx0USUWJH0CoGHgChfrAfNDuxcyHbFXQ/exec";
+  "https://script.google.com/macros/s/AKfycbyearVSAWf05CcDpW3btL2aCDVU6rpQfrFdpfBOBSJOZ67NWiiYnnaD99P0L3YnnTdQNw/exec";
 const MAX_SYNC_ROOMS = 8;
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 10;
@@ -3364,6 +3364,7 @@ export default function App() {
   // ── Upload / render ──
   const [isFloorPlanUploading,  setIsFloorPlanUploading]  = useState(false);
   const [isRenderGenerating,    setIsRenderGenerating]    = useState(false);
+  const [isPlanGenerating,      setIsPlanGenerating]      = useState(false);
   const [generatedRenderImage,  setGeneratedRenderImage]  = useState("");
   const [generatedRenderProjectId, setGeneratedRenderProjectId] = useState(null);
 
@@ -4170,6 +4171,54 @@ const handleGenerateLayout = async (prompt) => {
     }
   };
 
+  const handleGeneratePlanDocument = async () => {
+    if (isPlanGenerating) return;
+    if (!currentProjectId) {
+      setProjectStatusMessage("Please save the project first before generating the plan document.");
+      return;
+    }
+    try {
+      setIsPlanGenerating(true);
+      setProjectStatusMessage("Generating plan PDF from saved project data...");
+      const response = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({
+          action: "generatePlanDocument",
+          projectId: currentProjectId,
+        }),
+        redirect: "follow",
+      });
+      const rawText = await response.text();
+      if (!rawText) throw new Error("Plan document generation returned an empty response.");
+      let result;
+      try {
+        result = JSON.parse(rawText);
+      } catch {
+        throw new Error(`Plan document generation did not return valid JSON: ${rawText}`);
+      }
+      if (!response.ok) throw new Error(result?.message || `Request failed with status ${response.status}`);
+      if (!result?.success) throw new Error(result?.message || "Plan document generation failed.");
+
+      const pdfUrl = result?.pdf_url || result?.pdfUrl || "";
+      const docUrl = result?.doc_url || result?.docUrl || "";
+      setProjectStatusMessage(result?.message || "Plan PDF generated successfully.");
+      if (pdfUrl && typeof window !== "undefined") {
+        window.open(pdfUrl, "_blank", "noopener,noreferrer");
+      } else if (docUrl && typeof window !== "undefined") {
+        window.open(docUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (error) {
+      console.error("Plan document generation failed:", error);
+      setProjectStatusMessage(error?.message || "Failed to generate the plan document.");
+    } finally {
+      setIsPlanGenerating(false);
+    }
+  };
+
   const handleOpenProjectClick = () => { refreshSavedProjects(); setIsProjectModalOpen(true); setProjectStatusMessage(""); };
 
   const handleOpenSavedProject = (projectId) => {
@@ -4495,6 +4544,15 @@ const handleGenerateLayout = async (prompt) => {
             <button className="secondary-btn project-stack-btn" onClick={() => setActivePage("furniture-manager")}>
               <Sliders size={16} />
               Furniture Manager
+            </button>
+            <button
+              className="secondary-btn project-stack-btn"
+              onClick={handleGeneratePlanDocument}
+              disabled={isPlanGenerating}
+              title={!currentProjectId ? "Save the project first" : "Generate plan PDF"}
+            >
+              <ExternalLink size={16} />
+              {isPlanGenerating ? "Generating Plan..." : "Generate Plan"}
             </button>
             {FEATURE_AI_LANDING_ENABLED && FEATURE_AI_ENABLED && (
               <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")}>
