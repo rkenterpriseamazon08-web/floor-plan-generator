@@ -48,8 +48,8 @@ const ROOM_COLORS = [
 ];
 
 const WALL_OPTIONS = ["top", "bottom", "left", "right"];
-const DEFAULT__WIDTH = 3;
-const DEFAULT__HEIGHT = 7;
+const DEFAULT_DOOR_WIDTH = 3;
+const DEFAULT_DOOR_HEIGHT = 7;
 const DEFAULT_WINDOW_WIDTH = 4;
 const DEFAULT_WINDOW_HEIGHT = 3;
 const DEFAULT_WINDOW_SILL_HEIGHT = 3;
@@ -306,17 +306,17 @@ function isKitchenSlab(item) {
   return String(item?.type || "").toLowerCase() === "kitchen slab";
 }
 
-function normalize(door, room) {
-  const wall = WALL_OPTIONS.includes(?.wall) ? .wall : "top";
+function normalizeDoor(door, room) {
+  const wall = WALL_OPTIONS.includes(door?.wall) ? door.wall : "top";
   const wallLength = getWallLength(room, wall);
   const width = clamp(
-    Number(?.width) || DEFAULT__WIDTH,
+    Number(door?.width) || DEFAULT_DOOR_WIDTH,
     0.5,
     Math.max(0.5, wallLength)
   );
-  const height = Math.max(Number(?.height) || DEFAULT__HEIGHT, 0.5);
+  const height = Math.max(Number(door?.height) || DEFAULT_DOOR_HEIGHT, 0.5);
   const maxOffset = Math.max(0, wallLength - width);
-  const offset = clamp(Number(?.offset) || 0, 0, maxOffset);
+  const offset = clamp(Number(door?.offset) || 0, 0, maxOffset);
   return { wall, offset, width, height };
 }
 
@@ -432,8 +432,8 @@ function normalizeFurniture(furnitureItem, room) {
 }
 
 function getRoomOpenings(room, wallHeight) {
-  const s = Array.isArray(room.s)
-    ? room.s.map(() => ({ ...normalize(, room), type: "" }))
+  const doors = Array.isArray(room.doors)
+    ? room.doors.map((door) => ({ ...normalizeDoor(door, room), type: "door" }))
     : [];
   const windows = Array.isArray(room.windows)
     ? room.windows.map((windowItem) => ({
@@ -441,7 +441,7 @@ function getRoomOpenings(room, wallHeight) {
         type: "window",
       }))
     : [];
-  return { s, windows };
+  return { doors, windows };
 }
 
 function getOpeningLineSegment(room, opening) {
@@ -488,8 +488,8 @@ function getSegmentOpenings(segment, rooms, wallHeight) {
   const segEnd   = isVertical ? Math.max(segment.y1, segment.y2) : Math.max(segment.x1, segment.x2);
   const openings = [];
   rooms.forEach((room) => {
-    const { s, windows } = getRoomOpenings(room, wallHeight);
-    [...s, ...windows].forEach((opening) => {
+    const { doors, windows } = getRoomOpenings(room, wallHeight);
+    [...doors, ...windows].forEach((opening) => {
       const line = getOpeningLineSegment(room, opening);
       if (!line) return;
       if (isVertical) {
