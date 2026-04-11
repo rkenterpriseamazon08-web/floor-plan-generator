@@ -69,6 +69,8 @@ const PRODUCT_CATEGORIES = [
 
 const PROJECTS_STORAGE_KEY = "floor-plan-generator-projects";
 const PROJECT_ID_QUERY_PARAM = "projectId";
+const VIEW_QUERY_PARAM = "view";
+const VIEWER_MODE_QUERY_PARAM = "viewer";
 const FLOOR_PLAN_OPENAI_KEY_STORAGE = "floor-plan-openai-api-key";
 const THEME_STORAGE_KEY = "floor-plan-generator-theme";
 const OPENAI_MODEL = "gpt-4.1-mini";
@@ -1453,6 +1455,136 @@ function Floor3DScene({
   );
 }
 
+function ReadOnly3DViewerShell({
+  planName,
+  totalWidth,
+  totalHeight,
+  roomHeight,
+  wallThickness,
+  placedRooms,
+  wallSegments,
+  sunSettings,
+  globalWallColor,
+  orbitControlsRef,
+  isLoading,
+  statusMessage,
+}) {
+  const safeTitle = String(planName || "").trim() || "Saved Floor Plan";
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        background: "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <div
+        style={{
+          padding: "14px 18px",
+          borderBottom: "1px solid rgba(148, 163, 184, 0.22)",
+          background: "rgba(255,255,255,0.88)",
+          backdropFilter: "blur(10px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>{safeTitle}</div>
+          <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
+            Read-only 3D viewer · rotate, zoom, and pan enabled
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: "#334155", textAlign: "right" }}>
+          <div>{Number(totalWidth) || 0} ft × {Number(totalHeight) || 0} ft</div>
+          <div style={{ opacity: 0.7 }}>Height: {Number(roomHeight) || 0} ft</div>
+        </div>
+      </div>
+
+      <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+        <Canvas
+          shadows
+          gl={{ preserveDrawingBuffer: true }}
+          camera={{
+            position: [
+              Math.max(Number(totalWidth) * 0.85, 14),
+              Math.max(Number(roomHeight) * 2.2, 16),
+              Math.max(Number(totalHeight) * 1.0, 14),
+            ],
+            fov: 42,
+          }}
+        >
+          <Floor3DScene
+            rooms={placedRooms}
+            totalWidth={Number(totalWidth)}
+            totalHeight={Number(totalHeight)}
+            wallThickness={Number(wallThickness)}
+            roomHeight={Number(roomHeight)}
+            wallSegments={wallSegments}
+            selectedFurnitureKey=""
+            onFurnitureSelect={undefined}
+            sunSettings={sunSettings}
+            globalWallColor={globalWallColor}
+            orbitControlsRef={orbitControlsRef}
+          />
+        </Canvas>
+
+        {isLoading && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(248,250,252,0.72)",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <div
+              style={{
+                padding: "14px 18px",
+                borderRadius: 14,
+                background: "rgba(255,255,255,0.94)",
+                border: "1px solid rgba(148,163,184,0.22)",
+                boxShadow: "0 18px 38px rgba(15,23,42,0.10)",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#0f172a",
+              }}
+            >
+              Loading 3D viewer...
+            </div>
+          </div>
+        )}
+
+        {!isLoading && statusMessage && /could not open|no full saved state/i.test(String(statusMessage || "")) && (
+          <div
+            style={{
+              position: "absolute",
+              left: 18,
+              bottom: 18,
+              padding: "10px 12px",
+              borderRadius: 12,
+              background: "rgba(255,255,255,0.94)",
+              border: "1px solid rgba(248,113,113,0.24)",
+              color: "#991b1b",
+              fontSize: 12,
+              maxWidth: 340,
+              boxShadow: "0 14px 30px rgba(15,23,42,0.10)",
+            }}
+          >
+            {statusMessage}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── 2D Opening ───────────────────────────────────────────────────────────────
 
 function Opening2D({ room, opening, scale, wallThickness }) {
@@ -2135,6 +2267,33 @@ function buildProjectShareUrl(projectId) {
   if (typeof window === "undefined" || !projectId) return "";
   const url = new URL(window.location.href);
   url.searchParams.set(PROJECT_ID_QUERY_PARAM, projectId);
+  return url.toString();
+}
+
+function getViewModeFromUrl() {
+  if (typeof window === "undefined") return "";
+  try {
+    return (new URL(window.location.href).searchParams.get(VIEW_QUERY_PARAM) || "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function isReadOnlyViewerModeFromUrl() {
+  if (typeof window === "undefined") return false;
+  try {
+    return new URL(window.location.href).searchParams.get(VIEWER_MODE_QUERY_PARAM) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function buildReadOnly3DViewerUrl(projectId) {
+  if (typeof window === "undefined" || !projectId) return "";
+  const url = new URL(window.location.href);
+  url.searchParams.set(PROJECT_ID_QUERY_PARAM, projectId);
+  url.searchParams.set(VIEW_QUERY_PARAM, "3d");
+  url.searchParams.set(VIEWER_MODE_QUERY_PARAM, "1");
   return url.toString();
 }
 
@@ -3173,6 +3332,12 @@ export default function App() {
   const [isProjectModalOpen,   setIsProjectModalOpen]   = useState(false);
   const [currentProjectId,     setCurrentProjectId]     = useState(null);
   const [projectStatusMessage, setProjectStatusMessage] = useState("");
+  const isReadOnly3DViewer = useMemo(() => isReadOnlyViewerModeFromUrl(), []);
+  const initialProjectIdFromUrl = useMemo(() => getProjectIdFromUrl(), []);
+  const shouldForceUrlProjectTo3D = useMemo(
+    () => isReadOnly3DViewer || getViewModeFromUrl() === "3d",
+    [isReadOnly3DViewer]
+  );
   const [expandedRoomIds,      setExpandedRoomIds]      = useState({});
   const [assistantCollapsed,   setAssistantCollapsed]   = useState(() => {
     if (!FEATURE_ASSISTANT_ENABLED) return true;
@@ -3292,6 +3457,7 @@ export default function App() {
       if (localMatch?.data) {
         if (isCancelled) return;
         applyProjectState(localMatch.data);
+        if (shouldForceUrlProjectTo3D) setActiveView("3d");
         setCurrentProjectId(localMatch.id);
         setGeneratedRenderImage(localMatch.data.ai_render_image_base64 || "");
         setGeneratedRenderProjectId(localMatch.id);
@@ -3309,6 +3475,7 @@ export default function App() {
         }
         const parsedState = JSON.parse(rawState);
         applyProjectState(parsedState);
+        if (shouldForceUrlProjectTo3D) setActiveView("3d");
         setCurrentProjectId(projectIdFromUrl);
         setGeneratedRenderImage(parsedState.ai_render_image_base64 || remoteProject.ai_render_image_base64 || "");
         setGeneratedRenderProjectId(projectIdFromUrl);
@@ -3325,7 +3492,7 @@ export default function App() {
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [shouldForceUrlProjectTo3D]);
 
   useEffect(() => {
     setExpandedRoomIds((prev) => {
@@ -3908,6 +4075,7 @@ const handleGenerateLayout = async (prompt) => {
       quotationValue: "",
       quotationNotes: "",
       projectLink: buildProjectShareUrl(projectId),
+      interactive3DViewUrl: buildReadOnly3DViewerUrl(projectId),
       projectStateJson: JSON.stringify(projectState),
       image2D,
       image3D,
@@ -4203,6 +4371,32 @@ const handleGenerateLayout = async (prompt) => {
         onUpdatePlacedFurniture={updateFurniture}
         onApplyPresetToPlaced={applyPresetDimensionsToAllPlaced}
         onBack={() => setActivePage("planner")}
+      />
+    );
+  }
+
+  const viewerPlacedRooms = placedRooms;
+  const viewerWallSegments = wallSegments;
+  const isViewerLoading =
+    isReadOnly3DViewer &&
+    Boolean(initialProjectIdFromUrl) &&
+    String(currentProjectId || "").trim() !== String(initialProjectIdFromUrl || "").trim();
+
+  if (isReadOnly3DViewer) {
+    return (
+      <ReadOnly3DViewerShell
+        planName={planName}
+        totalWidth={totalWidth}
+        totalHeight={totalHeight}
+        roomHeight={roomHeight}
+        wallThickness={wallThickness}
+        placedRooms={viewerPlacedRooms}
+        wallSegments={viewerWallSegments}
+        sunSettings={sunSettings}
+        globalWallColor={globalWallColor}
+        orbitControlsRef={orbitControlsRef}
+        isLoading={isViewerLoading}
+        statusMessage={projectStatusMessage}
       />
     );
   }
