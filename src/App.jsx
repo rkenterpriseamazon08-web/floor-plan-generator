@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbywxSsyqmLlmvhJ2Nj7YtlDcfG7oo0bnz5fkNoCQ-KKx8w8H5o09SY7v7RwvIGiGF5sYA/exec";
+  "https://script.google.com/macros/s/AKfycbxOlTAlMg002Crlo1j6ZGQk_kTUuYhB6PITvvKNfvHmLPKBGxtzDQo8BfxT86SDh9Fizg/exec";
 const MAX_SYNC_ROOMS = 8;
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 10;
@@ -93,7 +93,7 @@ const FEATURE_AUTO_ARRANGE_ENABLED = false;
 const FEATURE_AI_RENDER_ENABLED = false;
 const FEATURE_AI_ENABLED = false;
 const FEATURE_FURNITURE_RECOMMENDATIONS_ENABLED = false;
-const GOOGLE_SHEETS_INCLUDE_CAPTURED_IMAGES = false;
+const GOOGLE_SHEETS_INCLUDE_CAPTURED_IMAGES = true;
 
 // ─── Landing page prompts ─────────────────────────────────────────────────────
 
@@ -1327,6 +1327,7 @@ function Floor3DScene({
   onFurnitureSelect,
   sunSettings,
   globalWallColor,
+  orbitControlsRef,
 }) {
   const centerX = totalWidth / 2;
   const centerZ = totalHeight / 2;
@@ -1438,6 +1439,7 @@ function Floor3DScene({
       </DreiText>
 
       <OrbitControls
+        ref={orbitControlsRef}
         makeDefault
         enablePan
         enableZoom
@@ -3204,6 +3206,8 @@ export default function App() {
   const [selectedFurnitureContext, setSelectedFurnitureContext] = useState(null);
 
   const threeContainerRef      = useRef(null);
+  const threeSceneStateRef     = useRef(null);
+  const orbitControlsRef       = useRef(null);
   const chatScrollRef          = useRef(null);
   const speechRecognitionRef   = useRef(null);
   const fileUploadInputRef     = useRef(null);
@@ -3372,8 +3376,52 @@ export default function App() {
 
   const capture3DImage = async () => {
     const canvas = threeContainerRef.current?.querySelector("canvas");
-    if (!canvas) return "";
-    try { return canvas.toDataURL("image/png"); } catch { return ""; }
+    const sceneState = threeSceneStateRef.current;
+    if (!canvas || !sceneState?.gl || !sceneState?.scene || !sceneState?.camera) return "";
+
+    const { gl, scene, camera } = sceneState;
+    const controls = orbitControlsRef.current || null;
+    const centerX = Number(totalWidth) / 2;
+    const centerZ = Number(totalHeight) / 2;
+    const maxPlanSpan = Math.max(Number(totalWidth) || 0, Number(totalHeight) || 0, 12);
+    const topDistance = Math.max((Number(roomHeight) || DEFAULT_ROOM_HEIGHT) * 4, maxPlanSpan * 1.9);
+
+    const prevPosition = camera.position.clone();
+    const prevQuaternion = camera.quaternion.clone();
+    const prevUp = camera.up.clone();
+    const prevZoom = camera.zoom;
+    const prevTarget = controls?.target?.clone?.() || null;
+
+    try {
+      camera.position.set(centerX, topDistance, centerZ + 0.001);
+      camera.up.set(0, 0, -1);
+      camera.lookAt(centerX, 0, centerZ);
+      camera.updateProjectionMatrix?.();
+
+      if (controls?.target) {
+        controls.target.set(centerX, 0, centerZ);
+        controls.update?.();
+      }
+
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      gl.render(scene, camera);
+      return canvas.toDataURL("image/png");
+    } catch {
+      return "";
+    } finally {
+      camera.position.copy(prevPosition);
+      camera.quaternion.copy(prevQuaternion);
+      camera.up.copy(prevUp);
+      camera.zoom = prevZoom;
+      camera.updateProjectionMatrix?.();
+
+      if (controls?.target && prevTarget) {
+        controls.target.copy(prevTarget);
+        controls.update?.();
+      }
+
+      gl.render(scene, camera);
+    }
   };
 
   const buildCurrentProjectData = () => ({
@@ -3888,7 +3936,7 @@ const handleGenerateLayout = async (prompt) => {
         image2D = await capture2DImage();
         if (previousView !== "3d") await waitForViewRender("3d", 650);
         image3D = await capture3DImage();
-        if (previousView !== activeView) await waitForViewRender(previousView, 120);
+        if (previousView !== "3d") await waitForViewRender(previousView, 120);
       }
       const syncResult = await syncProjectToGoogleSheets(await buildGoogleSheetsPayload({ projectId: projectRecord.id, safeName, image2D, image3D }));
       setProjectStatusMessage(syncResult?.warning ? `Saved "${safeName}" locally and synced to Google Sheets with a warning` : `Saved "${safeName}" locally and synced to Google Sheets`);
@@ -3966,7 +4014,7 @@ const handleGenerateLayout = async (prompt) => {
       image2D = await capture2DImage();
       if (previousView !== "3d") await waitForViewRender("3d", 700);
       image3D = await capture3DImage();
-      if (previousView !== activeView) await waitForViewRender(previousView, 120);
+      if (previousView !== "3d") await waitForViewRender(previousView, 120);
       const generatedImage = await generatePlanRendersWithOpenAI(apiKey, { planName, selectedCategory, totalWidth, totalHeight, rooms: placedRooms, image2D, image3D });
       setGeneratedRenderImage(generatedImage); setGeneratedRenderProjectId(currentProjectId);
       await syncAiRenderToGoogleSheets(currentProjectId, generatedImage);
@@ -4441,11 +4489,12 @@ const handleGenerateLayout = async (prompt) => {
                       </div>
                     )}
                     <Canvas shadows onPointerMissed={clearSelectedFurniture} gl={{ preserveDrawingBuffer: true }}
+                      onCreated={({ gl, scene, camera }) => { threeSceneStateRef.current = { gl, scene, camera }; }}
                       camera={{ position: [Math.max(Number(totalWidth) * 0.85, 14), Math.max(Number(roomHeight) * 2.2, 16), Math.max(Number(totalHeight) * 1.0, 14)], fov: 42 }}>
                       <Floor3DScene rooms={placedRooms} totalWidth={Number(totalWidth)} totalHeight={Number(totalHeight)}
                         wallThickness={Number(wallThickness)} roomHeight={Number(roomHeight)} wallSegments={wallSegments}
                         selectedFurnitureKey={selectedFurnitureKey} onFurnitureSelect={handleFurnitureSelection}
-                        sunSettings={sunSettings} globalWallColor={globalWallColor} />
+                        sunSettings={sunSettings} globalWallColor={globalWallColor} orbitControlsRef={orbitControlsRef} />
                     </Canvas>
                     {FEATURE_AI_RENDER_ENABLED && isRenderGenerating && (
                       <div className="ai-render-overlay">
