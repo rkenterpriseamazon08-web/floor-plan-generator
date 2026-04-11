@@ -797,25 +797,28 @@ function Door3D({ room, door, wallThickness }) {
         <meshStandardMaterial color="#7f5d44" roughness={0.84} />
       </mesh>
 
-      {/* Pivoting door leaf — hinged at left edge (-width/2), open ~30° */}
-      <group position={[-width / 2, 0, 0]} rotation={[0, -DOOR_OPEN_ANGLE, 0]}>
-        <mesh castShadow receiveShadow position={[width / 2, height / 2, depth * 0.12]}>
-          <boxGeometry args={[width, height, depth * 0.72]} />
-          <meshStandardMaterial color="#b78656" roughness={0.72} />
-        </mesh>
-        <mesh castShadow position={[width / 2, height * 0.58, depth * 0.42]}>
-          <boxGeometry args={[width * 0.72, height * 0.05, depth * 0.06]} />
-          <meshStandardMaterial color="#c89a68" roughness={0.68} />
-        </mesh>
-        <mesh castShadow position={[width - frameThickness * 2.4, height * 0.48, depth * 0.56]}>
-          <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
-          <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
-        </mesh>
-        <mesh castShadow position={[frameThickness * 2.4, height * 0.48, -depth * 0.56]} rotation={[0, Math.PI, 0]}>
-          <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
-          <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
-        </mesh>
-      </group>
+    {/* Pivoting door leaf — hinged at left edge (-width/2), open ~30° */}
+<group position={[-width / 2, 0, 0]} rotation={[0, -DOOR_OPEN_ANGLE, 0]}>
+  <mesh castShadow receiveShadow position={[width / 2, height / 2, depth * 0.42]}>
+    <boxGeometry args={[width, height, Math.max(0.05, depth * 0.32)]} />
+    <meshStandardMaterial color="#b78656" roughness={0.72} />
+  </mesh>
+
+  <mesh castShadow position={[width / 2, height * 0.58, depth * 0.46]}>
+    <boxGeometry args={[width * 0.72, height * 0.05, Math.max(0.02, depth * 0.04)]} />
+    <meshStandardMaterial color="#c89a68" roughness={0.68} />
+  </mesh>
+
+  <mesh castShadow position={[width - frameThickness * 2.4, height * 0.48, depth * 0.85]}>
+    <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
+    <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
+  </mesh>
+
+  <mesh castShadow position={[frameThickness * 2.4, height * 0.48, depth * 0.85]} rotation={[0, Math.PI, 0]}>
+    <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
+    <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
+  </mesh>
+</group>
     </group>
   );
 }
@@ -844,11 +847,11 @@ function Window3D({ room, windowItem, wallThickness }) {
        <meshPhysicalMaterial
   color="#ffffff"
   transparent
-  opacity={0.1}
+  opacity={0.3}
   transmission={0.5}
   roughness={0.005}
   metalness={0}
-  thickness={0.01}
+  thickness={0.05}
   ior={1.45}
   reflectivity={0.95}
   clearcoat={1}
@@ -865,11 +868,11 @@ function Window3D({ room, windowItem, wallThickness }) {
       <meshPhysicalMaterial
   color="#ffffff"
   transparent
-  opacity={0.1}
+  opacity={0.3}
   transmission={0.5}
   roughness={0.005}
   metalness={0}
-  thickness={0.01}
+  thickness={0.05}
   ior={1.45}
   reflectivity={0.95}
   clearcoat={1}
