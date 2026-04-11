@@ -48,8 +48,8 @@ const ROOM_COLORS = [
 ];
 
 const WALL_OPTIONS = ["top", "bottom", "left", "right"];
-const DEFAULT_DOOR_WIDTH = 3;
-const DEFAULT_DOOR_HEIGHT = 7;
+const DEFAULT__WIDTH = 3;
+const DEFAULT__HEIGHT = 7;
 const DEFAULT_WINDOW_WIDTH = 4;
 const DEFAULT_WINDOW_HEIGHT = 3;
 const DEFAULT_WINDOW_SILL_HEIGHT = 3;
@@ -306,17 +306,17 @@ function isKitchenSlab(item) {
   return String(item?.type || "").toLowerCase() === "kitchen slab";
 }
 
-function normalizeDoor(door, room) {
-  const wall = WALL_OPTIONS.includes(door?.wall) ? door.wall : "top";
+function normalize(, room) {
+  const wall = WALL_OPTIONS.includes(?.wall) ? .wall : "top";
   const wallLength = getWallLength(room, wall);
   const width = clamp(
-    Number(door?.width) || DEFAULT_DOOR_WIDTH,
+    Number(?.width) || DEFAULT__WIDTH,
     0.5,
     Math.max(0.5, wallLength)
   );
-  const height = Math.max(Number(door?.height) || DEFAULT_DOOR_HEIGHT, 0.5);
+  const height = Math.max(Number(?.height) || DEFAULT__HEIGHT, 0.5);
   const maxOffset = Math.max(0, wallLength - width);
-  const offset = clamp(Number(door?.offset) || 0, 0, maxOffset);
+  const offset = clamp(Number(?.offset) || 0, 0, maxOffset);
   return { wall, offset, width, height };
 }
 
@@ -432,8 +432,8 @@ function normalizeFurniture(furnitureItem, room) {
 }
 
 function getRoomOpenings(room, wallHeight) {
-  const doors = Array.isArray(room.doors)
-    ? room.doors.map((door) => ({ ...normalizeDoor(door, room), type: "door" }))
+  const s = Array.isArray(room.s)
+    ? room.s.map(() => ({ ...normalize(, room), type: "" }))
     : [];
   const windows = Array.isArray(room.windows)
     ? room.windows.map((windowItem) => ({
@@ -441,7 +441,7 @@ function getRoomOpenings(room, wallHeight) {
         type: "window",
       }))
     : [];
-  return { doors, windows };
+  return { s, windows };
 }
 
 function getOpeningLineSegment(room, opening) {
@@ -488,8 +488,8 @@ function getSegmentOpenings(segment, rooms, wallHeight) {
   const segEnd   = isVertical ? Math.max(segment.y1, segment.y2) : Math.max(segment.x1, segment.x2);
   const openings = [];
   rooms.forEach((room) => {
-    const { doors, windows } = getRoomOpenings(room, wallHeight);
-    [...doors, ...windows].forEach((opening) => {
+    const { s, windows } = getRoomOpenings(room, wallHeight);
+    [...s, ...windows].forEach((opening) => {
       const line = getOpeningLineSegment(room, opening);
       if (!line) return;
       if (isVertical) {
@@ -764,7 +764,7 @@ function RoomFloor3D({ room }) {
   );
 }
 
-const DOOR_OPEN_ANGLE = Math.PI / 8; // 30° open so door is clearly recognizable
+const DOOR_OPEN_ANGLE = Math.PI / 6; // 30° open so door is clearly recognizable
 
 function Door3D({ room, door, wallThickness }) {
   const line = getOpeningLineSegment(room, door);
@@ -772,7 +772,7 @@ function Door3D({ room, door, wallThickness }) {
 
   const width = Number(door.width) || DEFAULT_DOOR_WIDTH;
   const height = Number(door.height) || DEFAULT_DOOR_HEIGHT;
-  const depth = Math.max(0.12, wallThickness * 0.5);
+  const depth = Math.max(0.12, wallThickness * 0.7);
   const doorLeafThickness = Math.max(0.045, depth * 0.22);
 const doorLeafOffset = wallThickness * 0.7 + doorLeafThickness * 0.6;
   const frameThickness = Math.max(0.08, Math.min(width, height) * 0.045);
