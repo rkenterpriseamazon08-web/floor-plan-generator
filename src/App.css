@@ -927,3 +927,68 @@ button { appearance:none; -webkit-appearance:none; }
   .rotation-preset-row { gap:3px; }
   .rotation-preset-btn { flex:1 1 calc(50% - 3px); font-size:10px; }
 }
+/* ── Read-only 3D Viewer ── */
+.readonly-viewer-page {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #eef1f5;
+}
+
+.readonly-viewer-header {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(205, 222, 244, 0.9);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.readonly-viewer-header h1 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--navy-deep);
+}
+
+.readonly-viewer-header p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.readonly-viewer-meta {
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.readonly-viewer-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.readonly-viewer-canvas-wrap .three-wrap {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.readonly-viewer-canvas-wrap .three-wrap canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
