@@ -764,7 +764,7 @@ function RoomFloor3D({ room }) {
   );
 }
 
-const DOOR_OPEN_ANGLE = Math.PI / 6; // 30° open so door is clearly recognizable
+const DOOR_OPEN_ANGLE = Math.PI / 8; // 30° open so door is clearly recognizable
 
 function Door3D({ room, door, wallThickness }) {
   const line = getOpeningLineSegment(room, door);
@@ -772,7 +772,9 @@ function Door3D({ room, door, wallThickness }) {
 
   const width = Number(door.width) || DEFAULT_DOOR_WIDTH;
   const height = Number(door.height) || DEFAULT_DOOR_HEIGHT;
-  const depth = Math.max(0.12, wallThickness * 0.72);
+  const depth = Math.max(0.12, wallThickness * 0.5);
+  const doorLeafThickness = Math.max(0.045, depth * 0.22);
+const doorLeafOffset = wallThickness * 0.7 + doorLeafThickness * 0.6;
   const frameThickness = Math.max(0.08, Math.min(width, height) * 0.045);
   const centerX = (line.x1 + line.x2) / 2;
   const centerZ = (line.y1 + line.y2) / 2;
@@ -799,22 +801,22 @@ function Door3D({ room, door, wallThickness }) {
 
     {/* Pivoting door leaf — hinged at left edge (-width/2), open ~30° */}
 <group position={[-width / 2, 0, 0]} rotation={[0, -DOOR_OPEN_ANGLE, 0]}>
-  <mesh castShadow receiveShadow position={[width / 2, height / 2, depth * 0.42]}>
-    <boxGeometry args={[width, height, Math.max(0.05, depth * 0.32)]} />
+  <mesh castShadow receiveShadow position={[width / 2, height / 2, doorLeafOffset]}>
+    <boxGeometry args={[width, height, doorLeafThickness]} />
     <meshStandardMaterial color="#b78656" roughness={0.72} />
   </mesh>
 
-  <mesh castShadow position={[width / 2, height * 0.58, depth * 0.46]}>
-    <boxGeometry args={[width * 0.72, height * 0.05, Math.max(0.02, depth * 0.04)]} />
+  <mesh castShadow position={[width / 2, height * 0.58, doorLeafOffset + doorLeafThickness * 0.55]}>
+    <boxGeometry args={[width * 0.72, height * 0.05, Math.max(0.015, doorLeafThickness * 0.35)]} />
     <meshStandardMaterial color="#c89a68" roughness={0.68} />
   </mesh>
 
-  <mesh castShadow position={[width - frameThickness * 2.4, height * 0.48, depth * 0.85]}>
+  <mesh castShadow position={[width - frameThickness * 2.4, height * 0.48, doorLeafOffset + doorLeafThickness * 0.8]}>
     <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
     <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
   </mesh>
 
-  <mesh castShadow position={[frameThickness * 2.4, height * 0.48, depth * 0.85]} rotation={[0, Math.PI, 0]}>
+  <mesh castShadow position={[frameThickness * 2.4, height * 0.48, doorLeafOffset + doorLeafThickness * 0.8]} rotation={[0, Math.PI, 0]}>
     <cylinderGeometry args={[0.03, 0.03, 0.24, 18]} />
     <meshStandardMaterial color="#cfd5dc" metalness={0.9} roughness={0.2} />
   </mesh>
