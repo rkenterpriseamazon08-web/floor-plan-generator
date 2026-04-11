@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbwGoQpGcEHEmvcNLJqQuwrKBuGshZmLSaOmS_OYp0InbDcPMy0gaE71DXHUukC1V1jEqw/exec";
+  "https://script.google.com/macros/s/AKfycbzmpkXzk4YoFe3jC-JGXZA7xd_Kw9-iZdBnSvA6iCGGByPVNzAKW4W6meDa5QcNKd_fDw/exec";
 const MAX_SYNC_ROOMS = 8;
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 10;
