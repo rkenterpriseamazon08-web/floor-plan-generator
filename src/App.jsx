@@ -842,16 +842,16 @@ function Window3D({ room, windowItem, wallThickness }) {
         <meshPhysicalMaterial
           color="#ebf9ff"
           transparent
-          opacity={0.14}
-          transmission={0.985}
-          roughness={0.004}
+          opacity={0.05}
+          transmission={0.550}
+          roughness={0.002}
           metalness={0}
-          thickness={0.08}
+          thickness={0.05}
           ior={1.45}
-          reflectivity={0.92}
+          reflectivity={0.95}
           clearcoat={1}
           clearcoatRoughness={0}
-          attenuationDistance={24}
+          attenuationDistance={35}
           attenuationColor="#ffffff"
         />
       </mesh>
@@ -861,16 +861,16 @@ function Window3D({ room, windowItem, wallThickness }) {
         <meshPhysicalMaterial
           color="#ebf9ff"
           transparent
-          opacity={0.14}
-          transmission={0.985}
-          roughness={0.004}
+          opacity={0.05}
+          transmission={0.550}
+          roughness={0.002}
           metalness={0}
           thickness={0.08}
           ior={1.45}
-          reflectivity={0.92}
+          reflectivity={0.95}
           clearcoat={1}
           clearcoatRoughness={0}
-          attenuationDistance={24}
+          attenuationDistance={35}
           attenuationColor="#ffffff"
         />
       </mesh>
