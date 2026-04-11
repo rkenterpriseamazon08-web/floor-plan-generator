@@ -994,7 +994,7 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
   const color   = furnitureItem.color || "#cfd8e3";
   const labelY  = height + 0.35;
   const type    = String(furnitureItem.type || "").toLowerCase();
-  const hasRec  = getFurnitureRecommendationItems(furnitureItem.type).length > 0;
+  const hasRec  = FEATURE_FURNITURE_RECOMMENDATIONS_ENABLED && getFurnitureRecommendationItems(furnitureItem.type).length > 0;
   const outlineColor = isSelected ? "#0f3b72" : "#8ea0b5";
   const legW    = Math.max(0.12, Math.min(width, depth) * 0.12);
   const ringInner = Math.max(Math.min(width, depth) * 0.24, 0.22);
@@ -4198,10 +4198,12 @@ const handleGenerateLayout = async (prompt) => {
               <Sliders size={16} />
               Furniture Manager
             </button>
-            <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")} disabled={!FEATURE_AI_LANDING_ENABLED || !FEATURE_AI_ENABLED} style={!FEATURE_AI_LANDING_ENABLED || !FEATURE_AI_ENABLED ? { opacity: 0.5, cursor: "not-allowed" } : undefined}>
-              <Sparkles size={16} />
-              AI Landing
-            </button>
+            {FEATURE_AI_LANDING_ENABLED && FEATURE_AI_ENABLED && (
+              <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")}>
+                <Sparkles size={16} />
+                AI Landing
+              </button>
+            )}
           </aside>
         </div>
       </section>
@@ -4226,9 +4228,11 @@ const handleGenerateLayout = async (prompt) => {
                   <div className="section-header section-header--preview">
                     <h2>2D Floor Plan</h2>
                     <div className="preview-toolbar">
-                      <button className="view-toolbar-btn upload-floor-plan-btn" onClick={handleUploadFloorPlanClick} disabled={!FEATURE_UPLOAD_FLOOR_PLAN_ENABLED || !FEATURE_AI_ENABLED || isFloorPlanUploading} title={!FEATURE_UPLOAD_FLOOR_PLAN_ENABLED || !FEATURE_AI_ENABLED ? "Upload Floor Plan is disabled" : undefined}>
-                        {isFloorPlanUploading ? "Uploading..." : "Upload Floor Plan"}
-                      </button>
+                      {FEATURE_UPLOAD_FLOOR_PLAN_ENABLED && FEATURE_AI_ENABLED && (
+                        <button className="view-toolbar-btn upload-floor-plan-btn" onClick={handleUploadFloorPlanClick} disabled={isFloorPlanUploading}>
+                          {isFloorPlanUploading ? "Uploading..." : "Upload Floor Plan"}
+                        </button>
+                      )}
                       <button className={`view-toolbar-btn${activeView === "2d" ? " active" : ""}`} onClick={() => setActiveView("2d")}>2D</button>
                       <button className={`view-toolbar-btn${activeView === "3d" ? " active" : ""}`} onClick={() => setActiveView("3d")}>3D</button>
                       <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>Export SVG</button>
@@ -4333,20 +4337,24 @@ const handleGenerateLayout = async (prompt) => {
                   <div className="section-header section-header--preview">
                     <h2>3D Floor Plan</h2>
                     <div className="preview-toolbar">
-                      <button className="view-toolbar-btn upload-floor-plan-btn" onClick={handleUploadFloorPlanClick} disabled={!FEATURE_UPLOAD_FLOOR_PLAN_ENABLED || !FEATURE_AI_ENABLED || isFloorPlanUploading} title={!FEATURE_UPLOAD_FLOOR_PLAN_ENABLED || !FEATURE_AI_ENABLED ? "Upload Floor Plan is disabled" : undefined}>
-                        {isFloorPlanUploading ? "Uploading..." : "Upload Floor Plan"}
-                      </button>
+                      {FEATURE_UPLOAD_FLOOR_PLAN_ENABLED && FEATURE_AI_ENABLED && (
+                        <button className="view-toolbar-btn upload-floor-plan-btn" onClick={handleUploadFloorPlanClick} disabled={isFloorPlanUploading}>
+                          {isFloorPlanUploading ? "Uploading..." : "Upload Floor Plan"}
+                        </button>
+                      )}
                       <button className={`view-toolbar-btn${activeView === "2d" ? " active" : ""}`} onClick={() => setActiveView("2d")}>2D</button>
                       <button className={`view-toolbar-btn${activeView === "3d" ? " active" : ""}`} onClick={() => setActiveView("3d")}>3D</button>
                       <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>Export SVG</button>
-                      <button
-                        className="view-toolbar-btn view-toolbar-btn--dark ai-render-btn"
-                        onClick={handleGenerateRenderImages}
-                        disabled={!FEATURE_AI_RENDER_ENABLED || !FEATURE_AI_ENABLED || !currentProjectId || isRenderGenerating}
-                        title={!FEATURE_AI_RENDER_ENABLED || !FEATURE_AI_ENABLED ? "AI Render is disabled" : (!currentProjectId ? "Save the project first" : "Generate realistic AI renders")}
-                      >
-                        {isRenderGenerating ? <><Loader2 size={16} className="spin-icon" />Rendering...</> : <><ImageIcon size={16} />AI Render</>}
-                      </button>
+                      {FEATURE_AI_RENDER_ENABLED && FEATURE_AI_ENABLED && (
+                        <button
+                          className="view-toolbar-btn view-toolbar-btn--dark ai-render-btn"
+                          onClick={handleGenerateRenderImages}
+                          disabled={!currentProjectId || isRenderGenerating}
+                          title={!currentProjectId ? "Save the project first" : "Generate realistic AI renders"}
+                        >
+                          {isRenderGenerating ? <><Loader2 size={16} className="spin-icon" />Rendering...</> : <><ImageIcon size={16} />AI Render</>}
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -4536,7 +4544,9 @@ const handleGenerateLayout = async (prompt) => {
             <h2>Rooms</h2>
             <div className="header-actions rooms-sidebar-actions">
               <button className="ghost-btn" onClick={resetPlan}><RotateCcw size={16} />Reset</button>
-              <button className="ghost-btn" onClick={autoArrangeRooms} disabled={!FEATURE_AUTO_ARRANGE_ENABLED} style={!FEATURE_AUTO_ARRANGE_ENABLED ? { opacity: 0.5, cursor: "not-allowed" } : undefined}><RotateCw size={16} />Auto-Arrange</button>
+              {FEATURE_AUTO_ARRANGE_ENABLED && (
+                <button className="ghost-btn" onClick={autoArrangeRooms}><RotateCw size={16} />Auto-Arrange</button>
+              )}
               <button className="primary-btn" onClick={addRoom}><Plus size={16} />New Room</button>
             </div>
           </div>
