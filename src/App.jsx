@@ -832,10 +832,7 @@ function Window3D({ room, windowItem, wallThickness }) {
 
   return (
     <group position={[centerX, centerY, centerZ]} rotation={[0, rotateY, 0]}>
-      <mesh receiveShadow castShadow position={[0, 0, 0]}>
-        <boxGeometry args={[width + frame * 2, height + frame * 2, depth]} />
-        <meshStandardMaterial color="#eef2f7" roughness={0.62} metalness={0.08} />
-      </mesh>
+      
       {/* Left glass pane — extra transparent, more glass-like */}
       <mesh receiveShadow position={[-width / 4, 0, 0.02]}>
         <boxGeometry args={[width / 2 - frame * 0.5, height, Math.max(0.02, depth * 0.16)]} />
