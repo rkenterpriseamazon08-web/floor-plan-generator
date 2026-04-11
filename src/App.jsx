@@ -1471,52 +1471,43 @@ function ReadOnly3DViewerShell({
 }) {
   const safeTitle = String(planName || "").trim() || "Saved Floor Plan";
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        width: "100%",
-        background: "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <div
-        style={{
-          padding: "14px 18px",
-          borderBottom: "1px solid rgba(148, 163, 184, 0.22)",
-          background: "rgba(255,255,255,0.88)",
-          backdropFilter: "blur(10px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-        }}
-      >
+  <div className="readonly-viewer-page">
+    <div className="readonly-viewer-header">
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>{safeTitle}</div>
           <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
             Read-only 3D viewer · rotate, zoom, and pan enabled
           </div>
         </div>
-        <div style={{ fontSize: 12, color: "#334155", textAlign: "right" }}>
+       <div className="readonly-viewer-meta">
           <div>{Number(totalWidth) || 0} ft × {Number(totalHeight) || 0} ft</div>
           <div style={{ opacity: 0.7 }}>Height: {Number(roomHeight) || 0} ft</div>
         </div>
       </div>
 
-      <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
-        <Canvas
-          shadows
-          gl={{ preserveDrawingBuffer: true }}
-          camera={{
-            position: [
-              Math.max(Number(totalWidth) * 0.85, 14),
-              Math.max(Number(roomHeight) * 2.2, 16),
-              Math.max(Number(totalHeight) * 1.0, 14),
-            ],
-            fov: 42,
-          }}
-        >
+     <div className="readonly-viewer-canvas-wrap">
+       <div className="readonly-viewer-canvas-wrap">
+  <div className="three-wrap">
+    <Canvas
+      style={{ width: "100%", height: "100%" }}
+      shadows
+      gl={{ preserveDrawingBuffer: true }}
+      camera={{
+        position: [
+          Math.max(Number(totalWidth) * 0.85, 14),
+          Math.max(Number(roomHeight) * 2.2, 16),
+          Math.max(Number(totalHeight) * 1.0, 14),
+        ],
+        fov: 42,
+      }}
+    >
+      ...
+    </Canvas>
+
+    {isLoading && (...)}
+    {!isLoading && statusMessage && ...}
+  </div>
+</div>
           <Floor3DScene
             rooms={placedRooms}
             totalWidth={Number(totalWidth)}
