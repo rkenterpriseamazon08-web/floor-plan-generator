@@ -4219,7 +4219,10 @@ const handleGenerateLayout = async (prompt) => {
             <div className="summary-box stat-box"><span>Space Utilization</span><strong>{utilization}%</strong></div>
           </section>
 
-          <div className="workspace-content-grid" style={FEATURE_ASSISTANT_ENABLED && assistantCollapsed ? { display: "flex", gap: 0 } : undefined}>
+          <div
+            className={`workspace-content-grid${!FEATURE_ASSISTANT_ENABLED ? " workspace-content-grid--full" : ""}`}
+            style={FEATURE_ASSISTANT_ENABLED && assistantCollapsed ? { display: "flex", gap: 0 } : undefined}
+          >
             {/* Preview column */}
             <div className="workspace-preview-column" style={FEATURE_ASSISTANT_ENABLED && assistantCollapsed ? { flex: 1, minWidth: 0 } : undefined}>
               {/* 2D View */}
