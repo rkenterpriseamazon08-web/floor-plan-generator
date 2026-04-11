@@ -306,7 +306,7 @@ function isKitchenSlab(item) {
   return String(item?.type || "").toLowerCase() === "kitchen slab";
 }
 
-function normalize(, room) {
+function normalize(door, room) {
   const wall = WALL_OPTIONS.includes(?.wall) ? .wall : "top";
   const wallLength = getWallLength(room, wall);
   const width = clamp(
