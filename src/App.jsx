@@ -3316,6 +3316,7 @@ export default function App() {
   const [isProjectModalOpen,   setIsProjectModalOpen]   = useState(false);
   const [currentProjectId,     setCurrentProjectId]     = useState(null);
   const [projectStatusMessage, setProjectStatusMessage] = useState("");
+  const [isPlanGenerating, setIsPlanGenerating] = useState(false);
   const isReadOnly3DViewer = useMemo(() => isReadOnlyViewerModeFromUrl(), []);
   const initialProjectIdFromUrl = useMemo(() => getProjectIdFromUrl(), []);
   const shouldForceUrlProjectTo3D = useMemo(
@@ -4032,6 +4033,27 @@ const handleGenerateLayout = async (prompt) => {
     return projects.find((item) => String(item.project_id || "").trim() === String(projectId).trim()) || null;
   }
 
+
+
+  async function generateFloorPlanPdf(projectId) {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify({ action: "generatePlanPdf", projectId }),
+      redirect: "follow",
+    });
+    const rawText = await response.text();
+    if (!rawText) throw new Error("Plan generation returned an empty response.");
+    let result;
+    try { result = JSON.parse(rawText); } catch { throw new Error(`Plan generation did not return valid JSON: ${rawText}`); }
+    if (!response.ok) throw new Error(result?.message || `Request failed with status ${response.status}`);
+    if (!result?.success) throw new Error(result?.message || "Plan generation failed.");
+    return result;
+  }
+
   const buildGoogleSheetsPayload = async ({ projectId, safeName, image2D, image3D, image3DAngle }) => {
     const syncedRooms = placedRooms.slice(0, MAX_SYNC_ROOMS);
     const projectState = {
@@ -4151,6 +4173,32 @@ const handleGenerateLayout = async (prompt) => {
     } catch (error) {
       console.error("Google Sheets sync failed:", error);
       setProjectStatusMessage(error?.message || `Saved "${safeName}" locally, but Google Sheets sync failed`);
+    }
+  };
+
+
+
+  const handleGenerateFloorPlan = async () => {
+    const projectId = String(currentProjectId || "").trim();
+    if (!projectId) {
+      setProjectStatusMessage("You need to first save the project to generate the plan.");
+      return;
+    }
+
+    try {
+      setIsPlanGenerating(true);
+      setProjectStatusMessage("Generating floor plan PDF...");
+      const result = await generateFloorPlanPdf(projectId);
+      const pdfUrl = result?.pdf_download_url || result?.pdf_url || "";
+      setProjectStatusMessage(result?.message || "Floor plan PDF generated successfully.");
+      if (pdfUrl && typeof window !== "undefined") {
+        window.open(pdfUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (error) {
+      console.error("Floor plan generation failed:", error);
+      setProjectStatusMessage(error?.message || "Could not generate the floor plan PDF.");
+    } finally {
+      setIsPlanGenerating(false);
     }
   };
 
@@ -4479,6 +4527,10 @@ const handleGenerateLayout = async (prompt) => {
             <button className="secondary-btn project-stack-btn" onClick={() => setActivePage("furniture-manager")}>
               <Sliders size={16} />
               Furniture Manager
+            </button>
+            <button className="secondary-btn project-stack-btn" onClick={handleGenerateFloorPlan} disabled={isPlanGenerating}>
+              <FilePlus2 size={16} />
+              {isPlanGenerating ? "Generating Plan..." : "Generate Floor Plan"}
             </button>
             {FEATURE_AI_LANDING_ENABLED && FEATURE_AI_ENABLED && (
               <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")}>
