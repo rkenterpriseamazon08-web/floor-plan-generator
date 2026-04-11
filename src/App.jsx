@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbxhkcnjczuw4Elmok1v9n7IzEgOpvgnXpFzSKiGNe9aUGdqVmAo0SgxYoWXmmUlwcWPSA/exec";
+  "https://script.google.com/macros/s/AKfycbywxSsyqmLlmvhJ2Nj7YtlDcfG7oo0bnz5fkNoCQ-KKx8w8H5o09SY7v7RwvIGiGF5sYA/exec";
 const MAX_SYNC_ROOMS = 8;
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 10;
@@ -85,6 +85,15 @@ const DEFAULT_SUN_SETTINGS = {
   color: "#fff3e0",
   ambientIntensity: 0.55,
 };
+
+const FEATURE_UPLOAD_FLOOR_PLAN_ENABLED = false;
+const FEATURE_ASSISTANT_ENABLED = false;
+const FEATURE_AI_LANDING_ENABLED = false;
+const FEATURE_AUTO_ARRANGE_ENABLED = false;
+const FEATURE_AI_RENDER_ENABLED = false;
+const FEATURE_AI_ENABLED = false;
+const FEATURE_FURNITURE_RECOMMENDATIONS_ENABLED = false;
+const GOOGLE_SHEETS_INCLUDE_CAPTURED_IMAGES = false;
 
 // ─── Landing page prompts ─────────────────────────────────────────────────────
 
@@ -3164,6 +3173,7 @@ export default function App() {
   const [projectStatusMessage, setProjectStatusMessage] = useState("");
   const [expandedRoomIds,      setExpandedRoomIds]      = useState({});
   const [assistantCollapsed,   setAssistantCollapsed]   = useState(() => {
+    if (!FEATURE_ASSISTANT_ENABLED) return true;
     if (typeof window === "undefined") return false;
     return window.sessionStorage.getItem(ASSISTANT_COLLAPSED_SESSION_KEY) === "true";
   });
@@ -3211,6 +3221,7 @@ export default function App() {
   );
 
   const selectedFurnitureDetails = useMemo(() => {
+    if (!FEATURE_FURNITURE_RECOMMENDATIONS_ENABLED) return null;
     if (!selectedFurnitureContext?.roomId || !selectedFurnitureContext?.furnitureId) return null;
     const room      = placedRooms.find((r) => r.id === selectedFurnitureContext.roomId);
     const furniture = room?.furniture?.find((f) => f.id === selectedFurnitureContext.furnitureId);
@@ -3218,12 +3229,12 @@ export default function App() {
     return { room, furniture };
   }, [placedRooms, selectedFurnitureContext]);
 
-  const selectedFurnitureRecommendations = useMemo(() =>
-    selectedFurnitureDetails?.furniture?.type
+  const selectedFurnitureRecommendations = useMemo(() => {
+    if (!FEATURE_FURNITURE_RECOMMENDATIONS_ENABLED) return [];
+    return selectedFurnitureDetails?.furniture?.type
       ? getFurnitureRecommendationItems(selectedFurnitureDetails.furniture.type)
-      : [],
-    [selectedFurnitureDetails]
-  );
+      : [];
+  }, [selectedFurnitureDetails]);
 
   const selectedFurnitureKey = selectedFurnitureContext
     ? `${selectedFurnitureContext.roomId}-${selectedFurnitureContext.furnitureId}`
@@ -3242,6 +3253,29 @@ export default function App() {
   // ─── Effects ────────────────────────────────────────────────────────────────
 
   useEffect(() => { refreshSavedProjects(); }, []);
+
+  useEffect(() => {
+    if (!FEATURE_AI_ENABLED && appMode !== "editor") {
+      setAppMode("editor");
+      setGenerationStep("");
+      setLayoutVariants([]);
+    }
+  }, [appMode]);
+
+  useEffect(() => {
+    if (!FEATURE_ASSISTANT_ENABLED) {
+      setAssistantCollapsed(true);
+      setChatInput("");
+      setIsChatbotBusy(false);
+      setIsListening(false);
+    }
+    if (!FEATURE_AI_RENDER_ENABLED) {
+      setIsRenderGenerating(false);
+    }
+    if (!FEATURE_FURNITURE_RECOMMENDATIONS_ENABLED) {
+      setSelectedFurnitureContext(null);
+    }
+  }, []);
 
   useEffect(() => {
     const projectIdFromUrl = getProjectIdFromUrl();
@@ -3349,7 +3383,7 @@ export default function App() {
     activeView, selectedCategory,
     rooms, furnitureSelections,
     customPresetDimensions,
-    assistantCollapsed,
+    assistantCollapsed: FEATURE_ASSISTANT_ENABLED ? assistantCollapsed : true,
     sunSettings,
     globalWallColor,
   });
@@ -3373,7 +3407,7 @@ export default function App() {
       nextState.customPresetDimensions && typeof nextState.customPresetDimensions === "object"
         ? nextState.customPresetDimensions : {}
     );
-    setAssistantCollapsed(Boolean(nextState.assistantCollapsed));
+    setAssistantCollapsed(FEATURE_ASSISTANT_ENABLED ? Boolean(nextState.assistantCollapsed) : true);
     setSunSettings({
       ...DEFAULT_SUN_SETTINGS,
       ...(nextState.sunSettings && typeof nextState.sunSettings === "object" ? nextState.sunSettings : {}),
@@ -3405,6 +3439,14 @@ export default function App() {
 
   
 const handleGenerateLayout = async (prompt) => {
+    if (!FEATURE_AI_ENABLED) {
+      setAppMode("editor");
+      setGenerationStep("");
+      setLayoutVariants([]);
+      setProjectStatusMessage("AI layout generation is disabled.");
+      return;
+    }
+
     setAppMode("generating");
 
     try {
@@ -3491,7 +3533,6 @@ const handleGenerateLayout = async (prompt) => {
     }
   };
 
-
   // ─── Custom preset dimension handlers ────────────────────────────────────────
 
   const handleUpdateCustomPreset = useCallback((furnitureType, key, value) => {
@@ -3528,6 +3569,10 @@ const handleGenerateLayout = async (prompt) => {
   // ─── Furniture selection ─────────────────────────────────────────────────────
 
   const handleFurnitureSelection = useCallback((room, furnitureItem) => {
+    if (!FEATURE_FURNITURE_RECOMMENDATIONS_ENABLED) {
+      setSelectedFurnitureContext(null);
+      return;
+    }
     if (!room?.id || !furnitureItem?.id) return;
     const recommendationItems = getFurnitureRecommendationItems(furnitureItem.type);
     if (!recommendationItems.length) { setSelectedFurnitureContext(null); return; }
@@ -3783,8 +3828,17 @@ const handleGenerateLayout = async (prompt) => {
   };
 
   async function syncProjectToGoogleSheets(payload) {
-    const response = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify(payload),
+      redirect: "follow",
+    });
     const rawText = await response.text();
+    if (!rawText) throw new Error("Apps Script returned an empty response.");
     let result;
     try { result = JSON.parse(rawText); } catch { throw new Error(`Apps Script did not return valid JSON: ${rawText}`); }
     if (!response.ok) throw new Error(result?.message || `Request failed with status ${response.status}`);
@@ -3793,9 +3847,19 @@ const handleGenerateLayout = async (prompt) => {
   }
 
   const syncAiRenderToGoogleSheets = async (projectId, aiRenderImage) => {
+    if (!FEATURE_AI_RENDER_ENABLED) return null;
     if (!projectId || !aiRenderImage) return null;
-    const response = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "updateProjectAiRender", projectId, ai_render_image_base64: aiRenderImage }) });
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify({ action: "updateProjectAiRender", projectId, ai_render_image_base64: aiRenderImage }),
+      redirect: "follow",
+    });
     const rawText = await response.text();
+    if (!rawText) throw new Error("AI render sync returned an empty response.");
     let result;
     try { result = JSON.parse(rawText); } catch { throw new Error(`AI render sync did not return valid JSON: ${rawText}`); }
     if (!response.ok) throw new Error(result?.message || `Request failed with status ${response.status}`);
@@ -3819,16 +3883,18 @@ const handleGenerateLayout = async (prompt) => {
       setProjectStatusMessage(`Saving "${safeName}" locally and syncing to Google Sheets...`);
       const previousView = activeView;
       let image2D = "", image3D = "";
-      if (previousView !== "2d") await waitForViewRender("2d", 320);
-      image2D = await capture2DImage();
-      if (previousView !== "3d") await waitForViewRender("3d", 650);
-      image3D = await capture3DImage();
-      if (previousView !== activeView) await waitForViewRender(previousView, 120);
-      await syncProjectToGoogleSheets(await buildGoogleSheetsPayload({ projectId: projectRecord.id, safeName, image2D, image3D }));
-      setProjectStatusMessage(`Saved "${safeName}" locally and synced to Google Sheets`);
+      if (GOOGLE_SHEETS_INCLUDE_CAPTURED_IMAGES) {
+        if (previousView !== "2d") await waitForViewRender("2d", 320);
+        image2D = await capture2DImage();
+        if (previousView !== "3d") await waitForViewRender("3d", 650);
+        image3D = await capture3DImage();
+        if (previousView !== activeView) await waitForViewRender(previousView, 120);
+      }
+      const syncResult = await syncProjectToGoogleSheets(await buildGoogleSheetsPayload({ projectId: projectRecord.id, safeName, image2D, image3D }));
+      setProjectStatusMessage(syncResult?.warning ? `Saved "${safeName}" locally and synced to Google Sheets with a warning` : `Saved "${safeName}" locally and synced to Google Sheets`);
     } catch (error) {
       console.error("Google Sheets sync failed:", error);
-      setProjectStatusMessage(`Saved "${safeName}" locally, but Google Sheets sync failed`);
+      setProjectStatusMessage(error?.message || `Saved "${safeName}" locally, but Google Sheets sync failed`);
     }
   };
 
@@ -3854,10 +3920,17 @@ const handleGenerateLayout = async (prompt) => {
 
   // ─── Upload / AI render ──────────────────────────────────────────────────────
 
-  const handleUploadFloorPlanClick = useCallback(() => { if (!isFloorPlanUploading) fileUploadInputRef.current?.click(); }, [isFloorPlanUploading]);
+  const handleUploadFloorPlanClick = useCallback(() => {
+    if (!FEATURE_UPLOAD_FLOOR_PLAN_ENABLED || !FEATURE_AI_ENABLED) return;
+    if (!isFloorPlanUploading) fileUploadInputRef.current?.click();
+  }, [isFloorPlanUploading]);
 
   const handleFloorPlanImageSelected = async (event) => {
     const file = event.target.files?.[0]; event.target.value = "";
+    if (!FEATURE_UPLOAD_FLOOR_PLAN_ENABLED || !FEATURE_AI_ENABLED) {
+      setProjectStatusMessage("Upload Floor Plan is disabled.");
+      return;
+    }
     if (!file) return;
     try {
       setIsFloorPlanUploading(true); setProjectStatusMessage(`Analyzing "${file.name}" with ChatGPT...`);
@@ -3876,6 +3949,10 @@ const handleGenerateLayout = async (prompt) => {
   };
 
   const handleGenerateRenderImages = async () => {
+    if (!FEATURE_AI_RENDER_ENABLED || !FEATURE_AI_ENABLED) {
+      setProjectStatusMessage("AI Render is disabled.");
+      return;
+    }
     if (isRenderGenerating) return;
     if (!currentProjectId) { setProjectStatusMessage("Please save the project first before generating AI renders."); return; }
     try {
@@ -3903,6 +3980,7 @@ const handleGenerateLayout = async (prompt) => {
   // ─── Voice / Chat ────────────────────────────────────────────────────────────
 
   const handleStartVoiceInput = () => {
+    if (!FEATURE_ASSISTANT_ENABLED || !FEATURE_AI_ENABLED) return;
     const SR = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
     if (!SR) { appendChatMessage("assistant", "Voice input is not supported in this browser."); return; }
     if (isListening && speechRecognitionRef.current) { speechRecognitionRef.current.stop(); return; }
@@ -3917,6 +3995,7 @@ const handleGenerateLayout = async (prompt) => {
 
   const handleChatSubmit = async (event) => {
     event?.preventDefault?.();
+    if (!FEATURE_ASSISTANT_ENABLED || !FEATURE_AI_ENABLED) return;
     const trimmed = String(chatInput || "").trim();
     if (!trimmed || isChatbotBusy) return;
     appendChatMessage("user", trimmed);
@@ -3946,6 +4025,7 @@ const handleGenerateLayout = async (prompt) => {
   // ─── Render helpers ──────────────────────────────────────────────────────────
 
   const renderFurnitureRecommendations = () => {
+    if (!FEATURE_FURNITURE_RECOMMENDATIONS_ENABLED) return null;
     if (!selectedFurnitureDetails || !selectedFurnitureRecommendations.length) return null;
     return (
       <div className="furniture-recommendation-panel">
@@ -4027,7 +4107,7 @@ const handleGenerateLayout = async (prompt) => {
 
   return (
     <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
-      <input ref={fileUploadInputRef} type="file" accept="image/png,image/jpeg,image/jpg" style={{ display: "none" }} onChange={handleFloorPlanImageSelected} />
+      <input ref={fileUploadInputRef} type="file" accept="image/png,image/jpeg,image/jpg" style={{ display: "none" }} onChange={handleFloorPlanImageSelected} disabled={!FEATURE_UPLOAD_FLOOR_PLAN_ENABLED || !FEATURE_AI_ENABLED} />
 
       {/* Project Modal */}
       {isProjectModalOpen && (
@@ -4118,7 +4198,7 @@ const handleGenerateLayout = async (prompt) => {
               <Sliders size={16} />
               Furniture Manager
             </button>
-            <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")}>
+            <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")} disabled={!FEATURE_AI_LANDING_ENABLED || !FEATURE_AI_ENABLED} style={!FEATURE_AI_LANDING_ENABLED || !FEATURE_AI_ENABLED ? { opacity: 0.5, cursor: "not-allowed" } : undefined}>
               <Sparkles size={16} />
               AI Landing
             </button>
@@ -4137,16 +4217,16 @@ const handleGenerateLayout = async (prompt) => {
             <div className="summary-box stat-box"><span>Space Utilization</span><strong>{utilization}%</strong></div>
           </section>
 
-          <div className="workspace-content-grid" style={assistantCollapsed ? { display: "flex", gap: 0 } : undefined}>
+          <div className="workspace-content-grid" style={FEATURE_ASSISTANT_ENABLED && assistantCollapsed ? { display: "flex", gap: 0 } : undefined}>
             {/* Preview column */}
-            <div className="workspace-preview-column" style={assistantCollapsed ? { flex: 1, minWidth: 0 } : undefined}>
+            <div className="workspace-preview-column" style={FEATURE_ASSISTANT_ENABLED && assistantCollapsed ? { flex: 1, minWidth: 0 } : undefined}>
               {/* 2D View */}
               {activeView === "2d" && (
                 <section className="preview-card preview-card--dominant">
                   <div className="section-header section-header--preview">
                     <h2>2D Floor Plan</h2>
                     <div className="preview-toolbar">
-                      <button className="view-toolbar-btn upload-floor-plan-btn" onClick={handleUploadFloorPlanClick} disabled={isFloorPlanUploading}>
+                      <button className="view-toolbar-btn upload-floor-plan-btn" onClick={handleUploadFloorPlanClick} disabled={!FEATURE_UPLOAD_FLOOR_PLAN_ENABLED || !FEATURE_AI_ENABLED || isFloorPlanUploading} title={!FEATURE_UPLOAD_FLOOR_PLAN_ENABLED || !FEATURE_AI_ENABLED ? "Upload Floor Plan is disabled" : undefined}>
                         {isFloorPlanUploading ? "Uploading..." : "Upload Floor Plan"}
                       </button>
                       <button className={`view-toolbar-btn${activeView === "2d" ? " active" : ""}`} onClick={() => setActiveView("2d")}>2D</button>
@@ -4253,7 +4333,7 @@ const handleGenerateLayout = async (prompt) => {
                   <div className="section-header section-header--preview">
                     <h2>3D Floor Plan</h2>
                     <div className="preview-toolbar">
-                      <button className="view-toolbar-btn upload-floor-plan-btn" onClick={handleUploadFloorPlanClick} disabled={isFloorPlanUploading}>
+                      <button className="view-toolbar-btn upload-floor-plan-btn" onClick={handleUploadFloorPlanClick} disabled={!FEATURE_UPLOAD_FLOOR_PLAN_ENABLED || !FEATURE_AI_ENABLED || isFloorPlanUploading} title={!FEATURE_UPLOAD_FLOOR_PLAN_ENABLED || !FEATURE_AI_ENABLED ? "Upload Floor Plan is disabled" : undefined}>
                         {isFloorPlanUploading ? "Uploading..." : "Upload Floor Plan"}
                       </button>
                       <button className={`view-toolbar-btn${activeView === "2d" ? " active" : ""}`} onClick={() => setActiveView("2d")}>2D</button>
@@ -4262,8 +4342,8 @@ const handleGenerateLayout = async (prompt) => {
                       <button
                         className="view-toolbar-btn view-toolbar-btn--dark ai-render-btn"
                         onClick={handleGenerateRenderImages}
-                        disabled={!currentProjectId || isRenderGenerating}
-                        title={!currentProjectId ? "Save the project first" : "Generate realistic AI renders"}
+                        disabled={!FEATURE_AI_RENDER_ENABLED || !FEATURE_AI_ENABLED || !currentProjectId || isRenderGenerating}
+                        title={!FEATURE_AI_RENDER_ENABLED || !FEATURE_AI_ENABLED ? "AI Render is disabled" : (!currentProjectId ? "Save the project first" : "Generate realistic AI renders")}
                       >
                         {isRenderGenerating ? <><Loader2 size={16} className="spin-icon" />Rendering...</> : <><ImageIcon size={16} />AI Render</>}
                       </button>
@@ -4356,7 +4436,7 @@ const handleGenerateLayout = async (prompt) => {
                         selectedFurnitureKey={selectedFurnitureKey} onFurnitureSelect={handleFurnitureSelection}
                         sunSettings={sunSettings} globalWallColor={globalWallColor} />
                     </Canvas>
-                    {isRenderGenerating && (
+                    {FEATURE_AI_RENDER_ENABLED && isRenderGenerating && (
                       <div className="ai-render-overlay">
                         <div className="ai-render-loader-card">
                           <Loader2 size={22} className="spin-icon" />
@@ -4369,7 +4449,7 @@ const handleGenerateLayout = async (prompt) => {
 
                   {renderFurnitureRecommendations()}
 
-                  {generatedRenderImage && generatedRenderProjectId === currentProjectId && (
+                  {FEATURE_AI_RENDER_ENABLED && generatedRenderImage && generatedRenderProjectId === currentProjectId && (
                     <div className="ai-render-result-card">
                       <div className="section-header compact"><h3><ImageIcon size={16} />AI Generated Realistic Render</h3></div>
                       <div className="ai-render-result-image-wrap">
@@ -4382,7 +4462,7 @@ const handleGenerateLayout = async (prompt) => {
             </div>
 
             {/* Chat — fully collapses to narrow strip when closed */}
-            {assistantCollapsed ? (
+            {FEATURE_ASSISTANT_ENABLED && (assistantCollapsed ? (
               <div
                 title="Open Floor Plan Assistant"
                 onClick={() => setAssistantCollapsed(false)}
@@ -4446,7 +4526,7 @@ const handleGenerateLayout = async (prompt) => {
                   </div>
                 </form>
               </aside>
-            )}
+            ))}
           </div>
         </main>
 
@@ -4456,7 +4536,7 @@ const handleGenerateLayout = async (prompt) => {
             <h2>Rooms</h2>
             <div className="header-actions rooms-sidebar-actions">
               <button className="ghost-btn" onClick={resetPlan}><RotateCcw size={16} />Reset</button>
-              <button className="ghost-btn" onClick={autoArrangeRooms}><RotateCw size={16} />Auto-Arrange</button>
+              <button className="ghost-btn" onClick={autoArrangeRooms} disabled={!FEATURE_AUTO_ARRANGE_ENABLED} style={!FEATURE_AUTO_ARRANGE_ENABLED ? { opacity: 0.5, cursor: "not-allowed" } : undefined}><RotateCw size={16} />Auto-Arrange</button>
               <button className="primary-btn" onClick={addRoom}><Plus size={16} />New Room</button>
             </div>
           </div>
