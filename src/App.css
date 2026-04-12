@@ -1164,14 +1164,14 @@ button { appearance:none; -webkit-appearance:none; }
 
 .landing-immersive-pill {
   padding: 7px 16px;
-  font-size: 11px;
+  font-size: 8px;
   letter-spacing: 0.08em;
 }
 
 .landing-immersive-title {
   margin: 0 auto 18px;
   max-width: 760px;
-  font-size: clamp(32px, 4vw, 56px);
+  font-size: clamp(28px, 4.2vw, 52px);
   line-height: 0.98;
   letter-spacing: -0.055em;
   font-weight: 800;
@@ -1181,7 +1181,7 @@ button { appearance:none; -webkit-appearance:none; }
 .landing-immersive-subtitle {
   margin: 0 auto;
   max-width: 760px;
-  font-size: clamp(16px, 2vw, 21px);
+  font-size: clamp(12px, 1.35vw, 16px);
   line-height: 1.72;
   color: #5c6f88;
   font-weight: 500;
@@ -1200,7 +1200,7 @@ button { appearance:none; -webkit-appearance:none; }
   justify-content: center;
   gap: 12px;
   color: #173152;
-  font-size: 15px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1.5;
   text-align: center;
@@ -1249,7 +1249,7 @@ button { appearance:none; -webkit-appearance:none; }
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   color: #31537e;
   letter-spacing: 0.04em;
@@ -1320,7 +1320,7 @@ button { appearance:none; -webkit-appearance:none; }
 }
 
 .landing-transition-title {
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.03em;
   color: #0a1628;
@@ -1328,7 +1328,7 @@ button { appearance:none; -webkit-appearance:none; }
 }
 
 .landing-transition-subtitle {
-  font-size: 14px;
+  font-size: 11px;
   color: #5d718c;
   font-weight: 600;
 }
@@ -1469,7 +1469,7 @@ button { appearance:none; -webkit-appearance:none; }
   }
 
   .landing-immersive-point {
-    font-size: 14px;
+    font-size: 10px;
     align-items: flex-start;
   }
 
@@ -1484,11 +1484,11 @@ button { appearance:none; -webkit-appearance:none; }
   }
 
   .landing-transition-title {
-    font-size: 20px;
+    font-size: 16px;
   }
 
   .landing-transition-subtitle {
-    font-size: 13px;
+    font-size: 10px;
     padding: 0 20px;
   }
 }
