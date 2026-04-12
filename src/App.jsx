@@ -277,6 +277,17 @@ function normalizeHexColor(value, fallback = DEFAULT_WALL_COLOR) {
   return /^#([0-9a-fA-F]{6})$/.test(text) ? text : fallback;
 }
 
+function isValidHttpUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  try {
+    const parsed = new URL(text);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function getFloorTextureById(textureId) {
   return FLOOR_TEXTURE_LIBRARY.find((item) => item.id === textureId) || FLOOR_TEXTURE_LIBRARY[0];
 }
@@ -3332,6 +3343,7 @@ export default function App() {
   const [isProjectModalOpen,   setIsProjectModalOpen]   = useState(false);
   const [currentProjectId,     setCurrentProjectId]     = useState(null);
   const [projectStatusMessage, setProjectStatusMessage] = useState("");
+  const [currentProjectPdfUrl, setCurrentProjectPdfUrl] = useState("");
   const isReadOnly3DViewer = useMemo(() => isReadOnlyViewerModeFromUrl(), []);
   const initialProjectIdFromUrl = useMemo(() => getProjectIdFromUrl(), []);
   const shouldForceUrlProjectTo3D = useMemo(
@@ -3411,6 +3423,8 @@ export default function App() {
     ? `${selectedFurnitureContext.roomId}-${selectedFurnitureContext.furnitureId}`
     : null;
 
+  const canOpenCurrentPlan = useMemo(() => isValidHttpUrl(currentProjectPdfUrl), [currentProjectPdfUrl]);
+
   const numericScale         = Math.max(1, Number(scale) || 1);
   const numericWallThickness = Math.max(0.1, Number(wallThickness) || WALL_THICKNESS_FT);
   const canvasWidth          = Number(totalWidth)  * numericScale;
@@ -3424,6 +3438,44 @@ export default function App() {
   // ─── Effects ────────────────────────────────────────────────────────────────
 
   useEffect(() => { refreshSavedProjects(); }, []);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!currentProjectId) {
+      setCurrentProjectPdfUrl("");
+      return () => {
+        isCancelled = true;
+      };
+    }
+
+    const localMatch = readProjectsFromStorage().find((project) => project.id === currentProjectId);
+    const localPdfUrl = localMatch?.data?.pdf_drive_url || localMatch?.data?.pdfDriveUrl || "";
+    if (localPdfUrl && isValidHttpUrl(localPdfUrl)) {
+      setCurrentProjectPdfUrl(localPdfUrl);
+    } else {
+      setCurrentProjectPdfUrl("");
+    }
+
+    const loadProjectPdfUrl = async () => {
+      try {
+        const remoteProject = await fetchProjectFromGoogleSheets(currentProjectId);
+        if (isCancelled || !remoteProject) return;
+        const nextPdfUrl = remoteProject.pdf_drive_url || remoteProject.pdfDriveUrl || "";
+        setCurrentProjectPdfUrl(isValidHttpUrl(nextPdfUrl) ? nextPdfUrl : "");
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Failed to load project PDF URL:", error);
+          setCurrentProjectPdfUrl("");
+        }
+      }
+    };
+
+    loadProjectPdfUrl();
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentProjectId]);
 
   useEffect(() => {
     if (appMode !== "landing" && appMode !== "editor" && !FEATURE_AI_ENABLED) {
@@ -3467,6 +3519,7 @@ export default function App() {
         applyProjectState(localMatch.data);
         if (shouldForceUrlProjectTo3D) setActiveView("3d");
         setCurrentProjectId(localMatch.id);
+        setCurrentProjectPdfUrl(localMatch.data.pdf_drive_url || localMatch.data.pdfDriveUrl || "");
         setGeneratedRenderImage(localMatch.data.ai_render_image_base64 || "");
         setGeneratedRenderProjectId(localMatch.id);
         setProjectStatusMessage(`Opened "${localMatch.name}" from link.`);
@@ -3485,6 +3538,7 @@ export default function App() {
         applyProjectState(parsedState);
         if (shouldForceUrlProjectTo3D) setActiveView("3d");
         setCurrentProjectId(projectIdFromUrl);
+        setCurrentProjectPdfUrl(remoteProject.pdf_drive_url || remoteProject.pdfDriveUrl || "");
         setGeneratedRenderImage(parsedState.ai_render_image_base64 || remoteProject.ai_render_image_base64 || "");
         setGeneratedRenderProjectId(projectIdFromUrl);
         setProjectStatusMessage(`Opened project from Google Sheets link.`);
@@ -3655,6 +3709,7 @@ export default function App() {
 
   const buildCurrentProjectData = () => ({
     planName,
+    pdf_drive_url: currentProjectPdfUrl || "",
     ai_render_image_base64: generatedRenderImage || "",
     totalWidth, totalHeight, wallThickness, scale, roomHeight,
     activeView, selectedCategory,
@@ -3905,6 +3960,7 @@ const handleGenerateLayout = async (prompt) => {
   const resetPlan = () => {
     applyProjectState(getDefaultProjectState());
     setCurrentProjectId(null);
+    setCurrentProjectPdfUrl("");
     setGeneratedRenderImage("");
     setGeneratedRenderProjectId(null);
     setProjectStatusMessage("");
@@ -4241,6 +4297,7 @@ const handleGenerateLayout = async (prompt) => {
 
       const pdfUrl = result?.pdf_url || result?.pdfUrl || "";
       const docUrl = result?.doc_url || result?.docUrl || "";
+      setCurrentProjectPdfUrl(isValidHttpUrl(pdfUrl) ? pdfUrl : "");
       setProjectStatusMessage(result?.message || "Plan PDF generated successfully.");
       if (pdfUrl && typeof window !== "undefined") {
         window.open(pdfUrl, "_blank", "noopener,noreferrer");
@@ -4255,6 +4312,11 @@ const handleGenerateLayout = async (prompt) => {
     }
   };
 
+  const handleOpenPlanDocument = () => {
+    if (!canOpenCurrentPlan || typeof window === "undefined") return;
+    window.open(currentProjectPdfUrl, "_blank", "noopener,noreferrer");
+  };
+
   const handleOpenProjectClick = () => { refreshSavedProjects(); setIsProjectModalOpen(true); setProjectStatusMessage(""); };
 
   const handleOpenSavedProject = (projectId) => {
@@ -4263,6 +4325,7 @@ const handleGenerateLayout = async (prompt) => {
     if (!selected?.data) return;
     applyProjectState(selected.data);
     setCurrentProjectId(selected.id);
+    setCurrentProjectPdfUrl(selected.data.pdf_drive_url || selected.data.pdfDriveUrl || "");
     setGeneratedRenderImage(selected.data.ai_render_image_base64 || "");
     setGeneratedRenderProjectId(selected.id);
     syncProjectIdToUrl(selected.id);
@@ -4543,6 +4606,15 @@ const handleGenerateLayout = async (prompt) => {
                     >
                       <ExternalLink size={14} />
                       {isPlanGenerating ? "Generating Plan..." : "Generate Plan"}
+                    </button>
+                    <button
+                      className="secondary-btn project-stack-btn open-plan-btn"
+                      onClick={handleOpenPlanDocument}
+                      disabled={!canOpenCurrentPlan}
+                      title={canOpenCurrentPlan ? "Open generated plan PDF" : "No generated plan PDF available for this project yet"}
+                    >
+                      <FolderOpen size={14} />
+                      Open Plan
                     </button>
                     {FEATURE_AI_LANDING_ENABLED && FEATURE_AI_ENABLED && (
                       <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")}>
