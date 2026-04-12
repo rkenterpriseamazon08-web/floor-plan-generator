@@ -1724,3 +1724,301 @@ html, body, #root {
 .open-plan-btn:disabled {
   filter: grayscale(0.12);
 }
+
+/* ══════════════════════════════════════════════════════
+   MOBILE FLOW LAYOUT
+══════════════════════════════════════════════════════ */
+.mobile-app-shell {
+  padding: 12px;
+}
+.mobile-flow-screen {
+  min-height: 100vh;
+}
+.mobile-splash-screen,
+.mobile-hub-screen,
+.mobile-setup-screen {
+  min-height: calc(100vh - 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.mobile-splash-screen {
+  justify-content: center;
+  position: relative;
+}
+.mobile-splash-content,
+.mobile-setup-card,
+.mobile-hub-new-project,
+.mobile-editor-header,
+.mobile-hub-section,
+.mobile-open-project-btn {
+  border-radius: 18px;
+}
+.mobile-splash-content {
+  padding: 28px 22px;
+  background: linear-gradient(160deg, rgba(255,255,255,0.94) 0%, rgba(242,249,255,0.92) 100%);
+  border: 1px solid rgba(200,214,236,0.7);
+  box-shadow: var(--glass-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: center;
+}
+.mobile-splash-content h1,
+.mobile-hub-header h1,
+.mobile-flow-header h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+.mobile-splash-content p,
+.mobile-hub-header p,
+.mobile-flow-header p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.mobile-theme-toggle {
+  align-self: flex-end;
+}
+.mobile-primary-cta {
+  justify-content: center;
+  min-height: 48px;
+  width: 100%;
+}
+.mobile-hub-header,
+.mobile-flow-header,
+.mobile-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mobile-hub-new-project {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  background: linear-gradient(145deg,#1a4bc4 0%,#0f2f99 100%);
+  color: #fff;
+  border: 1px solid rgba(100,140,255,0.25);
+  box-shadow: 0 14px 30px rgba(14,40,140,0.28);
+  text-align: left;
+}
+.mobile-hub-new-project strong,
+.mobile-editor-header-copy strong {
+  display: block;
+  font-size: 16px;
+}
+.mobile-hub-new-project span,
+.mobile-editor-header-copy span:last-child {
+  display: block;
+  font-size: 12px;
+  opacity: 0.86;
+}
+.mobile-hub-section {
+  padding: 14px;
+  background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(210,224,242,0.8);
+  box-shadow: var(--glass-shadow-soft);
+}
+.mobile-recent-projects {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 48vh;
+  overflow: auto;
+}
+.mobile-project-item {
+  padding: 14px;
+}
+.mobile-open-project-btn {
+  justify-content: center;
+  min-height: 46px;
+}
+.mobile-setup-card {
+  padding: 16px;
+}
+.mobile-advanced-toggle {
+  justify-content: center;
+  width: 100%;
+  margin-top: 14px;
+}
+.mobile-advanced-grid {
+  margin-top: 14px;
+}
+.mobile-setup-footer {
+  position: sticky;
+  bottom: 0;
+  padding-top: 8px;
+  margin-top: auto;
+  background: linear-gradient(180deg, rgba(237,243,251,0) 0%, rgba(237,243,251,0.95) 22%, rgba(237,243,251,1) 100%);
+}
+.mobile-editor-shell {
+  position: relative;
+}
+.mobile-editor-header {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(210,224,242,0.8);
+  box-shadow: var(--glass-shadow-soft);
+}
+.mobile-editor-header-copy {
+  min-width: 0;
+}
+.mobile-editor-header-copy .pill {
+  margin-bottom: 6px;
+}
+.mobile-export-fab {
+  position: fixed;
+  right: 16px;
+  bottom: 84px;
+  z-index: 100;
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: 999px;
+}
+.mobile-bottom-nav {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 110;
+  display: none;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.92);
+  border: 1px solid rgba(205,220,240,0.9);
+  box-shadow: 0 18px 40px rgba(15,30,60,0.14);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+.mobile-bottom-nav-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  min-height: 50px;
+  border-radius: 14px;
+  color: #35506f;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.mobile-bottom-nav-btn.is-active {
+  background: linear-gradient(145deg,#1a4bc4 0%,#0f2f99 100%);
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  .mobile-app-shell .workspace-grid {
+    display: block;
+    padding-bottom: 88px;
+  }
+  .mobile-app-shell .workspace-main {
+    gap: 12px;
+  }
+  .mobile-app-shell .preview-stats-row {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(150px, 1fr);
+    overflow-x: auto;
+    gap: 10px;
+    padding-bottom: 4px;
+  }
+  .mobile-app-shell .workspace-content-grid,
+  .mobile-app-shell .workspace-content-grid.workspace-content-grid--full {
+    display: block;
+  }
+  .mobile-app-shell .svg-wrap--dominant,
+  .mobile-app-shell .three-wrap--dominant,
+  .mobile-app-shell .three-wrap {
+    min-height: 58vh;
+    height: 58vh;
+  }
+  .mobile-app-shell .preview-toolbar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+  .mobile-app-shell .view-toolbar-btn,
+  .mobile-app-shell .ghost-btn,
+  .mobile-app-shell .primary-btn,
+  .mobile-app-shell .secondary-btn,
+  .mobile-app-shell .icon-btn,
+  .mobile-app-shell .project-stack-btn,
+  .mobile-app-shell .room-accordion-trigger {
+    min-height: 44px;
+  }
+  .mobile-app-shell .project-actions-card {
+    width: 100%;
+  }
+  .mobile-app-shell .plan-config-group,
+  .mobile-app-shell .plan-config-shell,
+  .mobile-app-shell .form-grid.two-col,
+  .mobile-app-shell .form-grid.three-col,
+  .mobile-app-shell .top-control-grid,
+  .mobile-app-shell .plan-top-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .mobile-app-shell .top-input-meta-row,
+  .mobile-app-shell .top-input-brand,
+  .mobile-app-shell .top-input-meta-actions,
+  .mobile-app-shell .rooms-sidebar-header,
+  .mobile-app-shell .header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .mobile-app-shell .rooms-sidebar {
+    position: static;
+    max-height: none;
+  }
+  .mobile-editor-shell[data-mobile-tab="plan"] .top-control-card,
+  .mobile-editor-shell[data-mobile-tab="plan"] .rooms-sidebar,
+  .mobile-editor-shell[data-mobile-tab="plan"] .chatbot-card,
+  .mobile-editor-shell[data-mobile-tab="plan"] [title="Open Floor Plan Assistant"] {
+    display: none !important;
+  }
+  .mobile-editor-shell[data-mobile-tab="rooms"] .top-control-card,
+  .mobile-editor-shell[data-mobile-tab="rooms"] .workspace-preview-column,
+  .mobile-editor-shell[data-mobile-tab="rooms"] .chatbot-card,
+  .mobile-editor-shell[data-mobile-tab="rooms"] [title="Open Floor Plan Assistant"],
+  .mobile-editor-shell[data-mobile-tab="rooms"] .preview-stats-row {
+    display: none !important;
+  }
+  .mobile-editor-shell[data-mobile-tab="project"] .workspace-preview-column,
+  .mobile-editor-shell[data-mobile-tab="project"] .rooms-sidebar,
+  .mobile-editor-shell[data-mobile-tab="project"] .chatbot-card,
+  .mobile-editor-shell[data-mobile-tab="project"] [title="Open Floor Plan Assistant"] {
+    display: none !important;
+  }
+  .mobile-editor-shell[data-mobile-tab="project"] .top-control-card {
+    display: block !important;
+  }
+  .mobile-editor-shell[data-mobile-tab="project"] .preview-stats-row {
+    display: none !important;
+  }
+  .mobile-app-shell .project-modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .mobile-app-shell .project-modal {
+    width: 100%;
+    max-height: 82vh;
+    border-radius: 20px 20px 0 0;
+  }
+  .mobile-app-shell .project-modal-header,
+  .mobile-app-shell .project-modal-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
