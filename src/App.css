@@ -853,7 +853,9 @@ button { appearance:none; -webkit-appearance:none; }
   }
     .project-actions-card--toolbar .project-stack-btn {
     min-height: 24px;
+  }
 }
+
 @media (max-width:1380px) {
   .workspace-grid { grid-template-columns:minmax(0,1fr) 388px; }
   .workspace-content-grid { grid-template-columns:1fr; }
