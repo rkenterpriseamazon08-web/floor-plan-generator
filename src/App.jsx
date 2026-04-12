@@ -1629,10 +1629,10 @@ function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect,
   const isSlab = isKitchenSlab(furnitureItem);
   const hasRec = getFurnitureRecommendationItems(furnitureItem.type).length > 0;
 
-  const nameFontSize = Math.max(5.5, Math.min(8, Math.min(w, h) * 0.09));
-  const dimFontSize  = Math.max(4.75, Math.min(6.5, Math.min(w, h) * 0.075));
-  const labelOffsetY = h >= 42 ? -3 : -1;
-  const dimOffsetY   = h >= 42 ? 10 : 8;
+  const nameFontSize = Math.max(4.9, Math.min(7.1, Math.min(w, h) * 0.078));
+  const dimFontSize  = Math.max(4.1, Math.min(5.8, Math.min(w, h) * 0.062));
+  const labelOffsetY = h >= 42 ? -2 : -0.5;
+  const dimOffsetY   = h >= 42 ? 6.5 : 5.5;
 
   const handleSelect = (e) => {
     if (!hasRec || typeof onSelect !== "function") return;
@@ -1669,8 +1669,8 @@ function Furniture2D({ room, furnitureItem, scale, isSelected = false, onSelect,
         {`${width} ft × ${depth} ft`}
       </text>
       {rotation !== 0 && (
-        <text x={cx} y={cy + dimOffsetY + 9 + labelDy} textAnchor="middle" dominantBaseline="middle"
-          style={{ fontSize: 4.5, fill: "#8899b0", pointerEvents: "none" }}>
+        <text x={cx} y={cy + dimOffsetY + 7 + labelDy} textAnchor="middle" dominantBaseline="middle"
+          style={{ fontSize: 4.1, fill: "#8899b0", pointerEvents: "none" }}>
           {`↻ ${rotation}°`}
         </text>
       )}
@@ -1813,9 +1813,9 @@ function VariantSelectionPage({ variants, theme, onSelect, onBack }) {
 
 function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, generationStep, isEntering }) {
   const premiumHighlights = [
-    "Precision 2D and immersive 3D planning",
+    "Precision 2D planning with immersive 3D preview",
     "Room, furniture, and export workflows ready",
-    "Clean project-based design experience",
+    "A polished workspace for faster concept validation",
   ];
 
   return (
@@ -1826,10 +1826,10 @@ function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, gener
         <div className="landing-premium-grid">
           <section className="landing-premium-card landing-premium-copy">
             <span className="pill landing-premium-pill">Premium Space Planning Suite</span>
-            <h1>Welcome to the future of floor planning</h1>
+            <h1>Welcome to your Floor Planner Assistant</h1>
             <p>
-              Design, refine, and present floor plans in a polished workspace built for modern planning.
-              Your existing project logic stays exactly the same — now with a cleaner premium experience.
+              From concept to clarity — step into a premium planning workspace designed to make every layout feel clean,
+              controlled, and presentation-ready from the very first click.
             </p>
 
             <div className="landing-premium-points">
@@ -1844,7 +1844,7 @@ function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, gener
             <div className="landing-premium-actions">
               <button type="button" className="primary-btn landing-continue-btn" onClick={onContinueWithout} disabled={isEntering}>
                 {isEntering ? <Loader2 size={18} className="landing-btn-spinner" /> : <Home size={18} />}
-                {isEntering ? "Opening your workspace..." : "Let’s Explore"}
+                {isEntering ? "Opening your workspace..." : "Explore Now"}
               </button>
               {isEntering && <div className="landing-entering-text">Preparing your premium workspace…</div>}
             </div>
@@ -3374,8 +3374,7 @@ export default function App() {
   useEffect(() => { refreshSavedProjects(); }, []);
 
   useEffect(() => {
-    if (!FEATURE_AI_ENABLED && appMode !== "editor") {
-      setAppMode("editor");
+    if (appMode !== "landing" && appMode !== "editor" && !FEATURE_AI_ENABLED) {
       setGenerationStep("");
       setLayoutVariants([]);
     }
@@ -4492,19 +4491,21 @@ const handleGenerateLayout = async (prompt) => {
                     <div className="top-input-brand-copy">
                       <div className="top-input-title-row">
                         <h1><Home size={16} />Premium Floor Plan Designer</h1>
-                        <div className="top-input-title-controls">
-                          <button type="button" className="theme-toggle" onClick={() => setTheme((p) => p === "dark" ? "light" : "dark")} aria-label="Toggle theme">
-                            <span className={`theme-toggle-option ${theme === "light" ? "is-active" : ""}`}><Sun size={12} />Light</span>
-                            <span className={`theme-toggle-option ${theme === "dark"  ? "is-active" : ""}`}><Moon size={12} />Dark</span>
-                          </button>
-                        </div>
                       </div>
                       <p>Refined controls above, larger planning workspace below, and every existing feature preserved.</p>
                     </div>
                   </div>
-                  {projectStatusMessage && (
-                    <div className="project-status-banner project-status-banner--inline">{projectStatusMessage}</div>
-                  )}
+                  <div className="top-input-meta-actions">
+                    <div className="top-input-title-controls">
+                      <button type="button" className="theme-toggle" onClick={() => setTheme((p) => p === "dark" ? "light" : "dark")} aria-label="Toggle theme">
+                        <span className={`theme-toggle-option ${theme === "light" ? "is-active" : ""}`}><Sun size={12} />Light</span>
+                        <span className={`theme-toggle-option ${theme === "dark"  ? "is-active" : ""}`}><Moon size={12} />Dark</span>
+                      </button>
+                    </div>
+                    {projectStatusMessage && (
+                      <div className="project-status-banner project-status-banner--inline">{projectStatusMessage}</div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="plan-config-shell">
@@ -4609,7 +4610,31 @@ const handleGenerateLayout = async (prompt) => {
                           const w = room.width * numericScale, h = room.height * numericScale;
                           return (
                             <g key={room.id}>
-                              <rect x={x} y={y} width={w} height={h} fill={`url(#floor-pattern-${String(room.id).replace(/[^a-zA-Z0-9_-]/g, "")})`} stroke={globalWallColor} strokeWidth={Math.max(2, numericWallThickness * numericScale)} />
+                              <rect
+                                x={x}
+                                y={y}
+                                width={w}
+                                height={h}
+                                fill={`url(#floor-pattern-${String(room.id).replace(/[^a-zA-Z0-9_-]/g, "")})`}
+                                opacity={0.24}
+                              />
+                              <rect
+                                x={x}
+                                y={y}
+                                width={w}
+                                height={h}
+                                fill={room.color || "#f8fbff"}
+                                opacity={0.82}
+                              />
+                              <rect
+                                x={x}
+                                y={y}
+                                width={w}
+                                height={h}
+                                fill="none"
+                                stroke={globalWallColor}
+                                strokeWidth={Math.max(2, numericWallThickness * numericScale)}
+                              />
                             </g>
                           );
                         })}
@@ -4641,12 +4666,13 @@ const handleGenerateLayout = async (prompt) => {
                         {placedRooms.map((room) => {
                           const x = room.x * numericScale, y = room.y * numericScale;
                           const w = room.width * numericScale, h = room.height * numericScale;
-                          const nfs = Math.max(7, Math.min(10, Math.min(w, h) * 0.11));
-                          const dfs = Math.max(5.5, Math.min(7.5, Math.min(w, h) * 0.085));
+                          const nfs = Math.max(6.2, Math.min(8.6, Math.min(w, h) * 0.095));
+                          const dfs = Math.max(4.8, Math.min(6.4, Math.min(w, h) * 0.072));
+                          const labelCenterY = y + h / 2;
                           return (
                             <g key={`labels-${room.id}`}>
-                              <text x={x + w / 2} y={y + h / 2 - 12} textAnchor="middle" style={{ fontSize: nfs, fontWeight: 700, fill: "#172033", opacity: 0.68, pointerEvents: "none" }}>{room.name}</text>
-                              <text x={x + w / 2} y={y + h / 2 + 12} textAnchor="middle" style={{ fontSize: dfs, fill: "#56637a", opacity: 0.82, pointerEvents: "none" }}>{room.width} ft × {room.height} ft</text>
+                              <text x={x + w / 2} y={labelCenterY - 7} textAnchor="middle" style={{ fontSize: nfs, fontWeight: 700, fill: "#172033", opacity: 0.82, pointerEvents: "none" }}>{room.name}</text>
+                              <text x={x + w / 2} y={labelCenterY + 5} textAnchor="middle" style={{ fontSize: dfs, fill: "#56637a", opacity: 0.9, pointerEvents: "none" }}>{room.width} ft × {room.height} ft</text>
                             </g>
                           );
                         })}
