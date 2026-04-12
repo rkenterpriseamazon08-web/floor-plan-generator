@@ -1102,3 +1102,466 @@ button { appearance:none; -webkit-appearance:none; }
   .top-input-meta-row--premium { flex-direction: column; }
   .project-status-banner--inline { margin-left: 0; width: 100%; }
 }
+
+
+/* ===== Premium compact refinement overrides ===== */
+html, body, #root {
+  font-size: 13px;
+}
+
+.app-shell {
+  padding: 10px;
+}
+
+.workspace-grid {
+  grid-template-columns: minmax(0, 1fr) 468px;
+  gap: 10px;
+  align-items: start;
+}
+
+.workspace-main {
+  gap: 10px;
+}
+
+.top-control-card {
+  margin-bottom: 0;
+}
+
+.top-control-grid,
+.top-control-grid--premium {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.top-input-card,
+.top-input-card--premium {
+  padding: 10px 12px;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.72) 100%),
+    rgba(255,255,255,0.58);
+  border: 1px solid rgba(255,255,255,0.62);
+  box-shadow:
+    0 22px 44px rgba(15, 23, 42, 0.08),
+    0 8px 20px rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 rgba(255,255,255,0.85);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+
+.top-toolbar-row--header {
+  margin-bottom: 8px;
+}
+
+.project-actions-card.project-actions-card--toolbar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 5px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(247,250,255,0.56) 100%);
+  border: 1px solid rgba(212, 226, 244, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.82),
+    0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+.project-stack-btn,
+.project-actions-card .project-stack-btn {
+  min-height: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  line-height: 1;
+  gap: 5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.project-stack-btn svg,
+.project-actions-card .project-stack-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+.primary-btn,
+.secondary-btn,
+.ghost-btn {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.top-input-meta-row,
+.top-input-meta-row--premium {
+  gap: 10px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.top-input-brand {
+  gap: 10px;
+}
+
+.top-input-brand .pill,
+.top-input-brand-copy .pill,
+.pill {
+  padding: 4px 10px;
+  font-size: 9px;
+}
+
+.top-input-brand-copy h1 {
+  font-size: 15px;
+  gap: 7px;
+  margin-bottom: 3px;
+}
+
+.top-input-brand-copy p {
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.top-input-title-controls {
+  transform: scale(0.92);
+  transform-origin: right center;
+}
+
+.project-status-banner,
+.project-status-banner--inline {
+  padding: 6px 10px;
+  font-size: 10px;
+  border-radius: 10px;
+}
+
+.plan-config-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 0.8fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.plan-config-group {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.34);
+  border: 1px solid rgba(220,230,244,0.8);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
+}
+
+.plan-config-group--primary {
+  grid-template-columns: minmax(140px, 1.5fr) repeat(4, minmax(86px, 1fr));
+}
+
+.plan-config-group--secondary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.field {
+  gap: 4px;
+}
+
+.field label {
+  font-size: 9px;
+  letter-spacing: 0.05em;
+}
+
+.field input,
+.field select,
+.field textarea {
+  padding: 6px 9px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+.field input,
+.field select {
+  min-height: 30px;
+}
+
+.wall-color-input {
+  min-height: 30px;
+  height: 30px;
+  padding: 2px;
+}
+
+.preview-stats-row {
+  gap: 6px;
+}
+
+.summary-box {
+  min-height: 54px;
+  padding: 10px 12px;
+  border-radius: 16px;
+}
+
+.summary-box span {
+  font-size: 8.5px;
+  margin-bottom: 4px;
+}
+
+.summary-box strong {
+  font-size: 16px;
+}
+
+.section-header {
+  margin-bottom: 8px;
+}
+
+.section-header.compact {
+  margin-bottom: 6px;
+}
+
+.section-header h2,
+.section-header h3 {
+  font-size: 13px;
+}
+
+.preview-toolbar,
+.uniform-view-buttons,
+.header-actions {
+  gap: 6px;
+}
+
+.view-toolbar-btn {
+  min-height: 28px;
+  min-width: 42px;
+  padding: 0 10px;
+  font-size: 10px;
+  border-radius: 9px;
+}
+
+.svg-wrap--dominant,
+.three-wrap {
+  min-height: 540px;
+  height: 540px;
+}
+
+.preview-card--dominant {
+  padding: 8px;
+}
+
+.rooms-sidebar {
+  top: 10px;
+  max-height: calc(100vh - 20px);
+  padding-top: 8px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(248,251,255,0.74) 100%),
+    rgba(255,255,255,0.62);
+  border: 1px solid rgba(255,255,255,0.64);
+  box-shadow:
+    0 26px 54px rgba(15, 23, 42, 0.10),
+    0 10px 22px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255,255,255,0.88);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  backdrop-filter: blur(26px) saturate(180%);
+}
+
+.rooms-sidebar-header {
+  padding: 0 12px 6px;
+  margin-bottom: 0;
+}
+
+.rooms-sidebar-header h2 {
+  font-size: 14px;
+}
+
+.rooms-sidebar .ghost-btn {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+
+.room-list {
+  padding: 0 8px 10px;
+  gap: 6px;
+}
+
+.room-accordion-trigger {
+  padding: 10px 12px;
+}
+
+.room-accordion-title {
+  font-size: 11px;
+}
+
+.room-accordion-meta {
+  font-size: 9px;
+}
+
+.room-accordion-content {
+  padding: 8px 10px 10px;
+}
+
+.room-card-header {
+  margin-bottom: 8px;
+}
+
+.room-card-header--inner span,
+.room-card-header span,
+.furniture-meta span,
+.project-item-subtext {
+  font-size: 10px;
+}
+
+.opening-card,
+.furniture-card {
+  margin-top: 8px;
+  padding: 10px;
+}
+
+.furniture-meta strong {
+  font-size: 11px;
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+}
+
+.icon-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.app-shell.dark-theme {
+  color: #f2f2f2;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(255,255,255,0.045) 0%, transparent 20%),
+    radial-gradient(circle at 88% 8%, rgba(255,255,255,0.035) 0%, transparent 18%),
+    linear-gradient(180deg, #000000 0%, #050505 100%);
+}
+
+.app-shell.dark-theme .hero-card,
+.app-shell.dark-theme .input-card,
+.app-shell.dark-theme .preview-card,
+.app-shell.dark-theme .summary-box,
+.app-shell.dark-theme .top-input-card,
+.app-shell.dark-theme .chatbot-card,
+.app-shell.dark-theme .rooms-sidebar,
+.app-shell.dark-theme .project-actions-card,
+.app-shell.dark-theme .project-modal,
+.app-shell.dark-theme .opening-card,
+.app-shell.dark-theme .furniture-card,
+.app-shell.dark-theme .project-item,
+.app-shell.dark-theme .furniture-preset-card,
+.app-shell.dark-theme .furniture-placed-card {
+  background:
+    linear-gradient(180deg, rgba(20,20,20,0.82) 0%, rgba(8,8,8,0.88) 100%),
+    rgba(0,0,0,0.72);
+  border-color: rgba(255,255,255,0.08);
+  box-shadow:
+    0 24px 46px rgba(0,0,0,0.44),
+    0 8px 18px rgba(0,0,0,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+  -webkit-backdrop-filter: blur(24px) saturate(135%);
+  backdrop-filter: blur(24px) saturate(135%);
+}
+
+.app-shell.dark-theme .top-input-card,
+.app-shell.dark-theme .rooms-sidebar,
+.app-shell.dark-theme .project-actions-card.project-actions-card--toolbar {
+  background:
+    linear-gradient(180deg, rgba(18,18,18,0.78) 0%, rgba(0,0,0,0.88) 100%),
+    rgba(0,0,0,0.76);
+}
+
+.app-shell.dark-theme .top-input-brand-copy h1,
+.app-shell.dark-theme h1,
+.app-shell.dark-theme h2,
+.app-shell.dark-theme h3,
+.app-shell.dark-theme h4,
+.app-shell.dark-theme .project-item-title,
+.app-shell.dark-theme .room-accordion-title,
+.app-shell.dark-theme .furniture-meta strong,
+.app-shell.dark-theme .furniture-preset-name,
+.app-shell.dark-theme .furniture-placed-card-name,
+.app-shell.dark-theme .summary-box strong {
+  color: #ffffff;
+}
+
+.app-shell.dark-theme .top-input-brand-copy p,
+.app-shell.dark-theme .chatbot-header-copy p,
+.app-shell.dark-theme .project-item-subtext,
+.app-shell.dark-theme .furniture-meta span,
+.app-shell.dark-theme .room-card-header span,
+.app-shell.dark-theme .summary-box span,
+.app-shell.dark-theme .field label,
+.app-shell.dark-theme .furniture-placed-card-room,
+.app-shell.dark-theme .furniture-manager-empty-state,
+.app-shell.dark-theme .room-accordion-meta {
+  color: rgba(255,255,255,0.68);
+}
+
+.app-shell.dark-theme .field input,
+.app-shell.dark-theme .field select,
+.app-shell.dark-theme .field textarea,
+.app-shell.dark-theme .chatbot-messages,
+.app-shell.dark-theme .chatbot-chip,
+.app-shell.dark-theme .chatbot-message-bubble,
+.app-shell.dark-theme .project-status-banner,
+.app-shell.dark-theme .project-status-banner--inline,
+.app-shell.dark-theme .view-toolbar-btn,
+.app-shell.dark-theme .secondary-btn,
+.app-shell.dark-theme .ghost-btn,
+.app-shell.dark-theme .icon-btn,
+.app-shell.dark-theme .project-item-open,
+.app-shell.dark-theme .theme-toggle {
+  background: rgba(0,0,0,0.74);
+  border-color: rgba(255,255,255,0.08);
+  color: #f3f3f3;
+}
+
+.app-shell.dark-theme .svg-wrap,
+.app-shell.dark-theme .three-wrap,
+.app-shell.dark-theme .svg-wrap svg {
+  background: #000000;
+  border-color: rgba(255,255,255,0.08);
+}
+
+.app-shell.dark-theme .room-accordion-trigger,
+.app-shell.dark-theme .room-accordion-content,
+.app-shell.dark-theme .accordion-room-card.expanded,
+.app-shell.dark-theme .opening-card,
+.app-shell.dark-theme .furniture-card,
+.app-shell.dark-theme .furniture-panel,
+.app-shell.dark-theme .room-card {
+  background: rgba(0,0,0,0.62);
+  border-color: rgba(255,255,255,0.08);
+}
+
+.app-shell.dark-theme .field select option {
+  background: #000000;
+  color: #ffffff;
+}
+
+@media (max-width: 1400px) {
+  .workspace-grid {
+    grid-template-columns: minmax(0, 1fr) 430px;
+  }
+
+  .plan-config-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-config-group--primary {
+    grid-template-columns: minmax(160px, 1.4fr) repeat(4, minmax(80px, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rooms-sidebar {
+    position: relative;
+    top: 0;
+    max-height: none;
+  }
+}
