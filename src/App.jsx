@@ -1878,73 +1878,74 @@ function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, gener
   ];
 
   return (
-    <div className={`app-shell landing-page landing-page--premium ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
-      <div className="landing-premium-shell">
-        <div className="landing-premium-orb landing-premium-orb--one" />
-        <div className="landing-premium-orb landing-premium-orb--two" />
-        <div className="landing-premium-grid">
-          <section className="landing-premium-card landing-premium-copy">
-            <span className="pill landing-premium-pill">Premium Space Planning Suite</span>
-            <h1>Welcome to your Floor Planner Assistant</h1>
-            <p>
-              From concept to clarity — step into a premium planning workspace designed to make every layout feel clean,
-              controlled, and presentation-ready from the very first click.
-            </p>
+    <div className={`app-shell landing-page landing-page--immersive ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
+      <div className="landing-ambient-grid" />
+      <div className="landing-ambient-orb landing-ambient-orb--one" />
+      <div className="landing-ambient-orb landing-ambient-orb--two" />
+      <div className="landing-ambient-orb landing-ambient-orb--three" />
+      <div className="landing-ambient-ring landing-ambient-ring--one" />
+      <div className="landing-ambient-ring landing-ambient-ring--two" />
 
-            <div className="landing-premium-points">
-              {premiumHighlights.map((item) => (
-                <div key={item} className="landing-premium-point">
-                  <span className="landing-premium-point-dot" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
+      <div className="landing-immersive-shell">
+        <section className="landing-immersive-card">
+          <div className="landing-immersive-badge-wrap">
+            <span className="pill landing-immersive-pill">Premium Space Planning Suite</span>
+          </div>
 
-            <div className="landing-premium-actions">
-              <button type="button" className="primary-btn landing-continue-btn" onClick={onContinueWithout} disabled={isEntering}>
-                {isEntering ? <Loader2 size={18} className="landing-btn-spinner" /> : <Home size={18} />}
-                {isEntering ? "Opening your workspace..." : "Explore Now"}
-              </button>
-              {isEntering && <div className="landing-entering-text">Preparing your premium workspace…</div>}
-            </div>
-          </section>
+          <h1 className="landing-immersive-title">Welcome to your Floor Planner Assistant</h1>
 
-          <section className="landing-premium-card landing-premium-preview">
-            <div className="landing-preview-surface">
-              <div className="landing-preview-topbar">
-                <span />
-                <span />
-                <span />
+          <p className="landing-immersive-subtitle">
+            From concept to clarity — step into a premium planning workspace designed to make every layout feel clean,
+            controlled, and presentation-ready from the very first click.
+          </p>
+
+          <div className="landing-immersive-points">
+            {premiumHighlights.map((item) => (
+              <div key={item} className="landing-immersive-point">
+                <span className="landing-immersive-point-dot" />
+                <span>{item}</span>
               </div>
-              <div className="landing-preview-header">
-                <div>
-                  <strong>Future Floor Planning</strong>
-                  <p>Premium animated planning workspace</p>
-                </div>
-                <div className="landing-preview-badge">Live</div>
+            ))}
+          </div>
+
+          <div className="landing-immersive-actions">
+            <button
+              type="button"
+              className="primary-btn landing-continue-btn landing-immersive-btn"
+              onClick={onContinueWithout}
+              disabled={isEntering}
+            >
+              {isEntering ? <Loader2 size={18} className="landing-btn-spinner" /> : <Home size={18} />}
+              {isEntering ? "Opening your workspace..." : "Explore Now"}
+            </button>
+
+            {isEntering && (
+              <div className="landing-entering-text">
+                <span className="landing-entering-line" />
+                <span>Preparing your premium workspace...</span>
+                <span className="landing-entering-line" />
               </div>
-              <div className="landing-preview-layout">
-                <div className="landing-preview-sidebar">
-                  <div className="landing-skeleton landing-skeleton--lg" />
-                  <div className="landing-skeleton" />
-                  <div className="landing-skeleton" />
-                  <div className="landing-skeleton" />
-                </div>
-                <div className="landing-preview-canvas">
-                  <div className="landing-canvas-grid" />
-                  <div className="landing-room landing-room--one">Living</div>
-                  <div className="landing-room landing-room--two">Bedroom</div>
-                  <div className="landing-room landing-room--three">Kitchen</div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
+            )}
+          </div>
+        </section>
       </div>
+
+      {isEntering && (
+        <div className="landing-transition-overlay" aria-hidden="true">
+          <div className="landing-transition-core">
+            <div className="landing-transition-spinner-ring" />
+            <div className="landing-transition-spinner-ring landing-transition-spinner-ring--two" />
+            <div className="landing-transition-mark" />
+          </div>
+          <div className="landing-transition-copy">
+            <div className="landing-transition-title">Launching your planning workspace</div>
+            <div className="landing-transition-subtitle">Loading tools, views, and project controls...</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
 // ─── Furniture Manager Page ───────────────────────────────────────────────────
 
 function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCustomPreset, onUpdatePlacedFurniture, onApplyPresetToPlaced, onBack, editorIsEntering = false }) {
