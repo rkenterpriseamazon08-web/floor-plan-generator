@@ -1,6 +1,6 @@
 {
-  "name": "HelloPlanner",
-  "short_name": "HelloPlanner",
+  "name": "FLOORA",
+  "short_name": "FLOORA",
   "start_url": "/floor-plan-generator/",
   "display": "standalone",
   "background_color": "#ffffff",
