@@ -1171,7 +1171,7 @@ button { appearance:none; -webkit-appearance:none; }
 .landing-immersive-title {
   margin: 0 auto 18px;
   max-width: 760px;
-  font-size: clamp(42px, 6vw, 76px);
+  font-size: clamp(32px, 4vw, 56px);
   line-height: 0.98;
   letter-spacing: -0.055em;
   font-weight: 800;
