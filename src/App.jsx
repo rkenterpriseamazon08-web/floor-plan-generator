@@ -3337,13 +3337,6 @@ export default function App() {
     if (typeof window === "undefined") return "light";
     return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
   });
-  const [isMobileViewport, setIsMobileViewport] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.innerWidth <= 768;
-  });
-  const [mobileFlowScreen, setMobileFlowScreen] = useState("hub");
-  const [mobileEditorTab, setMobileEditorTab] = useState("plan");
-  const [mobileSetupAdvancedOpen, setMobileSetupAdvancedOpen] = useState(false);
 
   // ── Project state ──
   const [savedProjects,        setSavedProjects]        = useState([]);
@@ -3588,14 +3581,6 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    const onResize = () => setIsMobileViewport(window.innerWidth <= 768);
-    onResize();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
     window.sessionStorage.setItem(ASSISTANT_COLLAPSED_SESSION_KEY, assistantCollapsed ? "true" : "false");
   }, [assistantCollapsed]);
@@ -3774,11 +3759,6 @@ export default function App() {
     return Number.isNaN(date.getTime()) ? "Saved just now" : date.toLocaleString();
   };
 
-  useEffect(() => {
-    if (!isMobileViewport) return;
-    if (appMode === "editor" && mobileFlowScreen === "hub") refreshSavedProjects();
-  }, [isMobileViewport, appMode, mobileFlowScreen]);
-
   const appendChatMessage = (role, content) => setChatMessages((prev) => [...prev, createChatMessage(role, content)]);
 
   const handleEnterEditorFromWelcome = useCallback(() => {
@@ -3788,15 +3768,11 @@ export default function App() {
     window.setTimeout(() => {
       setEditorIsEntering(true);
       setAppMode("editor");
-      if (isMobileViewport) {
-        setMobileFlowScreen("hub");
-        setMobileEditorTab("plan");
-      }
       setIsWelcomeEntering(false);
       setGenerationStep("");
       window.setTimeout(() => setEditorIsEntering(false), 720);
     }, 650);
-  }, [isWelcomeEntering, isMobileViewport]);
+  }, [isWelcomeEntering]);
 
   const applyGeneratedPlan = (nextPlan, sourceLabel = "assistant") => {
     if (!nextPlan) return;
@@ -4359,13 +4335,7 @@ const handleGenerateLayout = async (prompt) => {
 
   const handleNewProject = () => {
     if (!window.confirm("Start a new project? Unsaved changes may be lost.")) return;
-    resetPlan();
-    setIsProjectModalOpen(false);
-    if (isMobileViewport) {
-      setMobileFlowScreen("setup");
-      setMobileEditorTab("plan");
-      setMobileSetupAdvancedOpen(false);
-    }
+    resetPlan(); setIsProjectModalOpen(false);
   };
 
   // ─── Upload / AI render ──────────────────────────────────────────────────────
@@ -4582,134 +4552,8 @@ const handleGenerateLayout = async (prompt) => {
 
   // ─── Main Planner render ─────────────────────────────────────────────────────
 
-  if (isMobileViewport && (appMode === "landing" || appMode === "generating")) {
-    return (
-      <div className={`app-shell mobile-app-shell mobile-flow-screen ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
-        <div className="mobile-splash-screen">
-          <button type="button" className="theme-toggle mobile-theme-toggle" onClick={() => setTheme((p) => p === "dark" ? "light" : "dark")} aria-label="Toggle theme">
-            <span className={`theme-toggle-option ${theme === "light" ? "is-active" : ""}`}><Sun size={12} />Light</span>
-            <span className={`theme-toggle-option ${theme === "dark" ? "is-active" : ""}`}><Moon size={12} />Dark</span>
-          </button>
-          <div className="mobile-splash-content">
-            <span className="pill">Blueprint Studio Pro</span>
-            <h1>Design smarter on mobile</h1>
-            <p>Clean project setup, plan viewing, room editing, and project actions sized properly for phone screens.</p>
-            <button type="button" className="primary-btn mobile-primary-cta" onClick={handleEnterEditorFromWelcome} disabled={isWelcomeEntering || appMode === "generating"}>
-              {isWelcomeEntering || appMode === "generating" ? <Loader2 size={18} className="landing-btn-spinner" /> : <Home size={18} />}
-              {appMode === "generating" ? (generationStep || "Preparing workspace...") : "Get Started"}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isMobileViewport && appMode === "editor" && mobileFlowScreen === "hub") {
-    return (
-      <div className={`app-shell mobile-app-shell mobile-flow-screen ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
-        <div className="mobile-hub-screen">
-          <div className="mobile-hub-header">
-            <div>
-              <span className="pill">Blueprint Studio Pro</span>
-              <h1>Project Hub</h1>
-            </div>
-            <button type="button" className="theme-toggle mobile-theme-toggle" onClick={() => setTheme((p) => p === "dark" ? "light" : "dark")} aria-label="Toggle theme">
-              <span className={`theme-toggle-option ${theme === "light" ? "is-active" : ""}`}><Sun size={12} />Light</span>
-              <span className={`theme-toggle-option ${theme === "dark" ? "is-active" : ""}`}><Moon size={12} />Dark</span>
-            </button>
-          </div>
-
-          <button type="button" className="mobile-hub-new-project" onClick={() => { resetPlan(); setMobileFlowScreen("setup"); setMobileSetupAdvancedOpen(false); }}>
-            <FilePlus2 size={20} />
-            <div>
-              <strong>New Project</strong>
-              <span>Start a fresh mobile floor plan setup</span>
-            </div>
-          </button>
-
-          <div className="mobile-hub-section">
-            <div className="section-header compact">
-              <h3>Recent Projects</h3>
-            </div>
-            <div className="mobile-recent-projects">
-              {savedProjects.length === 0 ? (
-                <div className="project-empty-state">No saved projects yet.</div>
-              ) : (
-                savedProjects.slice(0, 8).map((project) => (
-                  <button key={project.id} type="button" className="project-item mobile-project-item" onClick={() => handleOpenSavedProject(project.id)}>
-                    <div className="project-item-meta">
-                      <strong className="project-item-title">{project.name}</strong>
-                      <span className="project-item-subtext">{project.data?.rooms?.length || 0} rooms • {formatProjectTimestamp(project.updatedAt)}</span>
-                    </div>
-                    <span className="project-item-open">Open</span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-
-          <button type="button" className="ghost-btn mobile-open-project-btn" onClick={handleOpenProjectClick}>
-            <FolderOpen size={16} />Open Project
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (isMobileViewport && appMode === "editor" && mobileFlowScreen === "setup") {
-    return (
-      <div className={`app-shell mobile-app-shell mobile-flow-screen ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
-        <div className="mobile-setup-screen">
-          <div className="mobile-flow-header">
-            <button type="button" className="icon-btn" onClick={() => setMobileFlowScreen("hub")} aria-label="Back to project hub"><ArrowLeft size={16} /></button>
-            <div>
-              <span className="pill">New Project</span>
-              <h1>Project Setup</h1>
-            </div>
-          </div>
-
-          <div className="input-card mobile-setup-card">
-            <div className="form-grid one-col">
-              <div className="field"><label>Plan Name</label><input value={planName} onChange={(e) => setPlanName(e.target.value)} /></div>
-              <div className="field"><label>Total Width (ft)</label><input type="number" value={totalWidth} onChange={(e) => setTotalWidth(Number(e.target.value) || 0)} /></div>
-              <div className="field"><label>Total Height (ft)</label><input type="number" value={totalHeight} onChange={(e) => setTotalHeight(Number(e.target.value) || 0)} /></div>
-              <div className="field">
-                <label>Product Category</label>
-                <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
-                  {PRODUCT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="field field--color-inline">
-                <label><PaintBucket size={12} style={{ marginRight: 6, verticalAlign: "middle" }} />Wall Color</label>
-                <input type="color" value={globalWallColor} onChange={(e) => setGlobalWallColor(e.target.value)} className="wall-color-input" />
-              </div>
-            </div>
-
-            <button type="button" className="ghost-btn mobile-advanced-toggle" onClick={() => setMobileSetupAdvancedOpen((prev) => !prev)}>
-              <Sliders size={16} />{mobileSetupAdvancedOpen ? "Hide Advanced" : "Show Advanced"}
-            </button>
-
-            {mobileSetupAdvancedOpen && (
-              <div className="form-grid one-col mobile-advanced-grid">
-                <div className="field"><label>Wall Thickness (ft)</label><input type="number" step="0.1" value={wallThickness} onChange={(e) => setWallThickness(Number(e.target.value) || 0)} /></div>
-                <div className="field"><label>Scale (px / ft)</label><input type="number" value={scale} onChange={(e) => setScale(Number(e.target.value) || 1)} /></div>
-                <div className="field"><label>3D Wall Height (ft)</label><input type="number" value={roomHeight} onChange={(e) => setRoomHeight(Number(e.target.value) || 10)} /></div>
-              </div>
-            )}
-          </div>
-
-          <div className="mobile-setup-footer">
-            <button type="button" className="primary-btn mobile-primary-cta" onClick={() => { setMobileFlowScreen("editor"); setMobileEditorTab("plan"); }}>
-              Continue
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}${isMobileViewport ? " mobile-app-shell" : ""}`}>
+    <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
       <input ref={fileUploadInputRef} type="file" accept="image/png,image/jpeg,image/jpg" style={{ display: "none" }} onChange={handleFloorPlanImageSelected} disabled={!FEATURE_UPLOAD_FLOOR_PLAN_ENABLED || !FEATURE_AI_ENABLED} />
 
       {/* Project Modal */}
@@ -4742,20 +4586,6 @@ const handleGenerateLayout = async (prompt) => {
       )}
 
       {/* Workspace */}
-      {isMobileViewport && (
-        <div className="mobile-editor-header">
-          <div className="mobile-editor-header-copy">
-            <span className="pill">Blueprint Studio Pro</span>
-            <strong>{planName || "My Floor Plan"}</strong>
-          </div>
-          <button type="button" className="theme-toggle mobile-theme-toggle" onClick={() => setTheme((p) => p === "dark" ? "light" : "dark")} aria-label="Toggle theme">
-            <span className={`theme-toggle-option ${theme === "light" ? "is-active" : ""}`}><Sun size={12} />Light</span>
-            <span className={`theme-toggle-option ${theme === "dark" ? "is-active" : ""}`}><Moon size={12} />Dark</span>
-          </button>
-        </div>
-      )}
-
-      <div className="mobile-editor-shell" data-mobile-tab={isMobileViewport ? mobileEditorTab : "desktop"}>
       <div className="workspace-grid">
         <main className="workspace-main">
           {/* Top Control */}
@@ -5515,30 +5345,6 @@ const handleGenerateLayout = async (prompt) => {
             })}
           </div>
         </aside>
-      </div>
-
-      {isMobileViewport && activeView === "2d" && mobileEditorTab === "plan" && (
-        <button type="button" className="primary-btn mobile-export-fab" onClick={exportSVG}>
-          Export SVG
-        </button>
-      )}
-
-      {isMobileViewport && (
-        <nav className="mobile-bottom-nav">
-          <button type="button" className={`mobile-bottom-nav-btn${mobileEditorTab === "plan" ? " is-active" : ""}`} onClick={() => setMobileEditorTab("plan")}>
-            <Home size={16} /><span>Plan</span>
-          </button>
-          <button type="button" className={`mobile-bottom-nav-btn${mobileEditorTab === "rooms" ? " is-active" : ""}`} onClick={() => setMobileEditorTab("rooms")}>
-            <Plus size={16} /><span>Rooms</span>
-          </button>
-          <button type="button" className="mobile-bottom-nav-btn" onClick={() => setActivePage("furniture-manager")}>
-            <Sofa size={16} /><span>Furniture</span>
-          </button>
-          <button type="button" className={`mobile-bottom-nav-btn${mobileEditorTab === "project" ? " is-active" : ""}`} onClick={() => setMobileEditorTab("project")}>
-            <Save size={16} /><span>Project</span>
-          </button>
-        </nav>
-      )}
       </div>
     </div>
   );
