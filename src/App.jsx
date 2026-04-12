@@ -704,7 +704,7 @@ function WallMesh({ segment, wallThickness, height, rooms, globalWallColor }) {
   );
 }
 
-function RoomFloor3D({ room }) {
+function RoomFloor3D({ room, isLowQuality = false }) {
   const textureMeta = getFloorTextureById(room.floorTextureId);
   const resolvedTexturePath = useMemo(() => resolveAssetPath(textureMeta.image), [textureMeta.image]);
   const [textureLoadFailed, setTextureLoadFailed] = useState(false);
@@ -715,7 +715,7 @@ function RoomFloor3D({ room }) {
     setTextureLoadFailed(false);
     setBaseTexture(null);
 
-    if (!resolvedTexturePath) {
+    if (isLowQuality || !resolvedTexturePath) {
       setTextureLoadFailed(true);
       return undefined;
     }
@@ -737,10 +737,10 @@ function RoomFloor3D({ room }) {
     return () => {
       isCancelled = true;
     };
-  }, [resolvedTexturePath]);
+  }, [resolvedTexturePath, isLowQuality]);
 
   const preparedTexture = useMemo(() => {
-    if (!baseTexture || textureLoadFailed) return null;
+    if (isLowQuality || !baseTexture || textureLoadFailed) return null;
     const next = baseTexture.clone();
     next.wrapS = THREE.RepeatWrapping;
     next.wrapT = THREE.RepeatWrapping;
@@ -752,7 +752,7 @@ function RoomFloor3D({ room }) {
     next.anisotropy = 8;
     next.needsUpdate = true;
     return next;
-  }, [baseTexture, textureLoadFailed, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight, room.floorTileScale]);
+  }, [baseTexture, textureLoadFailed, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight, room.floorTileScale, isLowQuality]);
 
   useEffect(() => () => {
     preparedTexture?.dispose?.();
@@ -762,14 +762,14 @@ function RoomFloor3D({ room }) {
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
       position={[Number(room.x) + Number(room.width) / 2, 0.03, Number(room.y) + Number(room.height) / 2]}
-      receiveShadow
+      receiveShadow={!isLowQuality}
     >
       <planeGeometry args={[Math.max(Number(room.width) - 0.12, 0.2), Math.max(Number(room.height) - 0.12, 0.2)]} />
       <meshStandardMaterial
         map={preparedTexture || null}
         color={preparedTexture ? "#ffffff" : (room.color || "#ffffff")}
-        roughness={0.82}
-        metalness={0.04}
+        roughness={isLowQuality ? 0.96 : 0.82}
+        metalness={isLowQuality ? 0.01 : 0.04}
       />
     </mesh>
   );
@@ -981,7 +981,7 @@ function Staircase3D({ worldX, worldZ, width, depth, height, color, rotRad }) {
 
 // ─── 3D Furniture (group-based positioning for rotation support) ──────────────
 
-function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
+function Furniture3D({ room, furnitureItem, isSelected = false, onSelect, isLowQuality = false }) {
   const roomX = Number(room.x) || 0;
   const roomY = Number(room.y) || 0;
   const width  = Number(furnitureItem.width)  || 1;
@@ -1015,6 +1015,18 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
         <meshBasicMaterial color={outlineColor} transparent opacity={0.95} />
       </mesh>
     ) : null;
+
+  if (isLowQuality) {
+    return (
+      <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleSelect}>
+        <mesh receiveShadow position={[0, height / 2, 0]}>
+          <boxGeometry args={[width, height, depth]} />
+          <meshStandardMaterial color={color} roughness={0.9} metalness={0.02} />
+        </mesh>
+        <FurnitureLabel x={0} y={labelY} z={0} text={furnitureItem.type} />
+      </group>
+    );
+  }
 
   // ── Staircase ──
   if (type.includes("staircase")) {
@@ -1330,6 +1342,7 @@ function Floor3DScene({
   sunSettings,
   globalWallColor,
   orbitControlsRef,
+  renderQuality = "high",
 }) {
   const centerX = totalWidth / 2;
   const centerZ = totalHeight / 2;
@@ -1338,36 +1351,45 @@ function Floor3DScene({
   const safeSun = { ...DEFAULT_SUN_SETTINGS, ...(sunSettings || {}) };
   const sunPos = getSunPosition(safeSun.azimuth, safeSun.elevation, Math.max(totalWidth, totalHeight) * 1.8, centerX, centerZ);
   const shadowCamExtent = Math.max(totalWidth, totalHeight) * 2;
+  const isLowQuality = renderQuality === "low";
 
   return (
     <>
-      <ambientLight intensity={safeSun.ambientIntensity} />
-      <hemisphereLight intensity={0.42} groundColor="#cad4df" color="#f8fbff" />
-      <directionalLight
-        position={sunPos}
-        intensity={safeSun.intensity}
-        color={safeSun.color}
-        castShadow
-        shadow-mapSize-width={4096}
-        shadow-mapSize-height={4096}
-        shadow-bias={-0.0003}
-        shadow-camera-near={0.5}
-        shadow-camera-far={400}
-        shadow-camera-left={-shadowCamExtent}
-        shadow-camera-right={shadowCamExtent}
-        shadow-camera-top={shadowCamExtent}
-        shadow-camera-bottom={-shadowCamExtent}
-      />
-      <Grid
-        args={[Math.max(totalWidth + 20, 80), Math.max(totalHeight + 20, 80)]}
-        cellSize={1}
-        cellThickness={0.5}
-        sectionSize={5}
-        sectionThickness={1}
-        fadeDistance={120}
-        fadeStrength={1}
-        position={[centerX, 0, centerZ]}
-      />
+      <ambientLight intensity={isLowQuality ? 0.8 : safeSun.ambientIntensity} />
+      {isLowQuality ? (
+        <hemisphereLight intensity={0.24} groundColor="#d5dde7" color="#f7fafc" />
+      ) : (
+        <>
+          <hemisphereLight intensity={0.42} groundColor="#cad4df" color="#f8fbff" />
+          <directionalLight
+            position={sunPos}
+            intensity={safeSun.intensity}
+            color={safeSun.color}
+            castShadow
+            shadow-mapSize-width={4096}
+            shadow-mapSize-height={4096}
+            shadow-bias={-0.0003}
+            shadow-camera-near={0.5}
+            shadow-camera-far={400}
+            shadow-camera-left={-shadowCamExtent}
+            shadow-camera-right={shadowCamExtent}
+            shadow-camera-top={shadowCamExtent}
+            shadow-camera-bottom={-shadowCamExtent}
+          />
+        </>
+      )}
+      {!isLowQuality && (
+        <Grid
+          args={[Math.max(totalWidth + 20, 80), Math.max(totalHeight + 20, 80)]}
+          cellSize={1}
+          cellThickness={0.5}
+          sectionSize={5}
+          sectionThickness={1}
+          fadeDistance={120}
+          fadeStrength={1}
+          position={[centerX, 0, centerZ]}
+        />
+      )}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[centerX, -0.02, centerZ]} receiveShadow>
         <planeGeometry args={[totalWidth, totalHeight]} />
         <meshStandardMaterial color="#e7ebf0" roughness={0.93} metalness={0.04} />
@@ -1380,7 +1402,7 @@ function Floor3DScene({
         const d = Math.max(Number(room.height) || 0, 0.2);
         return (
           <group key={room.id}>
-            <RoomFloor3D key={`${room.id}-${room.floorTextureId || ""}-${room.floorTileScale || 1}`} room={room} />
+            <RoomFloor3D key={`${room.id}-${room.floorTextureId || ""}-${room.floorTileScale || 1}-${renderQuality}`} room={room} isLowQuality={isLowQuality} />
             <DreiText
               position={[x + w / 2, 0.12, z + d / 2]}
               fontSize={0.52}
@@ -1409,6 +1431,7 @@ function Floor3DScene({
                 furnitureItem={item}
                 isSelected={selectedFurnitureKey === `${room.id}-${item.id}`}
                 onSelect={(sel) => onFurnitureSelect?.(room, sel)}
+                isLowQuality={isLowQuality}
               />
             ))}
           </group>
@@ -1532,6 +1555,7 @@ function ReadOnly3DViewerShell({
             sunSettings={sunSettings}
             globalWallColor={globalWallColor}
             orbitControlsRef={orbitControlsRef}
+            renderQuality="high"
           />
         </Canvas>
 
@@ -3294,6 +3318,7 @@ export default function App() {
     return window.sessionStorage.getItem(ASSISTANT_COLLAPSED_SESSION_KEY) === "true";
   });
   const [sunControlsCollapsed, setSunControlsCollapsed] = useState(true);
+  const [renderQuality, setRenderQuality] = useState("high");
   const [sunSettings, setSunSettings] = useState(() => {
     if (typeof window === "undefined") return DEFAULT_SUN_SETTINGS;
     try {
@@ -4666,13 +4691,27 @@ const handleGenerateLayout = async (prompt) => {
                         {placedRooms.map((room) => {
                           const x = room.x * numericScale, y = room.y * numericScale;
                           const w = room.width * numericScale, h = room.height * numericScale;
-                          const nfs = Math.max(6.2, Math.min(8.6, Math.min(w, h) * 0.095));
-                          const dfs = Math.max(4.8, Math.min(6.4, Math.min(w, h) * 0.072));
-                          const labelCenterY = y + h / 2;
+                          const nfs = Math.max(6.1, Math.min(8.1, Math.min(w, h) * 0.082));
+                          const dfs = Math.max(4.7, Math.min(6.1, Math.min(w, h) * 0.064));
+                          const roomSizeText = `${room.width} ft × ${room.height} ft`;
+                          const estimatedLabelWidth = Math.max(54, room.name.length * nfs * 0.62, roomSizeText.length * dfs * 0.58) + 16;
+                          const labelBoxHeight = 22;
+                          const labelCenterX = x + w / 2;
+                          const labelTopY = y + h + 8;
                           return (
                             <g key={`labels-${room.id}`}>
-                              <text x={x + w / 2} y={labelCenterY - 7} textAnchor="middle" style={{ fontSize: nfs, fontWeight: 700, fill: "#172033", opacity: 0.82, pointerEvents: "none" }}>{room.name}</text>
-                              <text x={x + w / 2} y={labelCenterY + 5} textAnchor="middle" style={{ fontSize: dfs, fill: "#56637a", opacity: 0.9, pointerEvents: "none" }}>{room.width} ft × {room.height} ft</text>
+                              <rect
+                                x={labelCenterX - estimatedLabelWidth / 2}
+                                y={labelTopY}
+                                width={estimatedLabelWidth}
+                                height={labelBoxHeight}
+                                rx={7}
+                                fill="rgba(255,255,255,0.92)"
+                                stroke="rgba(143,160,184,0.42)"
+                                strokeWidth="0.7"
+                              />
+                              <text x={labelCenterX} y={labelTopY + 8.4} textAnchor="middle" style={{ fontSize: nfs, fontWeight: 700, fill: "#172033", opacity: 0.88, pointerEvents: "none" }}>{room.name}</text>
+                              <text x={labelCenterX} y={labelTopY + 16.6} textAnchor="middle" style={{ fontSize: dfs, fill: "#56637a", opacity: 0.92, pointerEvents: "none" }}>{roomSizeText}</text>
                             </g>
                           );
                         })}
@@ -4700,6 +4739,10 @@ const handleGenerateLayout = async (prompt) => {
                       )}
                       <button className={`view-toolbar-btn${activeView === "2d" ? " active" : ""}`} onClick={() => setActiveView("2d")}>2D</button>
                       <button className={`view-toolbar-btn${activeView === "3d" ? " active" : ""}`} onClick={() => setActiveView("3d")}>3D</button>
+                      <div className="quality-toggle-group">
+                        <button className={`view-toolbar-btn${renderQuality === "low" ? " active" : ""}`} onClick={() => setRenderQuality("low")}>Low Quality</button>
+                        <button className={`view-toolbar-btn${renderQuality === "high" ? " active" : ""}`} onClick={() => setRenderQuality("high")}>High Quality</button>
+                      </div>
                       <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>Export SVG</button>
                       {FEATURE_AI_RENDER_ENABLED && FEATURE_AI_ENABLED && (
                         <button
@@ -4715,7 +4758,7 @@ const handleGenerateLayout = async (prompt) => {
                   </div>
 
                   <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
-                    {sunControlsCollapsed ? (
+                    {renderQuality === "high" && (sunControlsCollapsed ? (
                       <button
                         type="button"
                         title="Sun / Light Controls"
@@ -4793,13 +4836,17 @@ const handleGenerateLayout = async (prompt) => {
                         </div>
                       </div>
                     )}
-                    <Canvas shadows onPointerMissed={clearSelectedFurniture} gl={{ preserveDrawingBuffer: true }}
+                    <Canvas
+                      shadows={renderQuality === "high"}
+                      dpr={renderQuality === "high" ? [1, 2] : 1}
+                      onPointerMissed={clearSelectedFurniture}
+                      gl={{ preserveDrawingBuffer: true, antialias: renderQuality === "high", powerPreference: renderQuality === "high" ? "high-performance" : "default" }}
                       onCreated={({ gl, scene, camera }) => { threeSceneStateRef.current = { gl, scene, camera }; }}
                       camera={{ position: [Math.max(Number(totalWidth) * 0.85, 14), Math.max(Number(roomHeight) * 2.2, 16), Math.max(Number(totalHeight) * 1.0, 14)], fov: 42 }}>
                       <Floor3DScene rooms={placedRooms} totalWidth={Number(totalWidth)} totalHeight={Number(totalHeight)}
                         wallThickness={Number(wallThickness)} roomHeight={Number(roomHeight)} wallSegments={wallSegments}
                         selectedFurnitureKey={selectedFurnitureKey} onFurnitureSelect={handleFurnitureSelection}
-                        sunSettings={sunSettings} globalWallColor={globalWallColor} orbitControlsRef={orbitControlsRef} />
+                        sunSettings={sunSettings} globalWallColor={globalWallColor} orbitControlsRef={orbitControlsRef} renderQuality={renderQuality} />
                     </Canvas>
                     {FEATURE_AI_RENDER_ENABLED && isRenderGenerating && (
                       <div className="ai-render-overlay">
