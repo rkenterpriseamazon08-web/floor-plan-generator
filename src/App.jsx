@@ -1891,8 +1891,8 @@ function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, gener
           <div className="landing-immersive-badge-wrap">
   <span className="pill landing-immersive-pill">
     <img
-      src={resolveAssetPath("PWA-512.PNG")}
-      alt="Flora logo"
+      src={resolveAssetPath("pwa-512.PNG")}
+      alt="Floora logo"
       className="landing-pill-logo"
     />
     <span className="landing-pill-text">Premium Space Planning Suite</span>
@@ -1900,8 +1900,8 @@ function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, gener
 </div>
 
 <h1 className="landing-immersive-title">
-  <span className="landing-immersive-title-main">Welcome to Flora</span>
-  <span className="landing-immersive-title-sub">your floor planner assistant</span>
+  <span className="landing-immersive-title-main">Welcome to Floora</span>
+  <span className="landing-immersive-title-sub">Your floor planner assistant</span>
 </h1>
 
           <p className="landing-immersive-subtitle">
