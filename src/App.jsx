@@ -4835,7 +4835,7 @@ const handleGenerateLayout = async (prompt) => {
                           </button>
                         </div>
                       </div>
-                    )}
+                    ))}
                     <Canvas
                       shadows={renderQuality === "high"}
                       dpr={renderQuality === "high" ? [1, 2] : 1}
