@@ -35,8 +35,8 @@ const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbwKRhPvnq8N5x2mg3jEDpnsz68sMAWKltmNjFg4vsYbptkBb5pTDBanVfm_9rI_2-UyGw/exec";
 const MAX_SYNC_ROOMS = 8;
 const DEFAULT_SCALE = 12;
-const DEFAULT_ROOM_HEIGHT = 10;
-const WALL_THICKNESS_FT = 0.5;
+const DEFAULT_ROOM_HEIGHT = 9;
+const WALL_THICKNESS_FT = 0.4;
 
 const ROOM_COLORS = [
   "#eef4ff",
@@ -580,9 +580,9 @@ function fitRoomsInGrid(rooms, totalWidth, totalHeight) {
 function getDefaultRooms(totalWidth, totalHeight) {
   return fitRoomsInGrid(
     [
-      { ...createRoom(0), name: "Living Room", width: 16, height: 12 },
-      { ...createRoom(1), name: "Bedroom",     width: 12, height: 12 },
-      { ...createRoom(2), name: "Kitchen",     width: 10, height: 8  },
+      { ...createRoom(0), name: "Living Room", width: 16, height: 10 },
+      { ...createRoom(1), name: "Bedroom",     width: 12, height: 10 },
+      { ...createRoom(2), name: "Kitchen",     width: 12, height: 10 },
     ],
     totalWidth, totalHeight
   );
@@ -1811,7 +1811,7 @@ function VariantSelectionPage({ variants, theme, onSelect, onBack }) {
 
 // ─── Landing Page ─────────────────────────────────────────────────────────────
 
-function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, generationStep }) {
+function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, generationStep, isEntering }) {
   const premiumHighlights = [
     "Precision 2D and immersive 3D planning",
     "Room, furniture, and export workflows ready",
@@ -1826,7 +1826,7 @@ function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, gener
         <div className="landing-premium-grid">
           <section className="landing-premium-card landing-premium-copy">
             <span className="pill landing-premium-pill">Premium Space Planning Suite</span>
-            <h1>Welcome to Blueprint Studio Pro</h1>
+            <h1>Welcome to the future of floor planning</h1>
             <p>
               Design, refine, and present floor plans in a polished workspace built for modern planning.
               Your existing project logic stays exactly the same — now with a cleaner premium experience.
@@ -1842,10 +1842,11 @@ function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, gener
             </div>
 
             <div className="landing-premium-actions">
-              <button type="button" className="primary-btn landing-continue-btn" onClick={onContinueWithout}>
-                <Home size={18} />
-                Continue to Designer
+              <button type="button" className="primary-btn landing-continue-btn" onClick={onContinueWithout} disabled={isEntering}>
+                {isEntering ? <Loader2 size={18} className="landing-btn-spinner" /> : <Home size={18} />}
+                {isEntering ? "Opening your workspace..." : "Let’s Explore"}
               </button>
+              {isEntering && <div className="landing-entering-text">Preparing your premium workspace…</div>}
             </div>
           </section>
 
@@ -1858,10 +1859,10 @@ function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, gener
               </div>
               <div className="landing-preview-header">
                 <div>
-                  <strong>Blueprint Studio Pro</strong>
-                  <p>Premium floor planning workspace</p>
+                  <strong>Future Floor Planning</strong>
+                  <p>Premium animated planning workspace</p>
                 </div>
-                <div className="landing-preview-badge">Ready</div>
+                <div className="landing-preview-badge">Live</div>
               </div>
               <div className="landing-preview-layout">
                 <div className="landing-preview-sidebar">
@@ -1914,7 +1915,7 @@ function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCu
   }, [rooms, presets, activeCategory]);
 
   return (
-    <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
+    <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}${editorIsEntering ? " app-shell--entering" : ""}`}>
       <section className="top-control-card">
         <div className="top-control-grid">
           <div className="input-card top-input-card">
@@ -2170,13 +2171,13 @@ function getDefaultProjectState() {
   return {
     planName: "My Floor Plan",
     totalWidth: 40,
-    totalHeight: 30,
+    totalHeight: 10,
     wallThickness: WALL_THICKNESS_FT,
     scale: DEFAULT_SCALE,
     roomHeight: DEFAULT_ROOM_HEIGHT,
     activeView: "2d",
-    selectedCategory: "office",
-    rooms: getDefaultRooms(40, 30),
+    selectedCategory: "house",
+    rooms: getDefaultRooms(40, 10),
     furnitureSelections: {},
     customPresetDimensions: {},
     assistantCollapsed: false,
@@ -3248,19 +3249,20 @@ export default function App() {
   // ── App mode ──
   const [appMode, setAppMode] = useState("landing");
   const [editorIsEntering, setEditorIsEntering] = useState(false);
+  const [isWelcomeEntering, setIsWelcomeEntering] = useState(false);
   const [generationStep, setGenerationStep] = useState("");
   const [layoutVariants, setLayoutVariants] = useState([]);
 
   // ── Core plan state ──
   const [planName,          setPlanName]          = useState("My Floor Plan");
   const [totalWidth,        setTotalWidth]        = useState(40);
-  const [totalHeight,       setTotalHeight]       = useState(30);
+  const [totalHeight,       setTotalHeight]       = useState(10);
   const [wallThickness,     setWallThickness]     = useState(WALL_THICKNESS_FT);
   const [scale,             setScale]             = useState(DEFAULT_SCALE);
   const [roomHeight,        setRoomHeight]        = useState(DEFAULT_ROOM_HEIGHT);
   const [activeView,        setActiveView]        = useState("2d");
-  const [selectedCategory,  setSelectedCategory]  = useState("office");
-  const [rooms,             setRooms]             = useState(() => getDefaultRooms(40, 30));
+  const [selectedCategory,  setSelectedCategory]  = useState("house");
+  const [rooms,             setRooms]             = useState(() => getDefaultRooms(40, 10));
   const [furnitureSelections, setFurnitureSelections] = useState({});
   const [globalWallColor,   setGlobalWallColor]   = useState(DEFAULT_WALL_COLOR);
 
@@ -3453,7 +3455,7 @@ export default function App() {
     setExpandedRoomIds((prev) => {
       const next = {};
       rooms.forEach((room) => {
-        next[room.id] = Object.prototype.hasOwnProperty.call(prev, room.id) ? prev[room.id] : true;
+        next[room.id] = Object.prototype.hasOwnProperty.call(prev, room.id) ? prev[room.id] : false;
       });
       return next;
     });
@@ -3625,7 +3627,7 @@ export default function App() {
     setSelectedCategory(PRODUCT_CATEGORIES.includes(nextState.selectedCategory) ? nextState.selectedCategory : defaults.selectedCategory);
     const nextRooms = Array.isArray(nextState.rooms) && nextState.rooms.length ? nextState.rooms : defaults.rooms;
     setRooms(nextRooms);
-    setExpandedRoomIds(Object.fromEntries(nextRooms.map((room) => [room.id, true])));
+    setExpandedRoomIds(Object.fromEntries(nextRooms.map((room) => [room.id, false])));
     setFurnitureSelections(nextState.furnitureSelections && typeof nextState.furnitureSelections === "object" ? nextState.furnitureSelections : {});
     setCustomPresetDimensions(
       nextState.customPresetDimensions && typeof nextState.customPresetDimensions === "object"
@@ -3652,6 +3654,19 @@ export default function App() {
   };
 
   const appendChatMessage = (role, content) => setChatMessages((prev) => [...prev, createChatMessage(role, content)]);
+
+  const handleEnterEditorFromWelcome = useCallback(() => {
+    if (isWelcomeEntering) return;
+    setIsWelcomeEntering(true);
+    setGenerationStep("Preparing your premium workspace...");
+    window.setTimeout(() => {
+      setEditorIsEntering(true);
+      setAppMode("editor");
+      setIsWelcomeEntering(false);
+      setGenerationStep("");
+      window.setTimeout(() => setEditorIsEntering(false), 720);
+    }, 650);
+  }, [isWelcomeEntering]);
 
   const applyGeneratedPlan = (nextPlan, sourceLabel = "assistant") => {
     if (!nextPlan) return;
@@ -4341,8 +4356,9 @@ const handleGenerateLayout = async (prompt) => {
         theme={theme}
         isGenerating={appMode === "generating"}
         generationStep={generationStep}
+        isEntering={isWelcomeEntering}
         onGenerate={handleGenerateLayout}
-        onContinueWithout={() => setAppMode("editor")}
+        onContinueWithout={handleEnterEditorFromWelcome}
       />
     );
   }
