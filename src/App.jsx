@@ -4439,89 +4439,89 @@ const handleGenerateLayout = async (prompt) => {
         </div>
       )}
 
-      {/* Top Control */}
-      <section className="top-control-card">
-        <div className="top-control-grid top-control-grid--premium">
-          <div className="input-card top-input-card top-input-card--premium">
-            <div className="top-input-meta-row top-input-meta-row--premium">
-              <div className="top-input-brand">
-                <span className="pill">Blueprint Studio Pro</span>
-                <div className="top-input-brand-copy">
-                  <div className="top-input-title-row">
-                    <h1><Home size={20} />Premium Floor Plan Designer</h1>
-                    <div className="top-input-title-controls">
-                      <button type="button" className="theme-toggle" onClick={() => setTheme((p) => p === "dark" ? "light" : "dark")} aria-label="Toggle theme">
-                        <span className={`theme-toggle-option ${theme === "light" ? "is-active" : ""}`}><Sun size={14} />Light</span>
-                        <span className={`theme-toggle-option ${theme === "dark"  ? "is-active" : ""}`}><Moon size={14} />Dark</span>
-                      </button>
-                    </div>
-                  </div>
-                  <p>Refined controls above, larger planning workspace below, and every existing feature preserved.</p>
-                </div>
-              </div>
-              {projectStatusMessage && (
-                <div className="project-status-banner project-status-banner--inline">{projectStatusMessage}</div>
-              )}
-            </div>
-
-            <div className="top-toolbar-row">
-              <div className="project-actions-card project-actions-card--toolbar input-card">
-                <button className="ghost-btn project-stack-btn" onClick={handleNewProject}><FilePlus2 size={16} />New Project</button>
-                <button className="secondary-btn project-stack-btn" onClick={handleOpenProjectClick}><FolderOpen size={16} />Open</button>
-                <button className="primary-btn project-stack-btn" onClick={handleSaveProject}><Save size={16} />Save</button>
-                <button className="secondary-btn project-stack-btn" onClick={() => setActivePage("furniture-manager")}><Sliders size={16} />Furniture Manager</button>
-                <button
-                  className="secondary-btn project-stack-btn"
-                  onClick={handleGeneratePlanDocument}
-                  disabled={isPlanGenerating}
-                  title={!currentProjectId ? "Save the project first" : "Generate plan PDF"}
-                >
-                  <ExternalLink size={16} />
-                  {isPlanGenerating ? "Generating Plan..." : "Generate Plan"}
-                </button>
-                {FEATURE_AI_LANDING_ENABLED && FEATURE_AI_ENABLED && (
-                  <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")}>
-                    <Sparkles size={16} />
-                    AI Landing
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="plan-config-shell">
-              <div className="plan-config-group plan-config-group--primary">
-                <div className="field field--compact-plan-name field--span-2"><label>Plan Name</label><input value={planName} onChange={(e) => setPlanName(e.target.value)} /></div>
-                <div className="field field--compact"><label>Total Width (ft)</label><input type="number" value={totalWidth} onChange={(e) => setTotalWidth(Number(e.target.value) || 0)} /></div>
-                <div className="field field--compact"><label>Total Height (ft)</label><input type="number" value={totalHeight} onChange={(e) => setTotalHeight(Number(e.target.value) || 0)} /></div>
-                <div className="field field--compact"><label>Wall Thickness (ft)</label><input type="number" step="0.1" value={wallThickness} onChange={(e) => setWallThickness(Number(e.target.value) || 0)} /></div>
-                <div className="field field--compact"><label>Scale (px / ft)</label><input type="number" value={scale} onChange={(e) => setScale(Number(e.target.value) || 1)} /></div>
-              </div>
-
-              <div className="plan-config-group plan-config-group--secondary">
-                <div className="field field--compact"><label>3D Wall Height (ft)</label><input type="number" value={roomHeight} onChange={(e) => setRoomHeight(Number(e.target.value) || 10)} /></div>
-                <div className="field field--compact">
-                  <label>Product Category</label>
-                  <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
-                    {PRODUCT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="field field--compact field--color-inline">
-                  <label><PaintBucket size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Wall Color</label>
-                  <input
-                    type="color"
-                    value={globalWallColor}
-                    onChange={(e) => setGlobalWallColor(e.target.value)}
-                    className="wall-color-input"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
       {/* Workspace */}
       <div className="workspace-grid">
         <main className="workspace-main">
+          {/* Top Control */}
+          <section className="top-control-card">
+            <div className="top-control-grid top-control-grid--premium">
+              <div className="input-card top-input-card top-input-card--premium">
+                <div className="top-toolbar-row top-toolbar-row--header">
+                  <div className="project-actions-card project-actions-card--toolbar input-card">
+                    <button className="ghost-btn project-stack-btn" onClick={handleNewProject}><FilePlus2 size={14} />New Project</button>
+                    <button className="secondary-btn project-stack-btn" onClick={handleOpenProjectClick}><FolderOpen size={14} />Open</button>
+                    <button className="primary-btn project-stack-btn" onClick={handleSaveProject}><Save size={14} />Save</button>
+                    <button className="secondary-btn project-stack-btn" onClick={() => setActivePage("furniture-manager")}><Sliders size={14} />Furniture Manager</button>
+                    <button
+                      className="secondary-btn project-stack-btn"
+                      onClick={handleGeneratePlanDocument}
+                      disabled={isPlanGenerating}
+                      title={!currentProjectId ? "Save the project first" : "Generate plan PDF"}
+                    >
+                      <ExternalLink size={14} />
+                      {isPlanGenerating ? "Generating Plan..." : "Generate Plan"}
+                    </button>
+                    {FEATURE_AI_LANDING_ENABLED && FEATURE_AI_ENABLED && (
+                      <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")}>
+                        <Sparkles size={14} />
+                        AI Landing
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="top-input-meta-row top-input-meta-row--premium">
+                  <div className="top-input-brand">
+                    <span className="pill">Blueprint Studio Pro</span>
+                    <div className="top-input-brand-copy">
+                      <div className="top-input-title-row">
+                        <h1><Home size={16} />Premium Floor Plan Designer</h1>
+                        <div className="top-input-title-controls">
+                          <button type="button" className="theme-toggle" onClick={() => setTheme((p) => p === "dark" ? "light" : "dark")} aria-label="Toggle theme">
+                            <span className={`theme-toggle-option ${theme === "light" ? "is-active" : ""}`}><Sun size={12} />Light</span>
+                            <span className={`theme-toggle-option ${theme === "dark"  ? "is-active" : ""}`}><Moon size={12} />Dark</span>
+                          </button>
+                        </div>
+                      </div>
+                      <p>Refined controls above, larger planning workspace below, and every existing feature preserved.</p>
+                    </div>
+                  </div>
+                  {projectStatusMessage && (
+                    <div className="project-status-banner project-status-banner--inline">{projectStatusMessage}</div>
+                  )}
+                </div>
+
+                <div className="plan-config-shell">
+                  <div className="plan-config-group plan-config-group--primary">
+                    <div className="field field--compact-plan-name field--span-2"><label>Plan Name</label><input value={planName} onChange={(e) => setPlanName(e.target.value)} /></div>
+                    <div className="field field--compact"><label>Total Width (ft)</label><input type="number" value={totalWidth} onChange={(e) => setTotalWidth(Number(e.target.value) || 0)} /></div>
+                    <div className="field field--compact"><label>Total Height (ft)</label><input type="number" value={totalHeight} onChange={(e) => setTotalHeight(Number(e.target.value) || 0)} /></div>
+                    <div className="field field--compact"><label>Wall Thickness (ft)</label><input type="number" step="0.1" value={wallThickness} onChange={(e) => setWallThickness(Number(e.target.value) || 0)} /></div>
+                    <div className="field field--compact"><label>Scale (px / ft)</label><input type="number" value={scale} onChange={(e) => setScale(Number(e.target.value) || 1)} /></div>
+                  </div>
+
+                  <div className="plan-config-group plan-config-group--secondary">
+                    <div className="field field--compact"><label>3D Wall Height (ft)</label><input type="number" value={roomHeight} onChange={(e) => setRoomHeight(Number(e.target.value) || 10)} /></div>
+                    <div className="field field--compact">
+                      <label>Product Category</label>
+                      <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+                        {PRODUCT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div className="field field--compact field--color-inline">
+                      <label><PaintBucket size={12} style={{ marginRight: 6, verticalAlign: "middle" }} />Wall Color</label>
+                      <input
+                        type="color"
+                        value={globalWallColor}
+                        onChange={(e) => setGlobalWallColor(e.target.value)}
+                        className="wall-color-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
           {/* Stats */}
           <section className="preview-stats-row">
             <div className="summary-box stat-box"><span>Plan Size</span><strong>{totalWidth} × {totalHeight}</strong></div>
