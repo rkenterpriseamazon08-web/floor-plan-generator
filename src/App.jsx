@@ -1890,11 +1890,6 @@ function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, gener
         <section className="landing-immersive-card">
           <div className="landing-immersive-badge-wrap">
   <span className="pill landing-immersive-pill">
-    <img
-      src={resolveAssetPath("pwa-512.PNG")}
-      alt="Floora logo"
-      className="landing-pill-logo"
-    />
     <span className="landing-pill-text">Premium Space Planning Suite</span>
   </span>
 </div>
