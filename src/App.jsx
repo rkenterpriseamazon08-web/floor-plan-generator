@@ -1806,7 +1806,7 @@ function MiniFloorPlan({ variant, size = 160 }) {
 
 // ─── Variant Selection Page ───────────────────────────────────────────────────
 
-function VariantSelectionPage({ variants, theme, onSelect, onBack }) {
+function VariantSelectionPage({ variants, theme, onSelect, onBack, editorIsEntering = false }) {
   return (
     <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}${editorIsEntering ? " app-shell--entering" : ""}`}>
       <section className="top-control-card">
@@ -1947,7 +1947,7 @@ function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, gener
 
 // ─── Furniture Manager Page ───────────────────────────────────────────────────
 
-function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCustomPreset, onUpdatePlacedFurniture, onApplyPresetToPlaced, onBack }) {
+function FurnitureManagerPage({ rooms, theme, customPresetDimensions, onUpdateCustomPreset, onUpdatePlacedFurniture, onApplyPresetToPlaced, onBack, editorIsEntering = false }) {
   const [activeCategory, setActiveCategory] = useState(PRODUCT_CATEGORIES[0]);
 
   const presets = FURNITURE_PRESETS[activeCategory] || [];
@@ -4500,6 +4500,7 @@ const handleGenerateLayout = async (prompt) => {
         variants={layoutVariants}
         theme={theme}
         onBack={() => setAppMode("editor")}
+        editorIsEntering={editorIsEntering}
         onSelect={(variant) => {
           applyGeneratedPlan(variant, "AI");
           setAppMode("editor");
@@ -4520,6 +4521,7 @@ const handleGenerateLayout = async (prompt) => {
         onUpdatePlacedFurniture={updateFurniture}
         onApplyPresetToPlaced={applyPresetDimensionsToAllPlaced}
         onBack={() => setActivePage("planner")}
+        editorIsEntering={editorIsEntering}
       />
     );
   }
