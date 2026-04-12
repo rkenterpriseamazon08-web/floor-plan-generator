@@ -992,3 +992,113 @@ button { appearance:none; -webkit-appearance:none; }
   width: 100% !important;
   height: 100% !important;
 }
+
+/* ===== Premium landing redesign ===== */
+.app-shell--entering {
+  animation: editorShellEnter 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes editorShellEnter {
+  from { opacity: 0; transform: translateY(18px) scale(0.992); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.landing-page--premium {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.landing-premium-shell { width: min(1180px, 100%); position: relative; }
+.landing-premium-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(420px, 0.95fr);
+  gap: 24px;
+  align-items: stretch;
+  position: relative;
+  z-index: 1;
+}
+.landing-premium-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  border: 1px solid rgba(215, 228, 244, 0.95);
+  background: linear-gradient(145deg, rgba(255,255,255,0.96) 0%, rgba(244,249,255,0.9) 100%);
+  box-shadow: 0 35px 80px rgba(15, 30, 60, 0.12), 0 10px 28px rgba(15, 30, 60, 0.06);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+.landing-premium-copy { padding: 42px; display: flex; flex-direction: column; justify-content: center; min-height: 620px; }
+.landing-premium-preview { padding: 20px; min-height: 620px; display: flex; align-items: center; }
+.landing-premium-pill { margin-bottom: 18px; align-self: flex-start; }
+.landing-premium-copy h1 { margin: 0 0 16px; font-size: clamp(34px, 4.8vw, 58px); line-height: 1.02; letter-spacing: -0.05em; color: #08162a; }
+.landing-premium-copy p { margin: 0; max-width: 560px; font-size: 17px; line-height: 1.75; color: #51647c; }
+.landing-premium-points { display: grid; gap: 14px; margin: 28px 0 34px; }
+.landing-premium-point { display: flex; align-items: center; gap: 12px; color: #18314e; font-weight: 600; }
+.landing-premium-point-dot { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 999px; background: linear-gradient(135deg, #2563eb 0%, #8bb6ff 100%); box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.1); }
+.landing-premium-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.landing-continue-btn { min-height: 52px; padding: 0 20px; font-size: 14px; border-radius: 14px; }
+.landing-preview-surface { width: 100%; min-height: 100%; border-radius: 24px; border: 1px solid rgba(216, 228, 244, 0.95); background: linear-gradient(180deg, rgba(252,254,255,0.96) 0%, rgba(241,247,255,0.94) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.95); padding: 18px; }
+.landing-preview-topbar { display: flex; gap: 8px; margin-bottom: 18px; }
+.landing-preview-topbar span { width: 12px; height: 12px; border-radius: 999px; background: rgba(160, 181, 210, 0.6); }
+.landing-preview-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
+.landing-preview-header strong { display: block; font-size: 18px; color: #0a1628; margin-bottom: 4px; }
+.landing-preview-header p { margin: 0; color: #6b7d94; font-size: 12px; }
+.landing-preview-badge { padding: 8px 12px; border-radius: 999px; background: rgba(37, 99, 235, 0.1); color: #1d4ed8; font-size: 11px; font-weight: 700; }
+.landing-preview-layout { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 16px; min-height: 460px; }
+.landing-preview-sidebar { border-radius: 18px; padding: 14px; background: rgba(248, 251, 255, 0.92); border: 1px solid rgba(216, 226, 241, 0.95); display: grid; gap: 12px; align-content: start; }
+.landing-skeleton { height: 42px; border-radius: 12px; background: linear-gradient(90deg, rgba(223,232,245,0.85) 0%, rgba(239,245,252,0.95) 50%, rgba(223,232,245,0.85) 100%); }
+.landing-skeleton--lg { height: 76px; }
+.landing-preview-canvas { position: relative; overflow: hidden; border-radius: 20px; background: #ffffff; border: 1px solid rgba(219, 229, 243, 0.96); }
+.landing-canvas-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(221,229,239,0.55) 1px, transparent 1px), linear-gradient(90deg, rgba(221,229,239,0.55) 1px, transparent 1px); background-size: 32px 32px; }
+.landing-room { position: absolute; display: flex; align-items: center; justify-content: center; border-radius: 18px; border: 2px solid rgba(96, 130, 175, 0.85); color: #163054; font-weight: 700; letter-spacing: -0.02em; background: linear-gradient(145deg, rgba(246,250,255,0.95) 0%, rgba(234,243,255,0.88) 100%); box-shadow: 0 10px 22px rgba(16, 40, 80, 0.08); }
+.landing-room--one { top: 10%; left: 8%; width: 46%; height: 38%; }
+.landing-room--two { top: 16%; right: 8%; width: 30%; height: 28%; }
+.landing-room--three { bottom: 10%; left: 18%; width: 52%; height: 26%; }
+.landing-premium-orb { position: absolute; border-radius: 999px; filter: blur(10px); opacity: 0.5; pointer-events: none; }
+.landing-premium-orb--one { width: 240px; height: 240px; top: -40px; left: -60px; background: radial-gradient(circle, rgba(120,170,255,0.34) 0%, rgba(120,170,255,0) 70%); }
+.landing-premium-orb--two { width: 320px; height: 320px; bottom: -70px; right: -40px; background: radial-gradient(circle, rgba(178,212,255,0.45) 0%, rgba(178,212,255,0) 72%); }
+
+/* ===== Premium top controls ===== */
+.top-control-grid--premium { grid-template-columns: minmax(0, 1fr); }
+.top-input-card--premium { padding: 18px 20px 16px; }
+.top-input-meta-row--premium { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.top-toolbar-row { margin-bottom: 14px; }
+.project-actions-card--toolbar { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding: 0; background: transparent; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.project-actions-card--toolbar::before { display: none; }
+.project-actions-card--toolbar .project-stack-btn { min-height: 42px; padding: 10px 14px; font-size: 11.5px; white-space: nowrap; }
+.plan-config-shell { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.95fr); gap: 14px; align-items: start; }
+.plan-config-group { display: grid; gap: 10px; padding: 12px; border-radius: 16px; border: 1px solid rgba(215, 226, 241, 0.92); background: linear-gradient(180deg, rgba(251,253,255,0.96) 0%, rgba(244,249,255,0.92) 100%); }
+.plan-config-group--primary { grid-template-columns: minmax(180px, 1.4fr) repeat(4, minmax(108px, 1fr)); }
+.plan-config-group--secondary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.field--compact label { font-size: 10px; }
+.plan-config-shell .field { gap: 5px; }
+.plan-config-shell .field input, .plan-config-shell .field select, .plan-config-shell .field textarea { min-height: 38px; padding: 8px 11px; border-radius: 10px; font-size: 13px; }
+.wall-color-input { width: 100%; min-height: 38px; padding: 4px 6px !important; border-radius: 10px; }
+.workspace-grid { align-items: start; }
+.rooms-sidebar { margin-top: 0; }
+
+@media (max-width: 1180px) {
+  .project-actions-card--toolbar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .plan-config-shell { grid-template-columns: 1fr; }
+  .plan-config-group--primary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .plan-config-group--secondary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 980px) {
+  .landing-premium-grid { grid-template-columns: 1fr; }
+  .landing-premium-copy, .landing-premium-preview { min-height: auto; }
+  .landing-preview-layout { grid-template-columns: 1fr; min-height: auto; }
+  .project-actions-card--toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .plan-config-group--primary, .plan-config-group--secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .landing-page--premium { padding: 14px; }
+  .landing-premium-copy { padding: 24px; }
+  .landing-premium-preview { padding: 14px; }
+  .landing-preview-layout { gap: 12px; }
+  .project-actions-card--toolbar, .plan-config-group--primary, .plan-config-group--secondary { grid-template-columns: 1fr; }
+  .top-input-meta-row--premium { flex-direction: column; }
+  .project-status-banner--inline { margin-left: 0; width: 100%; }
+}
