@@ -1749,7 +1749,7 @@ function MiniFloorPlan({ variant, size = 160 }) {
 
 function VariantSelectionPage({ variants, theme, onSelect, onBack }) {
   return (
-    <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
+    <div className={`app-shell ${theme === "dark" ? "dark-theme" : "light-theme"}${editorIsEntering ? " app-shell--entering" : ""}`}>
       <section className="top-control-card">
         <div className="top-control-grid">
           <div className="input-card top-input-card">
@@ -1812,132 +1812,75 @@ function VariantSelectionPage({ variants, theme, onSelect, onBack }) {
 // ─── Landing Page ─────────────────────────────────────────────────────────────
 
 function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, generationStep }) {
-  const [promptText, setPromptText] = useState("");
-  const [voiceState, setVoiceState] = useState("idle"); // "idle" | "listening" | "processing"
-  const srAvailable = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
-  const recognitionRef = useRef(null);
-
-  const handleVoice = () => {
-    if (!srAvailable) return;
-    if (voiceState === "listening") {
-      recognitionRef.current?.stop();
-      return;
-    }
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const rec = new SR();
-    rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
-    rec.onstart = () => setVoiceState("listening");
-    rec.onend   = () => setVoiceState("idle");
-    rec.onerror = () => setVoiceState("idle");
-    rec.onresult = (e) => {
-      setVoiceState("processing");
-      setPromptText(e?.results?.[0]?.[0]?.transcript || "");
-      setTimeout(() => setVoiceState("idle"), 400);
-    };
-    recognitionRef.current = rec;
-    rec.start();
-  };
-
-  const handleSubmit = (e) => {
-    e?.preventDefault?.();
-    if (!promptText.trim() || isGenerating) return;
-    onGenerate(promptText.trim());
-  };
+  const premiumHighlights = [
+    "Precision 2D and immersive 3D planning",
+    "Room, furniture, and export workflows ready",
+    "Clean project-based design experience",
+  ];
 
   return (
-    <div className={`app-shell landing-page ${theme === "dark" ? "dark-theme" : "light-theme"}`}
-      style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "40px 24px" }}>
-
-      {isGenerating ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center" }}>
-          <Loader2 size={48} className="spin-icon" style={{ color: "#3b82f6" }} />
-          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Creating your floor plan...</h2>
-          <p style={{ fontSize: 15, opacity: 0.65, margin: 0 }}>{generationStep || "Working on it..."}</p>
-        </div>
-      ) : (
-        <div style={{ width: "100%", maxWidth: 640, display: "flex", flexDirection: "column", gap: 28, alignItems: "center" }}>
-          {/* Brand pill */}
-          <span className="pill" style={{ fontSize: 13 }}>AI Floor Plan Builder</span>
-
-          {/* Heading */}
-          <div style={{ textAlign: "center" }}>
-            <h1 style={{ fontSize: "clamp(28px, 5vw, 44px)", fontWeight: 800, lineHeight: 1.15, margin: "0 0 12px" }}>
-              Design your space<br />with one command
-            </h1>
-            <p style={{ fontSize: 17, opacity: 0.65, margin: 0 }}>
-              Type what you want to build and we will generate a full floor plan with rooms, furniture and layouts — instantly.
+    <div className={`app-shell landing-page landing-page--premium ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
+      <div className="landing-premium-shell">
+        <div className="landing-premium-orb landing-premium-orb--one" />
+        <div className="landing-premium-orb landing-premium-orb--two" />
+        <div className="landing-premium-grid">
+          <section className="landing-premium-card landing-premium-copy">
+            <span className="pill landing-premium-pill">Premium Space Planning Suite</span>
+            <h1>Welcome to Blueprint Studio Pro</h1>
+            <p>
+              Design, refine, and present floor plans in a polished workspace built for modern planning.
+              Your existing project logic stays exactly the same — now with a cleaner premium experience.
             </p>
-          </div>
 
-          {/* Prompt form */}
-          <form onSubmit={handleSubmit} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ position: "relative" }}>
-              <textarea
-                value={promptText}
-                onChange={(e) => setPromptText(e.target.value)}
-                placeholder="Try: Design a 2BHK home with a living room, 2 bedrooms, kitchen and 2 bathrooms in 40 by 30 feet..."
-                rows={4}
-                style={{
-                  width: "100%", boxSizing: "border-box",
-                  padding: "14px 52px 14px 16px",
-                  fontSize: 15, borderRadius: 14, resize: "vertical",
-                  border: "1.5px solid rgba(148,163,184,0.3)",
-                  background: "transparent",
-                  lineHeight: 1.55,
-                  outline: "none",
-                }}
-                onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSubmit(e); }}
-              />
-              {srAvailable && (
-                <button
-                  type="button"
-                  onClick={handleVoice}
-                  aria-label={voiceState === "listening" ? "Stop recording" : "Start voice input"}
-                  style={{
-                    position: "absolute", top: 12, right: 12,
-                    width: 36, height: 36, borderRadius: "50%",
-                    border: "none", cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: voiceState === "listening" ? "#ef4444" : "rgba(59,130,246,0.12)",
-                    color: voiceState === "listening" ? "#fff" : "#3b82f6",
-                    animation: voiceState === "listening" ? "pulse 1s infinite" : "none",
-                  }}
-                >
-                  <Mic size={16} />
-                </button>
-              )}
+            <div className="landing-premium-points">
+              {premiumHighlights.map((item) => (
+                <div key={item} className="landing-premium-point">
+                  <span className="landing-premium-point-dot" />
+                  <span>{item}</span>
+                </div>
+              ))}
             </div>
 
-            <button
-              type="submit"
-              className="primary-btn"
-              disabled={!promptText.trim()}
-              style={{ fontSize: 16, padding: "14px 28px", borderRadius: 12 }}
-            >
-              <Sparkles size={18} />
-              Generate Layout
-            </button>
-          </form>
-
-          {/* Example chips */}
-          <div style={{ width: "100%", display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-            {EXAMPLE_PROMPTS.map((p) => (
-              <button key={p} type="button" className="chatbot-chip" onClick={() => setPromptText(p)} style={{ fontSize: 12 }}>
-                {p}
+            <div className="landing-premium-actions">
+              <button type="button" className="primary-btn landing-continue-btn" onClick={onContinueWithout}>
+                <Home size={18} />
+                Continue to Designer
               </button>
-            ))}
-          </div>
+            </div>
+          </section>
 
-          {/* Continue without AI */}
-          <button
-            type="button"
-            onClick={onContinueWithout}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, opacity: 0.55, padding: "4px 8px", textDecoration: "underline" }}
-          >
-            Continue without AI →
-          </button>
+          <section className="landing-premium-card landing-premium-preview">
+            <div className="landing-preview-surface">
+              <div className="landing-preview-topbar">
+                <span />
+                <span />
+                <span />
+              </div>
+              <div className="landing-preview-header">
+                <div>
+                  <strong>Blueprint Studio Pro</strong>
+                  <p>Premium floor planning workspace</p>
+                </div>
+                <div className="landing-preview-badge">Ready</div>
+              </div>
+              <div className="landing-preview-layout">
+                <div className="landing-preview-sidebar">
+                  <div className="landing-skeleton landing-skeleton--lg" />
+                  <div className="landing-skeleton" />
+                  <div className="landing-skeleton" />
+                  <div className="landing-skeleton" />
+                </div>
+                <div className="landing-preview-canvas">
+                  <div className="landing-canvas-grid" />
+                  <div className="landing-room landing-room--one">Living</div>
+                  <div className="landing-room landing-room--two">Bedroom</div>
+                  <div className="landing-room landing-room--three">Kitchen</div>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -3303,7 +3246,8 @@ function generateLayoutVariants(basePlan) {
 
 export default function App() {
   // ── App mode ──
-  const [appMode, setAppMode] = useState("editor"); // landing page intentionally deactivated for now; switch this back to "landing" to re-enable it.
+  const [appMode, setAppMode] = useState("landing");
+  const [editorIsEntering, setEditorIsEntering] = useState(false);
   const [generationStep, setGenerationStep] = useState("");
   const [layoutVariants, setLayoutVariants] = useState([]);
 
@@ -3433,6 +3377,13 @@ export default function App() {
       setGenerationStep("");
       setLayoutVariants([]);
     }
+  }, [appMode]);
+
+  useEffect(() => {
+    if (appMode !== "editor") return;
+    setEditorIsEntering(true);
+    const timer = window.setTimeout(() => setEditorIsEntering(false), 700);
+    return () => window.clearTimeout(timer);
   }, [appMode]);
 
   useEffect(() => {
@@ -4490,14 +4441,14 @@ const handleGenerateLayout = async (prompt) => {
 
       {/* Top Control */}
       <section className="top-control-card">
-        <div className="top-control-grid">
-          <div className="input-card top-input-card">
-            <div className="top-input-meta-row">
+        <div className="top-control-grid top-control-grid--premium">
+          <div className="input-card top-input-card top-input-card--premium">
+            <div className="top-input-meta-row top-input-meta-row--premium">
               <div className="top-input-brand">
-                <span className="pill">Floor Plan Builder</span>
+                <span className="pill">Blueprint Studio Pro</span>
                 <div className="top-input-brand-copy">
                   <div className="top-input-title-row">
-                    <h1><Home size={20} />Interactive Floor Plan App</h1>
+                    <h1><Home size={20} />Premium Floor Plan Designer</h1>
                     <div className="top-input-title-controls">
                       <button type="button" className="theme-toggle" onClick={() => setTheme((p) => p === "dark" ? "light" : "dark")} aria-label="Toggle theme">
                         <span className={`theme-toggle-option ${theme === "light" ? "is-active" : ""}`}><Sun size={14} />Light</span>
@@ -4505,7 +4456,7 @@ const handleGenerateLayout = async (prompt) => {
                       </button>
                     </div>
                   </div>
-                  <p>Configure plan inputs, then edit rooms from the side panel.</p>
+                  <p>Refined controls above, larger planning workspace below, and every existing feature preserved.</p>
                 </div>
               </div>
               {projectStatusMessage && (
@@ -4513,60 +4464,61 @@ const handleGenerateLayout = async (prompt) => {
               )}
             </div>
 
-            <div className="form-grid plan-top-grid">
-              <div className="field field--compact-plan-name"><label>Plan Name</label><input value={planName} onChange={(e) => setPlanName(e.target.value)} /></div>
-              <div className="field"><label>Total Width (ft)</label><input type="number" value={totalWidth} onChange={(e) => setTotalWidth(Number(e.target.value) || 0)} /></div>
-              <div className="field"><label>Total Height (ft)</label><input type="number" value={totalHeight} onChange={(e) => setTotalHeight(Number(e.target.value) || 0)} /></div>
-              <div className="field"><label>Wall Thickness (ft)</label><input type="number" step="0.1" value={wallThickness} onChange={(e) => setWallThickness(Number(e.target.value) || 0)} /></div>
-              <div className="field"><label>Scale (px / ft)</label><input type="number" value={scale} onChange={(e) => setScale(Number(e.target.value) || 1)} /></div>
-              <div className="field"><label>3D Wall Height (ft)</label><input type="number" value={roomHeight} onChange={(e) => setRoomHeight(Number(e.target.value) || 10)} /></div>
-              <div className="field">
-                <label>Product Category</label>
-                <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
-                  {PRODUCT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+            <div className="top-toolbar-row">
+              <div className="project-actions-card project-actions-card--toolbar input-card">
+                <button className="ghost-btn project-stack-btn" onClick={handleNewProject}><FilePlus2 size={16} />New Project</button>
+                <button className="secondary-btn project-stack-btn" onClick={handleOpenProjectClick}><FolderOpen size={16} />Open</button>
+                <button className="primary-btn project-stack-btn" onClick={handleSaveProject}><Save size={16} />Save</button>
+                <button className="secondary-btn project-stack-btn" onClick={() => setActivePage("furniture-manager")}><Sliders size={16} />Furniture Manager</button>
+                <button
+                  className="secondary-btn project-stack-btn"
+                  onClick={handleGeneratePlanDocument}
+                  disabled={isPlanGenerating}
+                  title={!currentProjectId ? "Save the project first" : "Generate plan PDF"}
+                >
+                  <ExternalLink size={16} />
+                  {isPlanGenerating ? "Generating Plan..." : "Generate Plan"}
+                </button>
+                {FEATURE_AI_LANDING_ENABLED && FEATURE_AI_ENABLED && (
+                  <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")}>
+                    <Sparkles size={16} />
+                    AI Landing
+                  </button>
+                )}
               </div>
-              {/* Global wall color picker */}
-              <div className="field">
-                <label><PaintBucket size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Wall Color</label>
-                <input
-                  type="color"
-                  value={globalWallColor}
-                  onChange={(e) => setGlobalWallColor(e.target.value)}
-                  style={{ width: "100%", minHeight: 38, padding: 4, borderRadius: 10 }}
-                />
+            </div>
+
+            <div className="plan-config-shell">
+              <div className="plan-config-group plan-config-group--primary">
+                <div className="field field--compact-plan-name field--span-2"><label>Plan Name</label><input value={planName} onChange={(e) => setPlanName(e.target.value)} /></div>
+                <div className="field field--compact"><label>Total Width (ft)</label><input type="number" value={totalWidth} onChange={(e) => setTotalWidth(Number(e.target.value) || 0)} /></div>
+                <div className="field field--compact"><label>Total Height (ft)</label><input type="number" value={totalHeight} onChange={(e) => setTotalHeight(Number(e.target.value) || 0)} /></div>
+                <div className="field field--compact"><label>Wall Thickness (ft)</label><input type="number" step="0.1" value={wallThickness} onChange={(e) => setWallThickness(Number(e.target.value) || 0)} /></div>
+                <div className="field field--compact"><label>Scale (px / ft)</label><input type="number" value={scale} onChange={(e) => setScale(Number(e.target.value) || 1)} /></div>
+              </div>
+
+              <div className="plan-config-group plan-config-group--secondary">
+                <div className="field field--compact"><label>3D Wall Height (ft)</label><input type="number" value={roomHeight} onChange={(e) => setRoomHeight(Number(e.target.value) || 10)} /></div>
+                <div className="field field--compact">
+                  <label>Product Category</label>
+                  <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+                    {PRODUCT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="field field--compact field--color-inline">
+                  <label><PaintBucket size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Wall Color</label>
+                  <input
+                    type="color"
+                    value={globalWallColor}
+                    onChange={(e) => setGlobalWallColor(e.target.value)}
+                    className="wall-color-input"
+                  />
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Project actions */}
-          <aside className="project-actions-card input-card">
-            <button className="ghost-btn project-stack-btn" onClick={handleNewProject}><FilePlus2 size={16} />New Project</button>
-            <button className="secondary-btn project-stack-btn" onClick={handleOpenProjectClick}><FolderOpen size={16} />Open Project</button>
-            <button className="primary-btn project-stack-btn" onClick={handleSaveProject}><Save size={16} />Save Project</button>
-            <button className="secondary-btn project-stack-btn" onClick={() => setActivePage("furniture-manager")}>
-              <Sliders size={16} />
-              Furniture Manager
-            </button>
-            <button
-              className="secondary-btn project-stack-btn"
-              onClick={handleGeneratePlanDocument}
-              disabled={isPlanGenerating}
-              title={!currentProjectId ? "Save the project first" : "Generate plan PDF"}
-            >
-              <ExternalLink size={16} />
-              {isPlanGenerating ? "Generating Plan..." : "Generate Plan"}
-            </button>
-            {FEATURE_AI_LANDING_ENABLED && FEATURE_AI_ENABLED && (
-              <button className="ghost-btn project-stack-btn" onClick={() => setAppMode("landing")}>
-                <Sparkles size={16} />
-                AI Landing
-              </button>
-            )}
-          </aside>
         </div>
       </section>
-
       {/* Workspace */}
       <div className="workspace-grid">
         <main className="workspace-main">
