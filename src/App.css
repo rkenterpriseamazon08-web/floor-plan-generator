@@ -1691,3 +1691,21 @@ html, body, #root {
     max-height: none;
   }
 }
+
+.quality-toggle-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 900px) {
+  .quality-toggle-group {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .quality-toggle-group .view-toolbar-btn {
+    flex: 1 1 0;
+  }
+}
