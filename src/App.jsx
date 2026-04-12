@@ -53,6 +53,8 @@ const DEFAULT_DOOR_HEIGHT = 7;
 const DEFAULT_WINDOW_WIDTH = 4;
 const DEFAULT_WINDOW_HEIGHT = 3;
 const DEFAULT_WINDOW_SILL_HEIGHT = 3;
+const DEFAULT_CUTOUT_WIDTH = DEFAULT_DOOR_WIDTH;
+const DEFAULT_CUTOUT_HEIGHT = DEFAULT_DOOR_HEIGHT;
 
 const FURNITURE_WALL_CLEARANCE = 0.18;
 const DEFAULT_KITCHEN_SLAB_DEPTH = 2;
@@ -355,6 +357,24 @@ function normalizeWindow(windowItem, room, wallHeight) {
   return { wall, offset, width, height, sillHeight };
 }
 
+function normalizeCutout(cutout, room, wallHeight) {
+  const wall = WALL_OPTIONS.includes(cutout?.wall) ? cutout.wall : "top";
+  const wallLength = getWallLength(room, wall);
+  const width = clamp(
+    Number(cutout?.width) || DEFAULT_CUTOUT_WIDTH,
+    0.5,
+    Math.max(0.5, wallLength)
+  );
+  const height = clamp(
+    Number(cutout?.height) || DEFAULT_CUTOUT_HEIGHT,
+    0.5,
+    Math.max(0.5, Number(wallHeight) || DEFAULT_ROOM_HEIGHT)
+  );
+  const maxOffset = Math.max(0, wallLength - width);
+  const offset = clamp(Number(cutout?.offset) || 0, 0, maxOffset);
+  return { wall, offset, width, height };
+}
+
 function getKitchenSlabGeometry(furnitureItem, room) {
   const wall = WALL_OPTIONS.includes(furnitureItem?.attachedWall)
     ? furnitureItem.attachedWall
@@ -452,7 +472,13 @@ function getRoomOpenings(room, wallHeight) {
         type: "window",
       }))
     : [];
-  return { doors, windows };
+  const cutouts = Array.isArray(room.cutouts)
+    ? room.cutouts.map((cutout) => ({
+        ...normalizeCutout(cutout, room, wallHeight),
+        type: "cutout",
+      }))
+    : [];
+  return { doors, windows, cutouts };
 }
 
 function getOpeningLineSegment(room, opening) {
@@ -499,8 +525,8 @@ function getSegmentOpenings(segment, rooms, wallHeight) {
   const segEnd   = isVertical ? Math.max(segment.y1, segment.y2) : Math.max(segment.x1, segment.x2);
   const openings = [];
   rooms.forEach((room) => {
-    const { doors, windows } = getRoomOpenings(room, wallHeight);
-    [...doors, ...windows].forEach((opening) => {
+    const { doors, windows, cutouts } = getRoomOpenings(room, wallHeight);
+    [...doors, ...windows, ...cutouts].forEach((opening) => {
       const line = getOpeningLineSegment(room, opening);
       if (!line) return;
       if (isVertical) {
@@ -532,6 +558,7 @@ const createRoom = (index) => ({
   floorTextureId: getDefaultFloorTextureId(),
   doors: [],
   windows: [],
+  cutouts: [],
   furniture: [],
 });
 
@@ -550,6 +577,7 @@ function normalizeRoom(room, totalWidth, totalHeight, wallHeight = DEFAULT_ROOM_
     floorTextureId: baseRoom.floorTextureId || getDefaultFloorTextureId(),
     doors:    Array.isArray(baseRoom.doors)    ? baseRoom.doors.map((d)  => normalizeDoor(d, baseRoom))                  : [],
     windows:  Array.isArray(baseRoom.windows)  ? baseRoom.windows.map((w) => normalizeWindow(w, baseRoom, wallHeight))   : [],
+    cutouts:  Array.isArray(baseRoom.cutouts)  ? baseRoom.cutouts.map((c) => normalizeCutout(c, baseRoom, wallHeight))   : [],
     furniture: Array.isArray(baseRoom.furniture) ? baseRoom.furniture.map((item) => normalizeFurniture(item, baseRoom))  : [],
   };
 }
@@ -633,7 +661,7 @@ function WallMesh({ segment, wallThickness, height, rooms, globalWallColor }) {
   if (!Number.isFinite(length) || length <= 0) return null;
 
   const openings = getSegmentOpenings(segment, rooms, height).map((opening) => {
-    if (opening.type === "door") {
+    if (opening.type === "door" || opening.type === "cutout") {
       return { ...opening, bottom: 0, top: clamp(Number(opening.height) || DEFAULT_DOOR_HEIGHT, 0.1, height) };
     }
     const sillHeight = clamp(Number(opening.sillHeight) || 0, 0, Math.max(0, height - 0.1));
@@ -704,7 +732,7 @@ function WallMesh({ segment, wallThickness, height, rooms, globalWallColor }) {
   );
 }
 
-function RoomFloor3D({ room, isLowQuality = false }) {
+function RoomFloor3D({ room }) {
   const textureMeta = getFloorTextureById(room.floorTextureId);
   const resolvedTexturePath = useMemo(() => resolveAssetPath(textureMeta.image), [textureMeta.image]);
   const [textureLoadFailed, setTextureLoadFailed] = useState(false);
@@ -715,7 +743,7 @@ function RoomFloor3D({ room, isLowQuality = false }) {
     setTextureLoadFailed(false);
     setBaseTexture(null);
 
-    if (isLowQuality || !resolvedTexturePath) {
+    if (!resolvedTexturePath) {
       setTextureLoadFailed(true);
       return undefined;
     }
@@ -737,10 +765,10 @@ function RoomFloor3D({ room, isLowQuality = false }) {
     return () => {
       isCancelled = true;
     };
-  }, [resolvedTexturePath, isLowQuality]);
+  }, [resolvedTexturePath]);
 
   const preparedTexture = useMemo(() => {
-    if (isLowQuality || !baseTexture || textureLoadFailed) return null;
+    if (!baseTexture || textureLoadFailed) return null;
     const next = baseTexture.clone();
     next.wrapS = THREE.RepeatWrapping;
     next.wrapT = THREE.RepeatWrapping;
@@ -752,7 +780,7 @@ function RoomFloor3D({ room, isLowQuality = false }) {
     next.anisotropy = 8;
     next.needsUpdate = true;
     return next;
-  }, [baseTexture, textureLoadFailed, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight, room.floorTileScale, isLowQuality]);
+  }, [baseTexture, textureLoadFailed, room.width, room.height, textureMeta.tileWidth, textureMeta.tileHeight, room.floorTileScale]);
 
   useEffect(() => () => {
     preparedTexture?.dispose?.();
@@ -762,14 +790,14 @@ function RoomFloor3D({ room, isLowQuality = false }) {
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
       position={[Number(room.x) + Number(room.width) / 2, 0.03, Number(room.y) + Number(room.height) / 2]}
-      receiveShadow={!isLowQuality}
+      receiveShadow
     >
       <planeGeometry args={[Math.max(Number(room.width) - 0.12, 0.2), Math.max(Number(room.height) - 0.12, 0.2)]} />
       <meshStandardMaterial
         map={preparedTexture || null}
         color={preparedTexture ? "#ffffff" : (room.color || "#ffffff")}
-        roughness={isLowQuality ? 0.96 : 0.82}
-        metalness={isLowQuality ? 0.01 : 0.04}
+        roughness={0.82}
+        metalness={0.04}
       />
     </mesh>
   );
@@ -981,7 +1009,7 @@ function Staircase3D({ worldX, worldZ, width, depth, height, color, rotRad }) {
 
 // ─── 3D Furniture (group-based positioning for rotation support) ──────────────
 
-function Furniture3D({ room, furnitureItem, isSelected = false, onSelect, isLowQuality = false }) {
+function Furniture3D({ room, furnitureItem, isSelected = false, onSelect }) {
   const roomX = Number(room.x) || 0;
   const roomY = Number(room.y) || 0;
   const width  = Number(furnitureItem.width)  || 1;
@@ -1015,18 +1043,6 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect, isLowQ
         <meshBasicMaterial color={outlineColor} transparent opacity={0.95} />
       </mesh>
     ) : null;
-
-  if (isLowQuality) {
-    return (
-      <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleSelect}>
-        <mesh receiveShadow position={[0, height / 2, 0]}>
-          <boxGeometry args={[width, height, depth]} />
-          <meshStandardMaterial color={color} roughness={0.9} metalness={0.02} />
-        </mesh>
-        <FurnitureLabel x={0} y={labelY} z={0} text={furnitureItem.type} />
-      </group>
-    );
-  }
 
   // ── Staircase ──
   if (type.includes("staircase")) {
@@ -1342,7 +1358,6 @@ function Floor3DScene({
   sunSettings,
   globalWallColor,
   orbitControlsRef,
-  renderQuality = "high",
 }) {
   const centerX = totalWidth / 2;
   const centerZ = totalHeight / 2;
@@ -1351,45 +1366,36 @@ function Floor3DScene({
   const safeSun = { ...DEFAULT_SUN_SETTINGS, ...(sunSettings || {}) };
   const sunPos = getSunPosition(safeSun.azimuth, safeSun.elevation, Math.max(totalWidth, totalHeight) * 1.8, centerX, centerZ);
   const shadowCamExtent = Math.max(totalWidth, totalHeight) * 2;
-  const isLowQuality = renderQuality === "low";
 
   return (
     <>
-      <ambientLight intensity={isLowQuality ? 0.8 : safeSun.ambientIntensity} />
-      {isLowQuality ? (
-        <hemisphereLight intensity={0.24} groundColor="#d5dde7" color="#f7fafc" />
-      ) : (
-        <>
-          <hemisphereLight intensity={0.42} groundColor="#cad4df" color="#f8fbff" />
-          <directionalLight
-            position={sunPos}
-            intensity={safeSun.intensity}
-            color={safeSun.color}
-            castShadow
-            shadow-mapSize-width={4096}
-            shadow-mapSize-height={4096}
-            shadow-bias={-0.0003}
-            shadow-camera-near={0.5}
-            shadow-camera-far={400}
-            shadow-camera-left={-shadowCamExtent}
-            shadow-camera-right={shadowCamExtent}
-            shadow-camera-top={shadowCamExtent}
-            shadow-camera-bottom={-shadowCamExtent}
-          />
-        </>
-      )}
-      {!isLowQuality && (
-        <Grid
-          args={[Math.max(totalWidth + 20, 80), Math.max(totalHeight + 20, 80)]}
-          cellSize={1}
-          cellThickness={0.5}
-          sectionSize={5}
-          sectionThickness={1}
-          fadeDistance={120}
-          fadeStrength={1}
-          position={[centerX, 0, centerZ]}
-        />
-      )}
+      <ambientLight intensity={safeSun.ambientIntensity} />
+      <hemisphereLight intensity={0.42} groundColor="#cad4df" color="#f8fbff" />
+      <directionalLight
+        position={sunPos}
+        intensity={safeSun.intensity}
+        color={safeSun.color}
+        castShadow
+        shadow-mapSize-width={4096}
+        shadow-mapSize-height={4096}
+        shadow-bias={-0.0003}
+        shadow-camera-near={0.5}
+        shadow-camera-far={400}
+        shadow-camera-left={-shadowCamExtent}
+        shadow-camera-right={shadowCamExtent}
+        shadow-camera-top={shadowCamExtent}
+        shadow-camera-bottom={-shadowCamExtent}
+      />
+      <Grid
+        args={[Math.max(totalWidth + 20, 80), Math.max(totalHeight + 20, 80)]}
+        cellSize={1}
+        cellThickness={0.5}
+        sectionSize={5}
+        sectionThickness={1}
+        fadeDistance={120}
+        fadeStrength={1}
+        position={[centerX, 0, centerZ]}
+      />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[centerX, -0.02, centerZ]} receiveShadow>
         <planeGeometry args={[totalWidth, totalHeight]} />
         <meshStandardMaterial color="#e7ebf0" roughness={0.93} metalness={0.04} />
@@ -1402,7 +1408,7 @@ function Floor3DScene({
         const d = Math.max(Number(room.height) || 0, 0.2);
         return (
           <group key={room.id}>
-            <RoomFloor3D key={`${room.id}-${room.floorTextureId || ""}-${room.floorTileScale || 1}-${renderQuality}`} room={room} isLowQuality={isLowQuality} />
+            <RoomFloor3D key={`${room.id}-${room.floorTextureId || ""}-${room.floorTileScale || 1}`} room={room} />
             <DreiText
               position={[x + w / 2, 0.12, z + d / 2]}
               fontSize={0.52}
@@ -1431,7 +1437,6 @@ function Floor3DScene({
                 furnitureItem={item}
                 isSelected={selectedFurnitureKey === `${room.id}-${item.id}`}
                 onSelect={(sel) => onFurnitureSelect?.(room, sel)}
-                isLowQuality={isLowQuality}
               />
             ))}
           </group>
@@ -1443,7 +1448,7 @@ function Floor3DScene({
       ))}
 
       {rooms.map((room) => {
-        const { doors, windows } = getRoomOpenings(room, h);
+        const { doors, windows, cutouts } = getRoomOpenings(room, h);
         return (
           <group key={`openings-3d-${room.id}`}>
             {doors.map((door, idx) => (
@@ -1555,7 +1560,6 @@ function ReadOnly3DViewerShell({
             sunSettings={sunSettings}
             globalWallColor={globalWallColor}
             orbitControlsRef={orbitControlsRef}
-            renderQuality="high"
           />
         </Canvas>
 
@@ -1619,12 +1623,13 @@ function Opening2D({ room, opening, scale, wallThickness }) {
   if (!line) return null;
   const strokeWidth = Math.max(4, wallThickness * scale);
   const isWindow = opening.type === "window";
+  const isCutout = opening.type === "cutout";
   return (
     <line
       x1={line.x1 * scale} y1={line.y1 * scale}
       x2={line.x2 * scale} y2={line.y2 * scale}
-      stroke={isWindow ? "#3b82f6" : "#f7f9fc"}
-      strokeWidth={strokeWidth + (isWindow ? 0 : 2)}
+      stroke={isWindow ? "#3b82f6" : isCutout ? "#eef4fb" : "#f7f9fc"}
+      strokeWidth={strokeWidth + (isWindow ? 0 : isCutout ? 3 : 2)}
       strokeDasharray={isWindow ? "10 6" : undefined}
       strokeLinecap="square"
     />
@@ -2571,6 +2576,7 @@ function normalizeGeneratedRooms(rooms, totalWidth, totalHeight, category) {
         : getDefaultFurnitureForRoomName(room.name, category),
       doors:   Array.isArray(room.doors)   && room.doors.length   ? room.doors.map((d) => ({ wall: WALL_OPTIONS.includes(d.wall) ? d.wall : "bottom", offset: Number(d.offset) || 0, width: Number(d.width) || DEFAULT_DOOR_WIDTH, height: Number(d.height) || DEFAULT_DOOR_HEIGHT }))   : makeDefaultDoorForRoom(room),
       windows: Array.isArray(room.windows) && room.windows.length ? room.windows.map((w) => ({ wall: WALL_OPTIONS.includes(w.wall) ? w.wall : "top", offset: Number(w.offset) || 0, width: Number(w.width) || DEFAULT_WINDOW_WIDTH, height: Number(w.height) || DEFAULT_WINDOW_HEIGHT, sillHeight: Number(w.sillHeight) || DEFAULT_WINDOW_SILL_HEIGHT })) : makeDefaultWindowForRoom(room),
+      cutouts: Array.isArray(room.cutouts) && room.cutouts.length ? room.cutouts.map((c) => ({ wall: WALL_OPTIONS.includes(c.wall) ? c.wall : "top", offset: Number(c.offset) || 0, width: Number(c.width) || DEFAULT_CUTOUT_WIDTH, height: Number(c.height) || DEFAULT_CUTOUT_HEIGHT })) : [],
     })
   );
   return fitRoomsInGrid(baseRooms, Number(totalWidth), Number(totalHeight));
@@ -2638,6 +2644,7 @@ function makeRoom(name, w, h, x, y, opts = {}) {
     y: Math.round(y * 10) / 10,
     doors: opts.doors || [],
     windows: opts.windows || [],
+    cutouts: opts.cutouts || [],
     furniture: opts.furniture || [],
   };
 }
@@ -2696,6 +2703,7 @@ function materializeOpeningsForRooms(rooms) {
       ...room,
       doors: (Array.isArray(room.doors) ? room.doors : []).map(convertDoor),
       windows: (Array.isArray(room.windows) ? room.windows : []).map(convertWindow),
+      cutouts: (Array.isArray(room.cutouts) ? room.cutouts : []).map((c) => convertDoor({ ...c, widthFt: c?.widthFt, heightFt: c?.heightFt })),
     };
   });
 }
@@ -2993,6 +3001,7 @@ function generateSmartVariants(basePlan) {
     x: tw - r.x - r.width,
     doors: (r.doors || []).map((d) => ({ ...d, wall: d.wall === "left" ? "right" : d.wall === "right" ? "left" : d.wall })),
     windows: (r.windows || []).map((w) => ({ ...w, wall: w.wall === "left" ? "right" : w.wall === "right" ? "left" : w.wall })),
+    cutouts: (r.cutouts || []).map((c) => ({ ...c, wall: c.wall === "left" ? "right" : c.wall === "right" ? "left" : c.wall })),
   }));
   variants.push({ ...basePlan, rooms: mirrored, variantLabel: "Mirrored" });
 
@@ -3001,6 +3010,7 @@ function generateSmartVariants(basePlan) {
     y: th - r.y - r.height,
     doors: (r.doors || []).map((d) => ({ ...d, wall: d.wall === "top" ? "bottom" : d.wall === "bottom" ? "top" : d.wall })),
     windows: (r.windows || []).map((w) => ({ ...w, wall: w.wall === "top" ? "bottom" : w.wall === "bottom" ? "top" : w.wall })),
+    cutouts: (r.cutouts || []).map((c) => ({ ...c, wall: c.wall === "top" ? "bottom" : c.wall === "bottom" ? "top" : c.wall })),
   }));
   variants.push({ ...basePlan, rooms: flipped, variantLabel: "Flipped" });
 
@@ -3209,6 +3219,7 @@ async function generatePlanRendersWithOpenAI(apiKey, payload) {
     width: Number(room?.width) || 0, height: Number(room?.height) || 0, color: room?.color || "",
     doors: Array.isArray(room?.doors) ? room.doors : [],
     windows: Array.isArray(room?.windows) ? room.windows : [],
+    cutouts: Array.isArray(room?.cutouts) ? room.cutouts : [],
     furniture: Array.isArray(room?.furniture) ? room.furniture.map((item) => ({ type: item?.type || "", x: Number(item?.x) || 0, y: Number(item?.y) || 0, width: Number(item?.width) || 0, depth: Number(item?.depth) || 0, height: Number(item?.height) || 0 })) : [],
   })) : [];
 
@@ -3245,6 +3256,7 @@ function generateLayoutVariants(basePlan) {
       height: Math.max(4, Math.round((Number(room.height) || 8) * cfg.scale)),
       doors:   Array.isArray(room.doors)   ? room.doors.map((d)  => ({ ...d }))  : [],
       windows: Array.isArray(room.windows) ? room.windows.map((w) => ({ ...w })) : [],
+      cutouts: Array.isArray(room.cutouts) ? room.cutouts.map((c) => ({ ...c })) : [],
       furniture: Array.isArray(room.furniture) ? room.furniture.map((f) => ({ ...f,
         id: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `f-${Date.now()}-${Math.random()}`,
         width: Math.max(0.3, (Number(f.width)  || 1) * cfg.scale),
@@ -3318,7 +3330,6 @@ export default function App() {
     return window.sessionStorage.getItem(ASSISTANT_COLLAPSED_SESSION_KEY) === "true";
   });
   const [sunControlsCollapsed, setSunControlsCollapsed] = useState(true);
-  const [renderQuality, setRenderQuality] = useState("high");
   const [sunSettings, setSunSettings] = useState(() => {
     if (typeof window === "undefined") return DEFAULT_SUN_SETTINGS;
     try {
@@ -3898,6 +3909,12 @@ const handleGenerateLayout = async (prompt) => {
       : room
     ));
 
+  const addCutoutToRoom = (roomId) =>
+    setRooms((prev) => prev.map((room) => room.id === roomId
+      ? { ...room, cutouts: [...(room.cutouts || []), { wall: "top", offset: 0, width: DEFAULT_CUTOUT_WIDTH, height: DEFAULT_CUTOUT_HEIGHT }] }
+      : room
+    ));
+
   const updateDoor = (roomId, index, key, value) =>
     setRooms((prev) => prev.map((room) => {
       if (room.id !== roomId) return room;
@@ -3914,8 +3931,17 @@ const handleGenerateLayout = async (prompt) => {
       return { ...room, windows: next };
     }));
 
+  const updateCutout = (roomId, index, key, value) =>
+    setRooms((prev) => prev.map((room) => {
+      if (room.id !== roomId) return room;
+      const next = [...(room.cutouts || [])];
+      next[index] = { ...next[index], [key]: key === "wall" ? value : Number(value) || 0 };
+      return { ...room, cutouts: next };
+    }));
+
   const removeDoor   = (roomId, index) => setRooms((prev) => prev.map((r) => r.id === roomId ? { ...r, doors:   (r.doors   || []).filter((_, i) => i !== index) } : r));
   const removeWindow = (roomId, index) => setRooms((prev) => prev.map((r) => r.id === roomId ? { ...r, windows: (r.windows || []).filter((_, i) => i !== index) } : r));
+  const removeCutout = (roomId, index) => setRooms((prev) => prev.map((r) => r.id === roomId ? { ...r, cutouts: (r.cutouts || []).filter((_, i) => i !== index) } : r));
 
   // ─── Furniture operations ─────────────────────────────────────────────────────
 
@@ -4087,6 +4113,7 @@ const handleGenerateLayout = async (prompt) => {
         floorTileScale: Number(room.floorTileScale) || 1,
         doors: Array.isArray(room.doors) ? room.doors : [],
         windows: Array.isArray(room.windows) ? room.windows : [],
+        cutouts: Array.isArray(room.cutouts) ? room.cutouts : [],
         furniture: Array.isArray(room.furniture) ? room.furniture : [],
       })),
     };
@@ -4665,11 +4692,12 @@ const handleGenerateLayout = async (prompt) => {
                         })}
 
                         {placedRooms.map((room) => {
-                          const { doors, windows } = getRoomOpenings(room, Number(roomHeight));
+                          const { doors, windows, cutouts } = getRoomOpenings(room, Number(roomHeight));
                           return (
                             <g key={`openings-${room.id}`}>
                               {doors.map((door, idx) => <Opening2D key={`door-${room.id}-${idx}`} room={room} opening={door} scale={numericScale} wallThickness={numericWallThickness} />)}
                               {windows.map((win, idx) => <Opening2D key={`win-${room.id}-${idx}`} room={room} opening={win} scale={numericScale} wallThickness={numericWallThickness} />)}
+                              {cutouts.map((cutout, idx) => <Opening2D key={`cutout-${room.id}-${idx}`} room={room} opening={cutout} scale={numericScale} wallThickness={numericWallThickness} />)}
                             </g>
                           );
                         })}
@@ -4691,13 +4719,13 @@ const handleGenerateLayout = async (prompt) => {
                         {placedRooms.map((room) => {
                           const x = room.x * numericScale, y = room.y * numericScale;
                           const w = room.width * numericScale, h = room.height * numericScale;
-                          const nfs = Math.max(6.1, Math.min(8.1, Math.min(w, h) * 0.082));
-                          const dfs = Math.max(4.7, Math.min(6.1, Math.min(w, h) * 0.064));
+                          const nfs = Math.max(3.6, Math.min(4.9, Math.min(w, h) * 0.045));
+                          const dfs = Math.max(3.0, Math.min(4.0, Math.min(w, h) * 0.034));
                           const roomSizeText = `${room.width} ft × ${room.height} ft`;
-                          const estimatedLabelWidth = Math.max(54, room.name.length * nfs * 0.62, roomSizeText.length * dfs * 0.58) + 16;
-                          const labelBoxHeight = 22;
+                          const estimatedLabelWidth = Math.max(54, room.name.length * nfs * 0.62, roomSizeText.length * dfs * 0.58) + 14;
+                          const labelBoxHeight = 18;
                           const labelCenterX = x + w / 2;
-                          const labelTopY = y + h + 8;
+                          const labelTopY = y + h + 6;
                           return (
                             <g key={`labels-${room.id}`}>
                               <rect
@@ -4710,8 +4738,8 @@ const handleGenerateLayout = async (prompt) => {
                                 stroke="rgba(143,160,184,0.42)"
                                 strokeWidth="0.7"
                               />
-                              <text x={labelCenterX} y={labelTopY + 8.4} textAnchor="middle" style={{ fontSize: nfs, fontWeight: 700, fill: "#172033", opacity: 0.88, pointerEvents: "none" }}>{room.name}</text>
-                              <text x={labelCenterX} y={labelTopY + 16.6} textAnchor="middle" style={{ fontSize: dfs, fill: "#56637a", opacity: 0.92, pointerEvents: "none" }}>{roomSizeText}</text>
+                              <text x={labelCenterX} y={labelTopY + 6.3} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: nfs, fontWeight: 700, fill: "#172033", opacity: 0.82, pointerEvents: "none" }}>{room.name}</text>
+                              <text x={labelCenterX} y={labelTopY + 12.6} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: dfs, fill: "#56637a", opacity: 0.9, pointerEvents: "none" }}>{roomSizeText}</text>
                             </g>
                           );
                         })}
@@ -4739,10 +4767,6 @@ const handleGenerateLayout = async (prompt) => {
                       )}
                       <button className={`view-toolbar-btn${activeView === "2d" ? " active" : ""}`} onClick={() => setActiveView("2d")}>2D</button>
                       <button className={`view-toolbar-btn${activeView === "3d" ? " active" : ""}`} onClick={() => setActiveView("3d")}>3D</button>
-                      <div className="quality-toggle-group">
-                        <button className={`view-toolbar-btn${renderQuality === "low" ? " active" : ""}`} onClick={() => setRenderQuality("low")}>Low Quality</button>
-                        <button className={`view-toolbar-btn${renderQuality === "high" ? " active" : ""}`} onClick={() => setRenderQuality("high")}>High Quality</button>
-                      </div>
                       <button className="view-toolbar-btn view-toolbar-btn--dark" onClick={exportSVG}>Export SVG</button>
                       {FEATURE_AI_RENDER_ENABLED && FEATURE_AI_ENABLED && (
                         <button
@@ -4758,7 +4782,7 @@ const handleGenerateLayout = async (prompt) => {
                   </div>
 
                   <div className="three-wrap three-wrap--dominant" ref={threeContainerRef}>
-                    {renderQuality === "high" && (sunControlsCollapsed ? (
+                    {sunControlsCollapsed ? (
                       <button
                         type="button"
                         title="Sun / Light Controls"
@@ -4835,18 +4859,14 @@ const handleGenerateLayout = async (prompt) => {
                           </button>
                         </div>
                       </div>
-                    ))}
-                    <Canvas
-                      shadows={renderQuality === "high"}
-                      dpr={renderQuality === "high" ? [1, 2] : 1}
-                      onPointerMissed={clearSelectedFurniture}
-                      gl={{ preserveDrawingBuffer: true, antialias: renderQuality === "high", powerPreference: renderQuality === "high" ? "high-performance" : "default" }}
+                    )}
+                    <Canvas shadows onPointerMissed={clearSelectedFurniture} gl={{ preserveDrawingBuffer: true }}
                       onCreated={({ gl, scene, camera }) => { threeSceneStateRef.current = { gl, scene, camera }; }}
                       camera={{ position: [Math.max(Number(totalWidth) * 0.85, 14), Math.max(Number(roomHeight) * 2.2, 16), Math.max(Number(totalHeight) * 1.0, 14)], fov: 42 }}>
                       <Floor3DScene rooms={placedRooms} totalWidth={Number(totalWidth)} totalHeight={Number(totalHeight)}
                         wallThickness={Number(wallThickness)} roomHeight={Number(roomHeight)} wallSegments={wallSegments}
                         selectedFurnitureKey={selectedFurnitureKey} onFurnitureSelect={handleFurnitureSelection}
-                        sunSettings={sunSettings} globalWallColor={globalWallColor} orbitControlsRef={orbitControlsRef} renderQuality={renderQuality} />
+                        sunSettings={sunSettings} globalWallColor={globalWallColor} orbitControlsRef={orbitControlsRef} />
                     </Canvas>
                     {FEATURE_AI_RENDER_ENABLED && isRenderGenerating && (
                       <div className="ai-render-overlay">
@@ -5098,6 +5118,26 @@ const handleGenerateLayout = async (prompt) => {
                             <div className="field"><label>Width (ft)</label><input type="number" value={win.width} onChange={(e) => updateWindow(room.id, winIndex, "width", e.target.value)} /></div>
                             <div className="field"><label>Height (ft)</label><input type="number" value={win.height} onChange={(e) => updateWindow(room.id, winIndex, "height", e.target.value)} /></div>
                             <div className="field field--span-2"><label>Sill Height (ft)</label><input type="number" value={win.sillHeight} onChange={(e) => updateWindow(room.id, winIndex, "sillHeight", e.target.value)} /></div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Cutouts */}
+                      <div className="section-header compact">
+                        <h3>Cutouts</h3>
+                        <div className="header-actions"><button type="button" className="secondary-btn" onClick={() => addCutoutToRoom(room.id)}><Plus size={16} />Add Cutout</button></div>
+                      </div>
+                      {(room.cutouts || []).map((cutout, cutoutIndex) => (
+                        <div className="opening-card" key={`cutout-${cutoutIndex}`}>
+                          <div className="room-card-header">
+                            <span>Cutout {cutoutIndex + 1}</span>
+                            <button type="button" className="icon-btn" onClick={() => removeCutout(room.id, cutoutIndex)}><Trash2 size={16} /></button>
+                          </div>
+                          <div className="form-grid two-col">
+                            <div className="field"><label>Wall</label><select value={cutout.wall} onChange={(e) => updateCutout(room.id, cutoutIndex, "wall", e.target.value)}>{WALL_OPTIONS.map((w) => <option key={w} value={w}>{w}</option>)}</select></div>
+                            <div className="field"><label>Offset (ft)</label><input type="number" value={cutout.offset} onChange={(e) => updateCutout(room.id, cutoutIndex, "offset", e.target.value)} /></div>
+                            <div className="field"><label>Width (ft)</label><input type="number" value={cutout.width} onChange={(e) => updateCutout(room.id, cutoutIndex, "width", e.target.value)} /></div>
+                            <div className="field"><label>Height (ft)</label><input type="number" value={cutout.height} onChange={(e) => updateCutout(room.id, cutoutIndex, "height", e.target.value)} /></div>
                           </div>
                         </div>
                       ))}
