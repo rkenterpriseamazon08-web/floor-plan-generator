@@ -1889,10 +1889,20 @@ function LandingPage({ theme, onGenerate, onContinueWithout, isGenerating, gener
       <div className="landing-immersive-shell">
         <section className="landing-immersive-card">
           <div className="landing-immersive-badge-wrap">
-            <span className="pill landing-immersive-pill">Premium Space Planning Suite</span>
-          </div>
+  <span className="pill landing-immersive-pill">
+    <img
+      src={resolveAssetPath("PWA-512.PNG")}
+      alt="Flora logo"
+      className="landing-pill-logo"
+    />
+    <span className="landing-pill-text">Premium Space Planning Suite</span>
+  </span>
+</div>
 
-          <h1 className="landing-immersive-title">Welcome to your Floor Planner Assistant</h1>
+<h1 className="landing-immersive-title">
+  <span className="landing-immersive-title-main">Welcome to Flora</span>
+  <span className="landing-immersive-title-sub">your floor planner assistant</span>
+</h1>
 
           <p className="landing-immersive-subtitle">
             From concept to clarity — step into a premium planning workspace designed to make every layout feel clean,
