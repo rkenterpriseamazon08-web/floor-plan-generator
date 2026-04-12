@@ -1709,3 +1709,18 @@ html, body, #root {
     flex: 1 1 0;
   }
 }
+
+.secondary-btn:disabled,
+.primary-btn:disabled,
+.ghost-btn:disabled,
+.view-toolbar-btn:disabled,
+.project-stack-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: 0 2px 8px rgba(20,42,80,0.04), inset 0 1px 0 rgba(255,255,255,0.7);
+}
+
+.open-plan-btn:disabled {
+  filter: grayscale(0.12);
+}
