@@ -1473,11 +1473,13 @@ function ReadOnly3DViewerShell({
   return (
     <div
       style={{
+        height: "100vh",
         minHeight: "100vh",
         width: "100%",
         background: "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)",
         display: "flex",
         flexDirection: "column",
+        overflow: "hidden",
       }}
     >
       <div
@@ -1504,9 +1506,10 @@ function ReadOnly3DViewerShell({
         </div>
       </div>
 
-      <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+      <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex" }}>
         <Canvas
           shadows
+          style={{ width: "100%", height: "100%", flex: 1 }}
           gl={{ preserveDrawingBuffer: true }}
           camera={{
             position: [
