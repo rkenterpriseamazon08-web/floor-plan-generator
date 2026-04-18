@@ -327,6 +327,38 @@ function getWallLength(room, wall) {
 function isKitchenSlab(item) {
   return String(item?.type || "").toLowerCase() === "kitchen slab";
 }
+function getNormalizedFurnitureRotation(rotation) {
+  return ((Math.round(Number(rotation) || 0) % 360) + 360) % 360;
+}
+
+function getRotatedFurnitureFootprint(width, depth, rotation) {
+  const normalized = getNormalizedFurnitureRotation(rotation);
+  if (normalized === 90 || normalized === 270) {
+    return { width: depth, depth: width };
+  }
+  return { width, depth };
+}
+
+function getFurniturePlacementBounds(furnitureItem, room, nextValues = {}) {
+  const width = Math.max(Number(nextValues.width ?? furnitureItem?.width) || 0.5, 0.3);
+  const depth = Math.max(Number(nextValues.depth ?? furnitureItem?.depth) || 0.5, 0.3);
+  const rotation = getNormalizedFurnitureRotation(nextValues.rotation ?? furnitureItem?.rotation);
+  const footprint = getRotatedFurnitureFootprint(width, depth, rotation);
+  const roomWidth = Number(room.width) || 0;
+  const roomHeight = Number(room.height) || 0;
+
+  const minX = FURNITURE_WALL_CLEARANCE - width / 2 + footprint.width / 2;
+  const minY = FURNITURE_WALL_CLEARANCE - depth / 2 + footprint.depth / 2;
+  const maxX = roomWidth - FURNITURE_WALL_CLEARANCE - width / 2 - footprint.width / 2;
+  const maxY = roomHeight - FURNITURE_WALL_CLEARANCE - depth / 2 - footprint.depth / 2;
+
+  return {
+    minX,
+    minY,
+    maxX: Math.max(minX, maxX),
+    maxY: Math.max(minY, maxY),
+  };
+}
 
 function normalizeDoor(door, room) {
   const wall = WALL_OPTIONS.includes(door?.wall) ? door.wall : "top";
@@ -442,32 +474,47 @@ function normalizeFurniture(furnitureItem, room) {
   if (isKitchenSlab(furnitureItem)) {
     return getKitchenSlabGeometry(furnitureItem, room);
   }
+
   const width = Math.max(Number(furnitureItem?.width) || 0.5, 0.3);
   const depth = Math.max(Number(furnitureItem?.depth) || 0.5, 0.3);
   const height = Math.max(Number(furnitureItem?.height) || 0.5, 0.3);
-  const rotation = Number(furnitureItem?.rotation) || 0;
+  const rotation = getNormalizedFurnitureRotation(furnitureItem?.rotation);
 
   // allowOutsideBuilding: skip clamping to room bounds
   if (furnitureItem?.allowOutsideBuilding) {
     return {
       ...furnitureItem,
-      width, depth, height, rotation,
+      width,
+      depth,
+      height,
+      rotation,
       x: furnitureItem?.x != null ? Number(furnitureItem.x) : FURNITURE_WALL_CLEARANCE,
       y: furnitureItem?.y != null ? Number(furnitureItem.y) : FURNITURE_WALL_CLEARANCE,
     };
   }
 
-  const roomWidth = Number(room.width) || 0;
-  const roomHeight = Number(room.height) || 0;
-  const minX = FURNITURE_WALL_CLEARANCE;
-  const minY = FURNITURE_WALL_CLEARANCE;
-  const maxX = Math.max(minX, roomWidth - width - FURNITURE_WALL_CLEARANCE);
-  const maxY = Math.max(minY, roomHeight - depth - FURNITURE_WALL_CLEARANCE);
+  const bounds = getFurniturePlacementBounds(furnitureItem, room, {
+    width,
+    depth,
+    rotation,
+  });
+
   return {
     ...furnitureItem,
-    width, depth, height, rotation,
-    x: clamp(Number(furnitureItem?.x) || minX, minX, maxX),
-    y: clamp(Number(furnitureItem?.y) || minY, minY, maxY),
+    width,
+    depth,
+    height,
+    rotation,
+    x: clamp(
+      furnitureItem?.x != null ? Number(furnitureItem.x) : bounds.minX,
+      bounds.minX,
+      bounds.maxX
+    ),
+    y: clamp(
+      furnitureItem?.y != null ? Number(furnitureItem.y) : bounds.minY,
+      bounds.minY,
+      bounds.maxY
+    ),
   };
 }
 
@@ -1030,6 +1077,7 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect, isLowQ
   const color   = furnitureItem.color || "#cfd8e3";
   const labelY  = height + 0.35;
   const type    = String(furnitureItem.type || "").toLowerCase();
+  const isToilet = type.includes("toilet") || type.includes("wc");
   const hasRec  = FEATURE_FURNITURE_RECOMMENDATIONS_ENABLED && getFurnitureRecommendationItems(furnitureItem.type).length > 0;
   const outlineColor = isSelected ? "#0f3b72" : "#8ea0b5";
   const legW    = Math.max(0.12, Math.min(width, depth) * 0.12);
@@ -1050,13 +1098,86 @@ function Furniture3D({ room, furnitureItem, isSelected = false, onSelect, isLowQ
       </mesh>
     ) : null;
 
-  if (isLowQuality) {
+  if (isLowQuality && !isToilet) {
     return (
       <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleSelect}>
         <mesh receiveShadow position={[0, height / 2, 0]}>
           <boxGeometry args={[width, height, depth]} />
           <meshStandardMaterial color={color} roughness={0.9} metalness={0.02} />
         </mesh>
+        <FurnitureLabel x={0} y={labelY} z={0} text={furnitureItem.type} />
+      </group>
+    );
+  }
+  if (isToilet) {
+    const bowlWidth = Math.max(0.8, width * 0.58);
+    const bowlDepth = Math.max(1.05, depth * 0.52);
+    const bowlHeight = Math.max(0.42, height * 0.2);
+    const tankWidth = Math.max(0.9, width * 0.76);
+    const tankHeight = Math.max(0.55, height * 0.28);
+    const tankDepth = Math.max(0.28, depth * 0.16);
+    const seatY = bowlHeight + 0.34;
+
+    return (
+      <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleSelect}>
+        <mesh castShadow receiveShadow position={[0, 0.16, depth * 0.08]}>
+          <cylinderGeometry args={[bowlWidth * 0.22, bowlWidth * 0.3, 0.32, 28]} />
+          <meshStandardMaterial color="#d9e5ef" roughness={0.28} metalness={0.03} />
+        </mesh>
+
+        <mesh
+          castShadow
+          receiveShadow
+          position={[0, bowlHeight / 2 + 0.25, depth * 0.08]}
+          scale={[1, 1, bowlDepth / bowlWidth]}
+        >
+          <cylinderGeometry args={[bowlWidth * 0.42, bowlWidth * 0.34, bowlHeight, 36]} />
+          <meshStandardMaterial color="#f5fbff" roughness={0.22} metalness={0.04} />
+        </mesh>
+
+        <mesh
+          castShadow
+          receiveShadow
+          position={[0, seatY, depth * 0.08]}
+          rotation={[Math.PI / 2, 0, 0]}
+          scale={[bowlWidth * 0.66, bowlDepth * 0.78, 1]}
+        >
+          <torusGeometry args={[0.42, 0.055, 12, 36]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.18} metalness={0.03} />
+        </mesh>
+
+        <mesh
+          receiveShadow
+          position={[0, seatY + 0.01, depth * 0.08]}
+          rotation={[Math.PI / 2, 0, 0]}
+          scale={[bowlWidth * 0.45, bowlDepth * 0.54, 1]}
+        >
+          <ringGeometry args={[0.28, 0.44, 36]} />
+          <meshStandardMaterial color="#d9eef8" roughness={0.2} metalness={0.02} side={THREE.DoubleSide} />
+        </mesh>
+
+        <mesh
+          castShadow
+          receiveShadow
+          position={[0, seatY + 0.08, -depth * 0.18]}
+          rotation={[Math.PI / 2, 0, 0]}
+          scale={[bowlWidth * 0.56, bowlDepth * 0.5, 1]}
+        >
+          <circleGeometry args={[0.44, 36]} />
+          <meshStandardMaterial color="#f8fbff" roughness={0.2} metalness={0.03} side={THREE.DoubleSide} />
+        </mesh>
+
+        <mesh castShadow receiveShadow position={[0, tankHeight / 2 + bowlHeight + 0.42, -depth * 0.34]}>
+          <boxGeometry args={[tankWidth, tankHeight, tankDepth]} />
+          <meshStandardMaterial color="#eef7fc" roughness={0.24} metalness={0.03} />
+        </mesh>
+
+        <mesh castShadow receiveShadow position={[tankWidth * 0.22, bowlHeight + tankHeight + 0.74, -depth * 0.34]}>
+          <boxGeometry args={[tankWidth * 0.18, 0.035, tankDepth * 0.42]} />
+          <meshStandardMaterial color="#c7d2de" roughness={0.22} metalness={0.65} />
+        </mesh>
+
+        <RecommendationRing />
         <FurnitureLabel x={0} y={labelY} z={0} text={furnitureItem.type} />
       </group>
     );
@@ -4030,27 +4151,54 @@ const handleGenerateLayout = async (prompt) => {
         const nextFurniture = (room.furniture || []).map((item) => {
           if (item.id !== furnitureId) return item;
 
-          if (key === "width") {
+                    if (key === "width") {
             const newWidth = Math.max(0.3, Number(value) || 0.3);
             if (isKitchenSlab(item)) return { ...item, width: newWidth, slabLength: newWidth };
             if (item.allowOutsideBuilding) return { ...item, width: newWidth };
-            const maxX = Math.max(FURNITURE_WALL_CLEARANCE, Number(room.width) - newWidth - FURNITURE_WALL_CLEARANCE);
-            return { ...item, width: newWidth, x: clamp(Number(item.x) || FURNITURE_WALL_CLEARANCE, FURNITURE_WALL_CLEARANCE, maxX) };
+
+            const bounds = getFurniturePlacementBounds(item, room, { width: newWidth });
+
+            return {
+              ...item,
+              width: newWidth,
+              x: clamp(Number(item.x) || bounds.minX, bounds.minX, bounds.maxX),
+              y: clamp(Number(item.y) || bounds.minY, bounds.minY, bounds.maxY),
+            };
           }
-          if (key === "depth") {
+
+                    if (key === "depth") {
             const newDepth = Math.max(0.3, Number(value) || 0.3);
             if (isKitchenSlab(item)) return { ...item, depth: newDepth, slabDepth: newDepth };
             if (item.allowOutsideBuilding) return { ...item, depth: newDepth };
-            const maxY = Math.max(FURNITURE_WALL_CLEARANCE, Number(room.height) - newDepth - FURNITURE_WALL_CLEARANCE);
-            return { ...item, depth: newDepth, y: clamp(Number(item.y) || FURNITURE_WALL_CLEARANCE, FURNITURE_WALL_CLEARANCE, maxY) };
+
+            const bounds = getFurniturePlacementBounds(item, room, { depth: newDepth });
+
+            return {
+              ...item,
+              depth: newDepth,
+              x: clamp(Number(item.x) || bounds.minX, bounds.minX, bounds.maxX),
+              y: clamp(Number(item.y) || bounds.minY, bounds.minY, bounds.maxY),
+            };
           }
+
           if (key === "height") {
             return { ...item, height: Math.max(0.3, Number(value) || 0.3) };
           }
 
-          if (key === "rotation") {
-            return { ...item, rotation: ((Number(value) || 0) % 360 + 360) % 360 };
+                    if (key === "rotation") {
+            const rotation = getNormalizedFurnitureRotation(value);
+            if (item.allowOutsideBuilding) return { ...item, rotation };
+
+            const bounds = getFurniturePlacementBounds(item, room, { rotation });
+
+            return {
+              ...item,
+              rotation,
+              x: clamp(Number(item.x) || bounds.minX, bounds.minX, bounds.maxX),
+              y: clamp(Number(item.y) || bounds.minY, bounds.minY, bounds.maxY),
+            };
           }
+
 
           if (isKitchenSlab(item)) {
             if (key === "attachedWall") return { ...item, attachedWall: value };
@@ -4068,17 +4216,24 @@ const handleGenerateLayout = async (prompt) => {
             return item;
           }
 
-          if (key === "x" || key === "y") {
+                    if (key === "x" || key === "y") {
             const numericValue = Number(value) || 0;
+
             // Skip clamping for items that are allowed outside the building
             if (item.allowOutsideBuilding) {
               return { ...item, [key]: numericValue };
             }
-            const minX = FURNITURE_WALL_CLEARANCE, minY = FURNITURE_WALL_CLEARANCE;
-            const maxX = Math.max(minX, Number(room.width)  - Number(item.width) - FURNITURE_WALL_CLEARANCE);
-            const maxY = Math.max(minY, Number(room.height) - Number(item.depth) - FURNITURE_WALL_CLEARANCE);
-            return { ...item, [key]: key === "x" ? clamp(numericValue, minX, maxX) : clamp(numericValue, minY, maxY) };
+
+            const bounds = getFurniturePlacementBounds(item, room);
+
+            return {
+              ...item,
+              [key]: key === "x"
+                ? clamp(numericValue, bounds.minX, bounds.maxX)
+                : clamp(numericValue, bounds.minY, bounds.maxY),
+            };
           }
+
 
           return item;
         });
