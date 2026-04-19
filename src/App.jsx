@@ -37,6 +37,8 @@ const MAX_SYNC_ROOMS = 8;
 const DEFAULT_SCALE = 12;
 const DEFAULT_ROOM_HEIGHT = 9;
 const WALL_THICKNESS_FT = 0.4;
+const ROOM_THICKNESS_FT = 0.25;
+
 
 const ROOM_COLORS = [
   "#eef4ff",
@@ -671,39 +673,48 @@ function getDefaultRooms(totalWidth, totalHeight) {
 
 function buildWallSegments(rooms, totalWidth, totalHeight) {
   const grouped = new Map();
-  const addSegment = (orientation, fixed, start, end) => {
-    const key = `${orientation}_${fixed}`;
+  const addSegment = (orientation, fixed, start, end, type = "room") => {
+    const key = `${orientation}_${fixed}_${type}`;
     if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push({ orientation, fixed, start: Math.min(start, end), end: Math.max(start, end) });
+    grouped.get(key).push({ orientation, fixed, start: Math.min(start, end), end: Math.max(start, end), type });
   };
+
   rooms.forEach((room) => {
     const x = Number(room.x), y = Number(room.y), w = Number(room.width), h = Number(room.height);
-    addSegment("H", y,     x, x + w);
-    addSegment("H", y + h, x, x + w);
-    addSegment("V", x,     y, y + h);
-    addSegment("V", x + w, y, y + h);
+    addSegment("H", y,     x, x + w, "room");
+    addSegment("H", y + h, x, x + w, "room");
+    addSegment("V", x,     y, y + h, "room");
+    addSegment("V", x + w, y, y + h, "room");
   });
-  addSegment("H", 0,           0, totalWidth);
-  addSegment("H", totalHeight, 0, totalWidth);
-  addSegment("V", 0,          0, totalHeight);
-  addSegment("V", totalWidth, 0, totalHeight);
+
+  addSegment("H", 0,           0, totalWidth,  "outer");
+  addSegment("H", totalHeight, 0, totalWidth,  "outer");
+  addSegment("V", 0,           0, totalHeight, "outer");
+  addSegment("V", totalWidth,  0, totalHeight, "outer");
+
   const merged = [];
   for (const segments of grouped.values()) {
     segments.sort((a, b) => a.start - b.start);
     let current = { ...segments[0] };
     for (let i = 1; i < segments.length; i++) {
       const next = segments[i];
-      if (next.start <= current.end) { current.end = Math.max(current.end, next.end); }
-      else { merged.push(current); current = { ...next }; }
+      if (next.start <= current.end) {
+        current.end = Math.max(current.end, next.end);
+      } else {
+        merged.push(current);
+        current = { ...next };
+      }
     }
     merged.push(current);
   }
+
   return merged.map((seg) =>
     seg.orientation === "V"
-      ? { x1: seg.fixed, y1: seg.start, x2: seg.fixed,   y2: seg.end   }
-      : { x1: seg.start, y1: seg.fixed, x2: seg.end,     y2: seg.fixed }
+      ? { x1: seg.fixed, y1: seg.start, x2: seg.fixed, y2: seg.end, type: seg.type }
+      : { x1: seg.start, y1: seg.fixed, x2: seg.end, y2: seg.fixed, type: seg.type }
   );
 }
+
 
 // ─── 3D Wall ─────────────────────────────────────────────────────────────────
 
@@ -1490,6 +1501,7 @@ function Floor3DScene({
   totalWidth,
   totalHeight,
   wallThickness,
+  roomThickness,
   roomHeight,
   wallSegments,
   selectedFurnitureKey,
@@ -1501,7 +1513,8 @@ function Floor3DScene({
 }) {
   const centerX = totalWidth / 2;
   const centerZ = totalHeight / 2;
-  const wt = Math.max(0.22, Number(wallThickness) || 0.5);
+   const wt = Math.max(0.22, Number(wallThickness) || WALL_THICKNESS_FT);
+  const rt = Math.max(0.12, Number(roomThickness) || ROOM_THICKNESS_FT);
   const h = Math.max(8, Number(roomHeight) || DEFAULT_ROOM_HEIGHT);
   const safeSun = { ...DEFAULT_SUN_SETTINGS, ...(sunSettings || {}) };
   const sunPos = getSunPosition(safeSun.azimuth, safeSun.elevation, Math.max(totalWidth, totalHeight) * 1.8, centerX, centerZ);
@@ -1593,8 +1606,15 @@ function Floor3DScene({
         );
       })}
 
-      {(wallSegments || []).map((segment, index) => (
-        <WallMesh key={index} segment={segment} wallThickness={wt} height={h} rooms={rooms} globalWallColor={globalWallColor} />
+            {(wallSegments || []).map((segment, index) => (
+        <WallMesh
+          key={index}
+          segment={segment}
+          wallThickness={segment.type === "outer" ? wt : rt}
+          height={h}
+          rooms={rooms}
+          globalWallColor={globalWallColor}
+        />
       ))}
 
       {rooms.map((room) => {
@@ -1639,6 +1659,7 @@ function ReadOnly3DViewerShell({
   totalHeight,
   roomHeight,
   wallThickness,
+  roomThickness,
   placedRooms,
   wallSegments,
   sunSettings,
@@ -2359,6 +2380,7 @@ function getDefaultProjectState() {
     totalWidth: 40,
     totalHeight: 10,
     wallThickness: WALL_THICKNESS_FT,
+    roomThickness: ROOM_THICKNESS_FT,
     scale: DEFAULT_SCALE,
     roomHeight: DEFAULT_ROOM_HEIGHT,
     activeView: "2d",
@@ -3447,6 +3469,7 @@ export default function App() {
   const [totalWidth,        setTotalWidth]        = useState(40);
   const [totalHeight,       setTotalHeight]       = useState(10);
   const [wallThickness,     setWallThickness]     = useState(WALL_THICKNESS_FT);
+  const [roomThickness,     setRoomThickness]     = useState(ROOM_THICKNESS_FT);
   const [scale,             setScale]             = useState(DEFAULT_SCALE);
   const [roomHeight,        setRoomHeight]        = useState(DEFAULT_ROOM_HEIGHT);
   const [activeView,        setActiveView]        = useState("2d");
@@ -3554,6 +3577,7 @@ export default function App() {
 
   const numericScale         = Math.max(1, Number(scale) || 1);
   const numericWallThickness = Math.max(0.1, Number(wallThickness) || WALL_THICKNESS_FT);
+  const numericRoomThickness = Math.max(0.1, Number(roomThickness) || ROOM_THICKNESS_FT);
   const canvasWidth          = Number(totalWidth)  * numericScale;
   const canvasHeight         = Number(totalHeight) * numericScale;
   const svgWidth             = canvasWidth  + 120;
@@ -3838,7 +3862,7 @@ export default function App() {
     planName,
     pdf_drive_url: currentProjectPdfUrl || "",
     ai_render_image_base64: generatedRenderImage || "",
-    totalWidth, totalHeight, wallThickness, scale, roomHeight,
+    totalWidth, totalHeight, wallThickness, roomThickness, scale, roomHeight,
     activeView, selectedCategory,
     rooms, furnitureSelections,
     customPresetDimensions,
@@ -3854,6 +3878,7 @@ export default function App() {
     setTotalWidth(Number(nextState.totalWidth)   || defaults.totalWidth);
     setTotalHeight(Number(nextState.totalHeight) || defaults.totalHeight);
     setWallThickness(Number(nextState.wallThickness) || defaults.wallThickness);
+    setRoomThickness(Number(nextState.roomThickness) || defaults.roomThickness);
     setScale(Number(nextState.scale)           || defaults.scale);
     setRoomHeight(Number(nextState.roomHeight) || defaults.roomHeight);
     setActiveView(nextState.activeView === "3d" ? "3d" : "2d");
@@ -4817,6 +4842,8 @@ const handleGenerateLayout = async (prompt) => {
                     <div className="field field--compact"><label>Total Width (ft)</label><input type="number" value={totalWidth} onChange={(e) => setTotalWidth(Number(e.target.value) || 0)} /></div>
                     <div className="field field--compact"><label>Total Height (ft)</label><input type="number" value={totalHeight} onChange={(e) => setTotalHeight(Number(e.target.value) || 0)} /></div>
                     <div className="field field--compact"><label>Wall Thickness (ft)</label><input type="number" step="0.1" value={wallThickness} onChange={(e) => setWallThickness(Number(e.target.value) || 0)} /></div>
+                    <div className="field field--compact"><label>Room Thickness (ft)</label><input type="number" step="0.1" value={roomThickness} onChange={(e) => setRoomThickness(Number(e.target.value) || 0)} /></div>
+
                     <div className="field field--compact"><label>Scale (px / ft)</label><input type="number" value={scale} onChange={(e) => setScale(Number(e.target.value) || 1)} /></div>
                   </div>
 
@@ -4936,7 +4963,8 @@ const handleGenerateLayout = async (prompt) => {
                                 height={h}
                                 fill="none"
                                 stroke={globalWallColor}
-                                strokeWidth={Math.max(2, numericWallThickness * numericScale)}
+                                 strokeWidth={Math.max(2, numericRoomThickness * numericScale)}
+
                               />
                             </g>
                           );
@@ -5123,7 +5151,7 @@ const handleGenerateLayout = async (prompt) => {
                       onCreated={({ gl, scene, camera }) => { threeSceneStateRef.current = { gl, scene, camera }; }}
                       camera={{ position: [Math.max(Number(totalWidth) * 0.85, 14), Math.max(Number(roomHeight) * 2.2, 16), Math.max(Number(totalHeight) * 1.0, 14)], fov: 42 }}>
                       <Floor3DScene rooms={placedRooms} totalWidth={Number(totalWidth)} totalHeight={Number(totalHeight)}
-                        wallThickness={Number(wallThickness)} roomHeight={Number(roomHeight)} wallSegments={wallSegments}
+                        wallThickness={Number(wallThickness)} roomThickness={Number(roomThickness)} roomHeight={Number(roomHeight)} wallSegments={wallSegments}
                         selectedFurnitureKey={selectedFurnitureKey} onFurnitureSelect={handleFurnitureSelection}
                         sunSettings={sunSettings} globalWallColor={globalWallColor} orbitControlsRef={orbitControlsRef} renderQuality={renderQuality} />
                     </Canvas>
