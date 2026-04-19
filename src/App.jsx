@@ -4814,15 +4814,27 @@ const handleGenerateLayout = async (prompt) => {
                 </div>
 
                 <div className="top-input-meta-row top-input-meta-row--premium">
-                  <div className="top-input-brand">
-                    <span className="pill">Blueprint Studio Pro</span>
-                    <div className="top-input-brand-copy">
-                      <div className="top-input-title-row">
-                        <h1><Home size={16} />Premium Floor Plan Designer</h1>
-                      </div>
-                      <p>Refined controls above, larger planning workspace below, and every existing feature preserved.</p>
-                    </div>
-                  </div>
+                 <div className="top-input-brand">
+  <img
+    src={resolveAssetPath("pwa-512.png")}
+    alt="Floora"
+    className="header-brand-logo"
+    style={{
+      height: 34,
+      width: 34,
+      objectFit: "contain",
+      flexShrink: 0,
+      borderRadius: 8,
+    }}
+  />
+  <div className="top-input-brand-copy">
+    <div className="top-input-title-row">
+      <h1><Home size={16} />Premium Floor Plan Designer</h1>
+    </div>
+    <p>Build your dream space today and walk through it in 3D instantly</p>
+  </div>
+</div>
+
                   <div className="top-input-meta-actions">
                     <div className="top-input-title-controls">
                       <button type="button" className="theme-toggle" onClick={() => setTheme((p) => p === "dark" ? "light" : "dark")} aria-label="Toggle theme">
